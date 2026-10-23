@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Delete Employee — {{ site_name }}{% endblock %}
+{% block page_title %}Delete Employee{% endblock %}
+
+{% block content %}
+<div class="max-w-sm">
+  <div class="card">
+    <div class="card-body text-center p-6">
+      <div class="empty-state-icon">⚠️</div>
+      <div class="text-lg font-semibold mb-2">Permanently delete {{ employee.profile.full_name }}?</div>
+      <p class="text-muted text-sm mb-6">This will delete the user account, profile, and all associated employee data. This action <strong>cannot be undone</strong>.</p>
+      <form method="post" action="{% url 'employees:delete' employee.employee_id %}">
+        {% csrf_token %}
+        <div class="btn-group justify-center">
+          <button type="submit" class="btn btn--danger">Yes, delete permanently</button>
+          <a href="{% url 'employees:detail' employee.employee_id %}" class="btn btn--outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings — {{ site_name }}{% endblock %}
+
+{% block page_title %}System Settings{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-none py-6">
+    
+    <div class="mb-6">
+        <h1 class="text-3xl font-semibold text-gray-900 tracking-tight">System Settings</h1>
+        <p class="mt-2 text-sm text-gray-500">Manage core infrastructure configurations and application variables.</p>
+    </div>
+
+    {% include "settings_app/partials/nav_system.html" %}
+
+    <div class="settings-card-grid" aria-label="Settings categories">
+      <a class="settings-card" href="{% url 'settings_app:email' %}"><strong>Email delivery</strong><p>SMTP, Outlook, Microsoft 365 OAuth and notification rules.</p></a>
+      <a class="settings-card" href="{% url 'settings_app:telegram' %}"><strong>Telegram alerts</strong><p>Configure the connection and choose which alerts to send.</p></a>
+      <a class="settings-card" href="{% url 'settings_app:backup' %}"><strong>Backup and recovery</strong><p>Choose database/media components, schedules and destinations.</p></a>
+      <a class="settings-card" href="{% url 'settings_app:permissions' %}"><strong>Role permissions</strong><p>Control module access and actions separately for each organization.</p></a>
+      <a class="settings-card" href="{% url 'settings_app:site_branding' %}"><strong>Appearance</strong><p>Manage branding, logo and the site theme.</p></a>
+      <a class="settings-card" href="{% url 'organizations:sharing' %}"><strong>Organization sharing</strong><p>Choose common configuration sources and combined views.</p></a>
+    </div>
+    
+</div>
+{% endblock %}

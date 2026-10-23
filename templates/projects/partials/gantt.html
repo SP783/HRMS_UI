@@ -1,0 +1,18 @@
+<div class="pv-gantt-toolbar">
+  <div><strong>{{ gantt_start|date:'d M Y' }} – {{ gantt_end|date:'d M Y' }}</strong><p class="px-muted">12-week schedule · Click a project to open tasks and edit dates.</p></div>
+  <nav aria-label="Gantt date range" hx-boost="true" hx-target="#px-list-region" hx-select="#px-list-region" hx-swap="outerHTML" hx-push-url="true"><a class="px-button" href="{{ gantt_previous }}">← Previous</a> <a class="px-button" href="{{ gantt_today }}">Today</a> <a class="px-button" href="{{ gantt_next }}">Next →</a></nav>
+</div>
+<div class="pv-gantt-scroll"><div class="pv-gantt">
+<div class="pv-gantt-heading"><strong>Project</strong><div class="pv-week-headings">{% for week in gantt_weeks %}<span>{{ week|date:'d M' }}</span>{% endfor %}</div></div>
+{% for project in page %}
+<div class="pv-gantt-row">
+  <div class="pv-gantt-name"><a href="{% url 'projects:detail' project.pk %}" data-open-project="{{ project.pk }}">{{ project.name }}</a><small>{{ project.workspace.name|default:'No workspace' }} / {{ project.get_status_display }}</small><small>{{ project.start_date|date:'d M Y'|default:'No start' }} – {{ project.end_date|date:'d M Y'|default:'No end' }}</small></div>
+  <div class="pv-gantt-track">
+    {% if today_offset != None %}<span class="pv-today" style="left:{{ today_offset }}%" title="Today"></span>{% endif %}
+    {% if project.chart_note %}<span class="pv-chart-note">{{ project.chart_note }}{% if project.can_set_dates %} <button class="px-button" data-px-action="dates" data-project-id="{{ project.pk }}">Edit dates</button>{% endif %}</span>
+    {% else %}<a href="{% url 'projects:detail' project.pk %}" class="pv-bar {% if project.overdue %}pv-bar-overdue{% endif %}" data-open-project="{{ project.pk }}" style="left:{{ project.bar_left }}%;width:{{ project.bar_width }}%" title="{{ project.name }}: {{ project.start_date }} – {{ project.end_date }} ({{ project.summary_progress }}% tasks complete)"><span class="pv-bar-fill" style="width:{{ project.summary_progress }}%"></span><span class="pv-bar-label">{{ project.name }}</span></a>{% endif %}
+  </div>
+</div>
+{% empty %}<p class="px-empty">No projects match these filters.</p>{% endfor %}
+</div></div>
+<p class="px-muted pv-help">Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }} filtered projects. Bars show project dates; task completion is shaded within each bar.</p>

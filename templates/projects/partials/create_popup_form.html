@@ -1,0 +1,6 @@
+<form id="px-create-form" method="post">{% csrf_token %}
+  <p class="px-muted">Choose a workspace and the team responsible for this project. Department pipeline tasks are added automatically.</p>
+  {{ form.non_field_errors }}
+  <div class="px-create-fields">{% for field in form %}<div class="px-create-field {% if field.name == 'description' or field.name == 'name' %}px-create-wide{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{{ field.errors }}</div>{% endfor %}</div>
+  <div class="px-create-actions"><button type="submit" class="px-button px-primary">Create project</button></div>
+</form>

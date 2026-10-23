@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Attendance Report — {{ site_name }}{% endblock %}
+{% block page_title %}Attendance Report{% endblock %}
+
+{% block topbar_actions %}
+<div class="flex items-center gap-2">
+  <a href="{% url 'reports:index' %}" 
+     class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+    ← Reports
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+{% include "workspaces/controls.html" %}
+{% include "reports/_filters.html" %}
+<div class="mb-5 overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+  <h3 class="border-b p-3 font-medium">Attendance by department</h3>
+  <table class="min-w-full text-sm"><thead><tr><th class="p-3 text-left">Department</th><th class="p-3 text-left">Present</th><th class="p-3 text-left">Absent</th><th class="p-3 text-left">Late</th><th class="p-3 text-left">Recorded hours</th></tr></thead><tbody>
+    {% for row in summary %}<tr class="border-t"><td class="p-3"><a href="?{{ request.GET.urlencode }}&amp;org={{ row.organization_id }}&amp;department={{ row.department_id }}" class="text-indigo-600">{% if reports_shared %}{{ row.organization }} / {% endif %}{{ row.department }}</a></td><td class="p-3"><a href="?{{ request.GET.urlencode }}&amp;org={{ row.organization_id }}&amp;department={{ row.department_id }}&amp;status=present">{{ row.present }}</a></td><td class="p-3"><a href="?{{ request.GET.urlencode }}&amp;org={{ row.organization_id }}&amp;department={{ row.department_id }}&amp;status=absent">{{ row.absent }}</a></td><td class="p-3"><a href="?{{ request.GET.urlencode }}&amp;org={{ row.organization_id }}&amp;department={{ row.department_id }}&amp;status=late">{{ row.late }}</a></td><td class="p-3">{{ row.hours|floatformat:1 }}h</td></tr>{% empty %}<tr><td colspan="5" class="p-4 text-gray-500">No attendance in this range.</td></tr>{% endfor %}
+  </tbody></table>
+</div>
+
+<div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+  <div class="px-4 py-4 sm:px-6 flex justify-between items-center border-b border-gray-200 bg-gray-50">
+    <h3 class="text-lg font-medium leading-6 text-gray-900">{{ month }}/{{ year }}</h3>
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+      {{ report_total }} records
+    </span>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table data-server-workspace="report-attendance" class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          {% if reports_shared %}<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Organization</th>{% endif %}<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dept</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">In</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Out</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for r in records %}
+        <tr class="hover:bg-gray-50 transition-colors">{% if reports_shared %}<td class="px-6 py-4 text-sm">{{ r.report_organization }}</td>{% endif %}
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm font-medium text-gray-900">{{ r.profile.full_name }}</div>
+            <div class="text-xs text-gray-500">{{ r.profile.employee_id }}</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ r.profile.employee.department.name|default:"—" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ r.date }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ r.check_in|time:"H:i"|default:"—" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ r.check_out|time:"H:i"|default:"—" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ r.duration_display }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+              {% if r.status == 'present' %} bg-green-100 text-green-800
+              {% elif r.status == 'absent' %} bg-red-100 text-red-800
+              {% elif r.status == 'late' %} bg-yellow-100 text-yellow-800
+              {% else %} bg-gray-100 text-gray-800 {% endif %}">
+              {{ r.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="px-6 py-10 text-center text-sm font-medium text-gray-500 bg-gray-50">
+            No records found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "workspaces/pagination.html" %}
+</section>
+{% endblock %}

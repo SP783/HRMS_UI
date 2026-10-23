@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Reports — Projects — {{ site_name }}{% endblock %}
+{% block page_title %}Project Reports{% endblock %}
+{% block breadcrumb %}
+  <div class="breadcrumb"><a href="{% url 'projects:index' %}">Projects</a> / Reports</div>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'projects:index' %}" class="btn btn--ghost btn--sm">← Projects</a>
+{% endblock %}
+
+{% block content %}
+{% include "projects/partials/_design_tokens.html" %}
+<style>
+  /* Reports-specific styles */
+  .rpt-pane { display:none; animation:rptFadeIn .2s ease; }
+  .rpt-pane.active { display:block; }
+  @keyframes rptFadeIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+  .rpt-stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px; }
+  .rpt-mini-stat { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; box-shadow:var(--shadow); }
+  .rpt-mini-stat-val { font-family:'Fraunces',serif; font-size:22px; font-weight:300; }
+  .rpt-mini-stat-lbl { font-size:10.5px; color:var(--ink3); text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
+  .rpt-tbl { width:100%; border-collapse:collapse; font-size:12.5px; background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:var(--shadow); }
+  .rpt-tbl th { text-align:left; padding:10px 14px; font-size:10px; font-weight:700; color:var(--ink3); text-transform:uppercase; letter-spacing:.6px; border-bottom:1px solid var(--border); background:var(--bg2); }
+  .rpt-tbl td { padding:10px 14px; border-bottom:1px solid var(--border2); }
+  .rpt-tbl tr:last-child td { border-bottom:none; }
+  .rpt-tbl tr:hover td { background:var(--surface2); }
+  .rpt-mini-bar { display:inline-block; width:60px; height:5px; background:var(--bg2); border-radius:3px; vertical-align:middle; margin-left:6px; overflow:hidden; }
+  .rpt-mini-fill { height:100%; border-radius:3px; }
+  .stag-sm { display:inline-flex; align-items:center; padding:1px 7px; border-radius:20px; font-size:10px; font-weight:600; }
+  .p-empty { padding:40px 24px; text-align:center; color:var(--ink3); }
+  .p-empty-icon { font-size:36px; margin-bottom:10px; opacity:.6; }
+  .p-empty-title { font-size:14px; font-weight:600; color:var(--ink2); }
+  .rpt-filters { display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:18px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface); }
+  .rpt-filters label { display:grid;gap:4px;font-size:11px;color:var(--ink3); }
+  .rpt-filters input,.rpt-filters select { min-height:36px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--ink); }
+  .rpt-scroll { overflow-x:auto; }
+</style>
+
+<form class="rpt-filters" method="get" id="rpt-filter-form">
+  <label>From <input type="date" name="start" value="{{ filters.start|date:'Y-m-d' }}"></label>
+  <label>To <input type="date" name="end" value="{{ filters.end|date:'Y-m-d' }}"></label>
+  <label>Workspace <select name="workspace"><option value="">All workspaces</option>{% for w in workspaces %}<option value="{{ w.pk }}" {% if filters.workspace == w.pk %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></label>
+  <label>Department <select name="department"><option value="">All departments</option>{% for d in departments %}<option value="{{ d.pk }}" {% if filters.department == d.pk %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></label>
+  <label>Handler <select name="handler"><option value="">All handlers</option>{% for h in handlers %}<option value="{{ h.pk }}" {% if filters.handler == h.pk %}selected{% endif %}>{{ h.full_name }}</option>{% endfor %}</select></label>
+  <label>Project <select name="project"><option value="">All projects</option>{% for p in projects %}<option value="{{ p.pk }}" {% if filters.project == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></label>
+  <button class="btn btn--sm" type="submit">Apply filters</button>
+  <a class="btn btn--sm btn--ghost" href="{% url 'projects:reports' %}">Clear</a>
+</form>
+
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;flex-wrap:wrap;justify-content:space-between;">
+  
+  <div class="border-b border-gray-200">
+    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+      <button data-type="department" onclick="setRptType('department',this)" 
+              class="rpt-type-btn whitespace-nowrap border-b-2 border-indigo-600 py-3 px-1 text-sm font-medium text-indigo-600" 
+              aria-current="page">
+        🏬 By Department
+      </button>
+      <button data-type="company" onclick="setRptType('company',this)" 
+              class="rpt-type-btn whitespace-nowrap border-b-2 border-transparent py-3 px-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+        🏢 Overview
+      </button>
+      <button data-type="project" onclick="setRptType('project',this)" 
+              class="rpt-type-btn whitespace-nowrap border-b-2 border-transparent py-3 px-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+        📁 By Project
+      </button>
+      <button data-type="individual" onclick="setRptType('individual',this)" 
+              class="rpt-type-btn whitespace-nowrap border-b-2 border-transparent py-3 px-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+        👤 Individual
+      </button>
+      <button data-type="hours" onclick="setRptType('hours',this)" class="rpt-type-btn whitespace-nowrap border-b-2 border-transparent py-3 px-1 text-sm font-medium text-gray-500">Hours</button>
+      <button data-type="attention" onclick="setRptType('attention',this)" class="rpt-type-btn whitespace-nowrap border-b-2 border-transparent py-3 px-1 text-sm font-medium text-gray-500">Attention</button>
+      <button data-type="progress" onclick="setRptType('progress',this)" class="rpt-type-btn whitespace-nowrap border-b-2 border-transparent py-3 px-1 text-sm font-medium text-gray-500">Progress over time</button>
+      <button data-type="workload" onclick="setRptType('workload',this)" class="rpt-type-btn whitespace-nowrap border-b-2 border-transparent py-3 px-1 text-sm font-medium text-gray-500">Workload</button>
+    </nav>
+  </div>
+
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'projects:report_csv' %}?type=department" class="btn btn--sm btn--ghost" id="rpt-csv-link">⬇ Export CSV</a>
+    <button class="btn btn--sm btn--ghost" onclick="window.print()">🖨 Print</button>
+  </div>
+</div>
+
+<p style="font-size:12px;color:var(--ink3);margin:-12px 0 18px;">Hours use timesheet entry dates; task counts use task creation dates; weekly completions use task completion dates. Dates are inclusive. Rejected hours are included in all logged hours.</p>
+
+<div class="rpt-pane" id="rpt-hours"><div class="rpt-scroll"><table class="rpt-tbl"><thead><tr><th>Project</th><th>Employee</th><th>Draft</th><th>Submitted</th><th>Approved</th><th>Rejected</th><th>All logged</th></tr></thead><tbody>
+{% for row in hours_breakdown %}<tr><td><a href="{% url 'projects:detail' row.project.pk %}">{{ row.project.name }}</a></td><td>{{ row.employee }}</td><td>{{ row.draft }}</td><td>{{ row.submitted }}</td><td>{{ row.approved }}</td><td>{{ row.rejected }}</td><td><strong>{{ row.total }}</strong></td></tr>{% empty %}<tr><td colspan="7">No timesheet entries for these filters.</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<div class="rpt-pane" id="rpt-attention"><div class="rpt-scroll"><table class="rpt-tbl"><thead><tr><th>Issue</th><th>Project</th><th>Task</th><th>Date</th><th>Open</th></tr></thead><tbody>
+{% for row in attention %}<tr><td>{{ row.kind }}</td><td>{{ row.project.name }}</td><td>{{ row.task.title|default:'—' }}</td><td>{{ row.date|default:'—' }}</td><td><a href="{% url 'projects:detail' row.project.pk %}{% if row.task %}#task-{{ row.task.pk }}{% endif %}">View item ↗</a></td></tr>{% empty %}<tr><td colspan="5">No items need attention for these filters.</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<div class="rpt-pane" id="rpt-progress"><div class="rpt-scroll"><table class="rpt-tbl"><thead><tr><th>Week starting</th><th>Tasks completed</th><th>Hours logged</th></tr></thead><tbody>
+{% for row in weekly %}<tr><td>{{ row.week }}</td><td>{{ row.done }}</td><td>{{ row.hours }}</td></tr>{% empty %}<tr><td colspan="3">No completed tasks or logged hours in this range.</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<div class="rpt-pane" id="rpt-workload"><div class="rpt-scroll"><table class="rpt-tbl"><thead><tr><th>Department</th><th>People</th><th>Assigned open tasks</th><th>All logged hours</th></tr></thead><tbody>{% for row in workload_departments %}<tr><td>{{ row.name }}</td><td>{{ row.employees }}</td><td>{{ row.active }}</td><td>{{ row.logged_hours }}</td></tr>{% empty %}<tr><td colspan="4">No workload data.</td></tr>{% endfor %}</tbody></table></div><br><div class="rpt-scroll"><table class="rpt-tbl"><thead><tr><th>Employee</th><th>Department</th><th>Assigned open tasks</th><th>Draft hours</th><th>Submitted hours</th><th>Approved hours</th><th>All logged</th></tr></thead><tbody>
+{% for row in individual_report %}<tr><td>{{ row.name }}</td><td>{{ row.department }}</td><td>{{ row.active }}</td><td>{{ row.draft }}</td><td>{{ row.submitted }}</td><td>{{ row.approved }}</td><td>{{ row.logged_hours }}</td></tr>{% empty %}<tr><td colspan="7">No assigned work or logged hours.</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<div class="rpt-pane" id="rpt-company">
+  <div class="rpt-stat-grid">
+    <div class="rpt-mini-stat"><div class="rpt-mini-stat-val">{{ dept_report|length }}</div><div class="rpt-mini-stat-lbl">Departments</div></div>
+    <div class="rpt-mini-stat"><div class="rpt-mini-stat-val">{{ projects|length }}</div><div class="rpt-mini-stat-lbl">Projects</div></div>
+  </div>
+  <table class="rpt-tbl"><thead><tr><th>Department</th><th>Projects</th><th>Total Tasks</th><th>Done</th><th>Open</th><th>Progress</th></tr></thead><tbody>
+  {% for dept in dept_report %}<tr><td style="font-weight:600;">{{ dept.name }}</td><td>{{ dept.project_count }}</td><td>{{ dept.total_tasks }}</td><td style="color:var(--green);">{{ dept.done_tasks }}</td><td style="color:var(--amber);">{{ dept.open_tasks }}</td><td>{{ dept.pct }}%<div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ dept.pct }}%;background:{% if dept.pct >= 80 %}var(--green){% elif dept.pct >= 50 %}var(--accent){% elif dept.pct >= 25 %}var(--amber){% else %}var(--red){% endif %};"></div></div></td></tr>{% endfor %}
+  </tbody></table>
+</div>
+
+<div class="rpt-pane active" id="rpt-department">
+  {% if dept_report %}
+  <div class="rpt-stat-grid">
+    <div class="rpt-mini-stat"><div class="rpt-mini-stat-val">{{ dept_report|length }}</div><div class="rpt-mini-stat-lbl">Departments</div></div>
+    <div class="rpt-mini-stat"><div class="rpt-mini-stat-val">{{ projects|length }}</div><div class="rpt-mini-stat-lbl">Projects</div></div>
+  </div>
+  <table class="rpt-tbl"><thead><tr><th>Department</th><th>Projects</th><th>Total Tasks</th><th>Done</th><th>Open</th><th>Progress</th></tr></thead><tbody>
+  {% for dept in dept_report %}<tr><td style="font-weight:600;">{{ dept.name }}</td><td>{{ dept.project_count }}</td><td>{{ dept.total_tasks }}</td><td style="color:var(--green);">{{ dept.done_tasks }}</td><td style="color:var(--amber);">{{ dept.open_tasks }}</td><td>{{ dept.pct }}%<div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ dept.pct }}%;background:{% if dept.pct >= 80 %}var(--green){% elif dept.pct >= 50 %}var(--accent){% elif dept.pct >= 25 %}var(--amber){% else %}var(--red){% endif %};"></div></div></td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="p-empty"><div class="p-empty-icon">🏬</div><div class="p-empty-title">No department data</div></div>{% endif %}
+</div>
+
+<div class="rpt-pane" id="rpt-project">
+  {% if project_report %}
+  <table class="rpt-tbl"><thead><tr><th>Project</th><th>Department</th><th>Status</th><th>Tasks</th><th>Done</th><th>Progress</th></tr></thead><tbody>
+  {% for p in project_report %}<tr><td><a href="{% url 'projects:detail' p.pk %}" style="color:var(--accent);text-decoration:none;font-weight:600;">{{ p.name }}</a></td><td>{{ p.department }}</td><td><span class="stag-sm" style="background:var(--bg2);color:var(--ink2);">{{ p.status }}</span></td><td>{{ p.total_tasks }}</td><td style="color:var(--green);">{{ p.done_tasks }}</td><td>{{ p.pct }}%<div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ p.pct }}%;background:{% if p.pct >= 80 %}var(--green){% elif p.pct >= 50 %}var(--accent){% elif p.pct >= 25 %}var(--amber){% else %}var(--red){% endif %};"></div></div></td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="p-empty"><div class="p-empty-icon">📁</div><div class="p-empty-title">No projects</div></div>{% endif %}
+</div>
+
+<div class="rpt-pane" id="rpt-individual">
+  {% if individual_report %}
+  <table class="rpt-tbl"><thead><tr><th>Employee</th><th>Department</th><th>Active</th><th>Done</th><th>Total</th><th>Progress</th></tr></thead><tbody>
+  {% for emp in individual_report %}<tr><td style="font-weight:600;">{{ emp.name }}</td><td>{{ emp.department }}</td><td style="color:var(--accent);">{{ emp.active }}</td><td style="color:var(--green);">{{ emp.done }}</td><td>{{ emp.total }}</td><td>{{ emp.pct }}%<div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ emp.pct }}%;background:{% if emp.pct >= 80 %}var(--green){% elif emp.pct >= 50 %}var(--accent){% elif emp.pct >= 25 %}var(--amber){% else %}var(--red){% endif %};"></div></div></td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="p-empty"><div class="p-empty-icon">👤</div><div class="p-empty-title">No individual data</div></div>{% endif %}
+</div>
+
+<script>
+function setRptType(type, btn) {
+  const inactiveClasses = ['border-transparent', 'text-gray-500', 'hover:border-gray-300', 'hover:text-gray-700'];
+  const activeClasses = ['border-indigo-600', 'text-indigo-600'];
+  
+  document.querySelectorAll('.rpt-type-btn').forEach(b => {
+    b.classList.remove(...activeClasses);
+    b.classList.add(...inactiveClasses);
+    b.removeAttribute('aria-current');
+  });
+
+  btn.classList.remove(...inactiveClasses);
+  btn.classList.add(...activeClasses);
+  btn.setAttribute('aria-current', 'page');
+
+  document.querySelectorAll('.rpt-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('rpt-' + type).classList.add('active');
+  
+  var csvLink = document.getElementById('rpt-csv-link');
+  if (csvLink) {
+    const params = new URLSearchParams(new FormData(document.getElementById('rpt-filter-form')));
+    params.set('type', type);
+    csvLink.href = "{% url 'projects:report_csv' %}?" + params.toString();
+  }
+}
+const initialTab = new URLSearchParams(window.location.search).get('tab');
+if (initialTab && document.querySelector('[data-type="' + CSS.escape(initialTab) + '"]')) setRptType(initialTab, document.querySelector('[data-type="' + CSS.escape(initialTab) + '"]'));
+document.getElementById('rpt-filter-form').addEventListener('submit', function () {
+  const active = document.querySelector('.rpt-type-btn[aria-current="page"]');
+  if (active) { const input = document.createElement('input'); input.type = 'hidden'; input.name = 'tab'; input.value = active.dataset.type; this.appendChild(input); }
+});
+document.getElementById('rpt-csv-link').href = "{% url 'projects:report_csv' %}?" + new URLSearchParams({...Object.fromEntries(new FormData(document.getElementById('rpt-filter-form'))), type: 'department'}).toString();
+</script>
+{% endblock %}

@@ -1,0 +1,430 @@
+{% comment %}
+══════════════════════════════════════════════════════════════════════════
+  Inner contents of the #projects-tree-view div on the projects index page.
+  (Tailwind CSS Redesign)
+══════════════════════════════════════════════════════════════════════════
+{% endcomment %}
+{% load project_tags %}
+
+  {% for ck, cd in workspace_projects.items %}
+  <div class="mb-4 rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900" id="co-wrap-{{ cd.workspace.pk }}" data-client="{{ cd.workspace.pk }}">
+    <div class="flex cursor-pointer items-center gap-2 border-b border-gray-100 bg-gray-50 p-3 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-800/50 dark:hover:bg-gray-800" onclick="toggleCo('co-{{ cd.workspace.pk }}')">
+      <span class="text-xs text-gray-400 transition-transform duration-200 open" id="arr-co-{{ cd.workspace.pk }}">▼</span>
+      <span class="text-base">🏢</span>
+      <span class="font-semibold text-gray-900 dark:text-white">{{ cd.workspace.name }}</span>
+      <span class="text-xs text-gray-500">{{ cd.projects|length }} project{{ cd.projects|length|pluralize }}</span>
+      <div class="ml-auto flex items-center gap-2" onclick="event.stopPropagation()">
+        {% for p in cd.projects %}{% if p.status == 'active' %}{% if forloop.first %}<span class="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">{{ cd.projects|length }} Active</span>{% endif %}{% endif %}{% endfor %}
+        <button onclick="expandCo('co-{{ cd.workspace.pk }}')" class="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Expand</button>
+        <button onclick="collapseCo('co-{{ cd.workspace.pk }}')" class="rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700">Collapse</button>
+      </div>
+    </div>
+    <div class="divide-y divide-gray-100 dark:divide-gray-800 open" id="co-{{ cd.workspace.pk }}">
+      {% for project in cd.projects %}
+      <div class="tree-proj group {% cycle 'bg-gray-50 dark:bg-gray-800/30' 'bg-white dark:bg-transparent' %}" id="proj-row-{{ project.pk }}" data-status="{{ project.status }}" data-client="{{ cd.workspace.pk }}" data-client-name="{{ project.client_name|lower }}" data-name="{{ project.name|lower }}" data-date="{{ project.created_at|date:'U' }}">
+        <div class="flex cursor-pointer items-center gap-2.5 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800/60" onclick="toggleProj('pt-{{ project.pk }}')">
+          <span class="text-xs text-gray-400 transition-transform duration-200" id="arr-pt-{{ project.pk }}">▶</span>
+          <span>📁</span>
+          <span class="font-medium text-gray-900 dark:text-gray-100">{{ project.name }}</span>
+          {% if project.handler_id %}<span class="ml-1 text-[11px] text-gray-500">({{ project.handler.full_name }})</span>{% endif %}
+          <button type="button" class="ml-1.5 text-sm opacity-60 hover:opacity-100 proj-comment-btn" title="Comments" onclick="event.stopPropagation();openComments({{ project.pk }},'{{ project.name|escapejs }}')">💬</button>
+          
+          <span class="ml-2 flex items-center gap-1" onclick="event.stopPropagation()" id="dates-{{ project.pk }}">
+            {% if project.start_date or project.end_date %}
+              <input type="date" class="rounded border-none bg-transparent px-1 py-0 text-xs text-gray-600 hover:bg-gray-200 focus:ring-0 dark:text-gray-400 dark:hover:bg-gray-700" value="{{ project.start_date|date:'Y-m-d' }}" title="Start date" onchange="updateDate({{ project.pk }},'start_date',this.value)">
+              <span class="text-gray-400">→</span>
+              <input type="date" class="rounded border-none bg-transparent px-1 py-0 text-xs text-gray-600 hover:bg-gray-200 focus:ring-0 dark:text-gray-400 dark:hover:bg-gray-700" value="{{ project.end_date|date:'Y-m-d' }}" title="End date" onchange="updateDate({{ project.pk }},'end_date',this.value)">
+            {% elif can_edit %}
+              <button type="button" class="rounded px-2 py-0.5 text-[11px] text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700" onclick="showProjectDates({{ project.pk }})" title="Set start / end dates">📅 Set dates</button>
+            {% endif %}
+          </span>
+          
+          {% if project.contributors %}
+          <span class="ml-3 flex -space-x-1 overflow-hidden" title="Contributors (tasks + subtasks)" aria-label="Project contributors" onclick="event.stopPropagation()">
+            {% for u in project.contributors|slice:":4" %}
+              <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[9px] font-medium text-indigo-700 ring-2 ring-white dark:ring-gray-900" title="{{ u.full_name }}">{{ u.initials }}</span>
+            {% endfor %}
+            {% if project.contributors|length > 4 %}
+              <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[9px] font-medium text-gray-600 ring-2 ring-white dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-900" title="{{ project.contributors|length }} contributors">+{{ project.contributors|length|add:"-4" }}</span>
+            {% endif %}
+          </span>
+          {% endif %}
+          
+          <div class="ml-auto flex items-center gap-3" onclick="event.stopPropagation()">
+            <div class="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+              <div class="h-full rounded-full transition-all duration-300 {% if project.progress_pct >= 80 %}bg-emerald-500{% elif project.progress_pct >= 50 %}bg-indigo-500{% elif project.progress_pct >= 25 %}bg-amber-500{% else %}bg-red-500{% endif %}" style="width:{{ project.progress_pct }}%;"></div>
+            </div>
+            <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">{{ project.get_status_display }}</span>
+            
+            {% if can_edit %}<a href="{% url 'projects:edit' project.pk %}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Edit">✏️</a>{% endif %}
+            {% if can_archive %}
+            <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Archive"
+                    hx-post="{% url 'projects:archive' project.pk %}"
+                    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                    hx-target="#proj-row-{{ project.pk }}"
+                    hx-swap="outerHTML swap:200ms"
+                    hx-confirm="Archive this project?">🗄️</button>
+            {% endif %}
+            {% if can_delete %}
+            <button type="button" class="text-red-400 hover:text-red-600" title="Delete"
+                    hx-post="{% url 'projects:delete' project.pk %}"
+                    hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                    hx-target="#proj-row-{{ project.pk }}"
+                    hx-swap="outerHTML swap:200ms"
+                    hx-confirm="Permanently delete this project?">🗑️</button>
+            {% endif %}
+            <a href="{% url 'projects:detail' project.pk %}" class="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400" title="Open">↗</a>
+          </div>
+        </div>
+        
+        <div class="hidden border-t border-gray-100 bg-gray-50/50 dark:border-gray-800 dark:bg-gray-900/50 tree-tasks" id="pt-{{ project.pk }}">
+          <div class="mb-4 border-b border-gray-200 px-5 pt-3 dark:border-gray-700">
+            <nav class="-mb-px flex space-x-6" aria-label="Project Tabs">
+              <button class="proj-tab whitespace-nowrap border-b-2 border-indigo-600 py-2 px-1 text-sm font-medium text-indigo-600 dark:text-indigo-400" 
+                      onclick="window.switchProjTab('pt-{{ project.pk }}','tasks',this)" aria-current="page">
+                Tasks
+              </button>
+              <button class="proj-tab whitespace-nowrap border-b-2 border-transparent py-2 px-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300" 
+                      onclick="window.switchProjTab('pt-{{ project.pk }}','directory',this)">
+                📂 Directory
+              </button>
+            </nav>
+          </div>
+          
+          <div class="block px-5 pb-3.5 proj-view active" id="pt-{{ project.pk }}-tasks">
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+              <span class="text-[11px] font-semibold text-gray-500">Filter:</span>
+              <button class="rounded bg-indigo-50 px-2.5 py-1 text-[10.5px] font-medium text-indigo-600 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/30" onclick="filterTasks('pt-{{ project.pk }}','all',this)">All</button>
+              <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" onclick="filterTasks('pt-{{ project.pk }}','todo',this)">To Do</button>
+              <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" onclick="filterTasks('pt-{{ project.pk }}','in_progress',this)">In Progress</button>
+              <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" onclick="filterTasks('pt-{{ project.pk }}','review',this)">Review</button>
+              <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" onclick="filterTasks('pt-{{ project.pk }}','done',this)">Done</button>
+              <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" onclick="filterTasks('pt-{{ project.pk }}','blocked',this)">Blocked</button>
+            </div>
+            
+            <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+              <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                <thead class="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:border-gray-800 dark:bg-gray-800/50">
+                  <tr>
+                    <th class="px-3 py-2 w-8"><input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" onclick="toggleAllTasks('pt-{{ project.pk }}-tbody',this)"></th>
+                    <th class="px-3 py-2">Task</th>
+                    <th class="px-3 py-2 w-32">Status</th>
+                    <th class="px-3 py-2 w-24">Assignees</th>
+                    <th class="px-3 py-2 w-28">Deadline</th>
+                    <th class="px-3 py-2 w-32">Completed</th>
+                    <th class="px-3 py-2 w-20">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-800" id="pt-{{ project.pk }}-tbody">
+                  {% for task in project.prefetched_tasks %}
+                  <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50" id="tr-{{ task.pk }}" data-status="{{ task.status }}" data-title="{{ task.title|escapejs }}" data-priority="{{ task.priority }}" data-assigned="{{ task.assigned_to_id|default:'' }}" data-due="{{ task.due_date|default:'' }}">
+                    <td class="px-3 py-2"><input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"></td>
+                    <td class="px-3 py-2">
+                      <div class="font-medium text-gray-900 dark:text-white" data-task-title>
+                        {{ task.title }}
+                        <span class="ml-2 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset {% if task.priority == 'high' %}bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-900/30 dark:text-red-400{% elif task.priority == 'medium' %}bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-900/30 dark:text-amber-400{% else %}bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-800 dark:text-gray-400{% endif %}" id="prio-chip-{{ task.pk }}" title="Priority: {{ task.get_priority_display }}">{{ task.get_priority_display }}</span>
+                      </div>
+                      
+                      {% if task.live_subtask_count or can_create or task.assigned_to_id == current_profile_pk or project.handler_id == current_profile_pk %}
+                      <span class="mt-1 inline-flex cursor-pointer text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300" onclick="toggleSubs('subs-{{ task.pk }}',this)">{% if task.live_subtask_count %}▶ {{ task.live_subtask_count }} subtask{{ task.live_subtask_count|pluralize }}{% else %}▶ Add subtasks{% endif %}</span>
+                      <div class="hidden pl-3 pt-2 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 ml-1 mt-1" id="subs-{{ task.pk }}">
+                        {% for sub in task.subtasks.all %}{% if not sub.deleted %}
+                        <div class="flex items-center gap-2 text-xs" id="sub-row-{{ sub.pk }}" data-sub="{{ sub.pk }}" data-title="{{ sub.title|escapejs }}" data-status="{{ sub.status }}" data-assigned="{{ sub.assigned_to_id|default:'' }}">
+                          <span class="h-1.5 w-1.5 rounded-full {% if sub.status == 'done' %}bg-emerald-500{% else %}bg-gray-400{% endif %}" title="{{ sub.get_status_display }}"></span>
+                          <span class="text-gray-700 dark:text-gray-300">{{ sub.title }}</span>
+                          {% assignee_stack sub kind='subtask' size='sm' %}
+                          {% if can_create or task.assigned_to_id == current_profile_pk or sub.assigned_to_id == current_profile_pk or project.handler_id == current_profile_pk %}
+                          <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Edit subtask" onclick="openSubEdit({{ sub.pk }})">✏️</button>
+                          {% endif %}
+                          {% if can_delete %}
+                          <button type="button" class="text-red-400 hover:text-red-600" title="Delete subtask"
+                                  hx-post="{% url 'projects:subtask_delete' sub.pk %}"
+                                  hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                                  hx-target="#sub-row-{{ sub.pk }}"
+                                  hx-swap="outerHTML swap:150ms"
+                                  hx-confirm="Delete this subtask?">✗</button>
+                          {% endif %}
+                          <select class="ml-auto block rounded border-gray-300 py-0.5 pl-2 pr-6 text-[10px] focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onchange="updateSubStatus({{ sub.pk }},this)" {% if role == 'user' and sub.assigned_to_id != current_profile_pk and task.assigned_to_id != current_profile_pk %}disabled{% endif %}>
+                            {% for val, label in sub.STATUS_CHOICES %}<option value="{{ val }}" {% if sub.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                          </select>
+                        </div>
+                        {% endif %}{% endfor %}
+                        {% if can_create or task.assigned_to_id == current_profile_pk or project.handler_id == current_profile_pk %}
+                        <div class="mt-2 flex items-center gap-2 border-t border-gray-100 pt-2 dark:border-gray-800" id="sub-add-{{ task.pk }}">
+                          <input class="block w-full min-w-[100px] flex-1 rounded border-gray-300 px-2 py-1 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white" id="newsub-{{ task.pk }}" placeholder="Add subtask…" onkeydown="if(event.key==='Enter'){addSubtaskInline({{ task.pk }},this);event.preventDefault();}">
+                          <button class="shrink-0 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300" onclick="addSubtaskInline({{ task.pk }},document.getElementById('newsub-{{ task.pk }}'))">+</button>
+                        </div>
+                        {% endif %}
+                      </div>
+                      {% endif %}
+                    </td>
+                    <td class="px-3 py-2">
+                      <select class="block w-full rounded border-gray-300 py-1 pl-2 pr-8 text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onchange="updateTaskStatus({{ task.pk }},this)" {% if role == 'user' and task.pk not in my_task_ids %}disabled{% endif %}>
+                        {% for val, label in task.STATUS_CHOICES %}
+                        <option value="{{ val }}" {% if task.status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td class="px-3 py-2">
+                      {% assignee_stack task kind='task' size='md' %}
+                    </td>
+                    <td class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">{{ task.due_date|default:"—" }}</td>
+                    <td class="px-3 py-2 text-xs {% if task.completed_at %}text-emerald-600 dark:text-emerald-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                      {% if task.completed_at %}✓ {{ task.completed_at }}{% else %}—{% endif %}
+                    </td>
+                    <td class="px-3 py-2">
+                      <div class="flex items-center gap-1.5">
+                        {% if can_edit or task.assigned_to_id == current_profile_pk %}
+                        <button class="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400" title="Edit" onclick="openTaskEdit({{ task.pk }})">✏️</button>
+                        {% endif %}
+                        {% if can_delete %}
+                        <button type="button" class="text-red-400 hover:text-red-600" title="Delete"
+                                hx-post="{% url 'projects:task_delete' task.pk %}"
+                                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                                hx-target="#tr-{{ task.pk }}"
+                                hx-swap="outerHTML swap:150ms"
+                                hx-confirm="Delete this task?">✗</button>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% if not project.prefetched_tasks %}
+                  <tr><td colspan="7" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">No tasks yet.</td></tr>
+                  {% endif %}
+                  {% if can_create or project.handler_id == current_profile_pk %}
+                  <tr class="bg-gray-50 dark:bg-gray-800/30" id="add-task-row-{{ project.pk }}">
+                    <td></td>
+                    <td colspan="6" class="p-2">
+                      <div class="flex items-center gap-2">
+                        <input class="block w-full flex-1 rounded-md border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white" id="newtask-{{ project.pk }}" placeholder="+ Add a task…" onkeydown="if(event.key==='Enter'){addTaskInline({{ project.pk }},this);event.preventDefault();}">
+                        <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700" onclick="addTaskInline({{ project.pk }},document.getElementById('newtask-{{ project.pk }}'))">Add</button>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div class="hidden px-5 pb-3.5 proj-view" id="pt-{{ project.pk }}-directory">
+            <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div class="text-sm font-semibold text-gray-900 dark:text-white">Project Directory</div>
+                <div class="text-xs text-gray-500">Click files to open · folders expand</div>
+              </div>
+              <div class="mb-4 flex items-center gap-2 rounded-md bg-gray-50 p-2 dark:bg-gray-800/50">
+                <span class="text-base">📁</span>
+                <input class="block w-full flex-1 rounded border-transparent bg-transparent px-2 py-1 text-sm text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 dark:text-white dark:focus:bg-gray-800" id="dir-root-{{ project.pk }}" placeholder="Paste root path, e.g. /Users/name/projects/my-project" onchange="dirSetRoot('{{ project.pk }}',this.value)">
+                <button class="shrink-0 whitespace-nowrap rounded bg-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600" onclick="dirSetRoot('{{ project.pk }}',document.getElementById('dir-root-{{ project.pk }}').value)">Set Root</button>
+              </div>
+              <div id="dir-tree-{{ project.pk }}" class="ml-2 border-l border-gray-200 pl-4 dark:border-gray-700"></div>
+              <div class="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+                <span class="whitespace-nowrap text-xs font-semibold text-gray-500">Add entry:</span>
+                <input class="block w-full flex-1 rounded-md border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white" id="dir-add-{{ project.pk }}" placeholder="filename.ext or folder/ (end with / for folder)" onkeydown="if(event.key==='Enter')dirAdd('{{ project.pk }}',this)">
+                <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700" onclick="dirAdd('{{ project.pk }}',document.getElementById('dir-add-{{ project.pk }}'))">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if no_workspace_projects %}
+  <div class="mb-4 rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900" id="co-wrap-none" data-client="none">
+    <div class="flex cursor-pointer items-center gap-2 rounded-t-lg border-b border-gray-100 bg-gray-800 p-3 hover:bg-gray-700 dark:border-gray-700" onclick="toggleCo('co-none')">
+      <span class="text-xs text-gray-400 transition-transform duration-200 open" id="arr-co-none">▼</span>
+      <span class="text-base">📂</span>
+      <span class="font-semibold text-white">No Client Assigned</span>
+      <span class="text-xs text-gray-400">{{ no_workspace_projects|length }} project{{ no_workspace_projects|length|pluralize }}</span>
+    </div>
+    <div class="divide-y divide-gray-100 dark:divide-gray-800 open" id="co-none">
+      {% for project in no_workspace_projects %}
+      <div class="tree-proj group {% cycle 'bg-gray-50 dark:bg-gray-800/30' 'bg-white dark:bg-transparent' %}" id="proj-row-{{ project.pk }}" data-status="{{ project.status }}" data-client-name="{{ project.client_name|lower }}" data-name="{{ project.name|lower }}" data-date="{{ project.created_at|date:'U' }}">
+        <div class="flex cursor-pointer items-center gap-2.5 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800/60" onclick="toggleProj('pt-{{ project.pk }}')">
+          <span class="text-xs text-gray-400 transition-transform duration-200" id="arr-pt-{{ project.pk }}">▶</span>
+          <span class="text-gray-400">📁</span>
+          <span class="font-medium text-gray-900 dark:text-gray-100">{{ project.name }}</span>
+          {% if project.handler_id %}<span class="ml-1 text-[11px] text-gray-500">({{ project.handler.full_name }})</span>{% endif %}
+          <button type="button" class="ml-1.5 text-sm opacity-60 hover:opacity-100 proj-comment-btn" title="Comments" onclick="event.stopPropagation();openComments({{ project.pk }},'{{ project.name|escapejs }}')">💬</button>
+          
+          {% if project.contributors %}
+          <span class="ml-3 flex -space-x-1 overflow-hidden" title="Contributors (tasks + subtasks)" aria-label="Project contributors" onclick="event.stopPropagation()">
+            {% for u in project.contributors|slice:":4" %}
+              <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[9px] font-medium text-indigo-700 ring-2 ring-white dark:ring-gray-900" title="{{ u.full_name }}">{{ u.initials }}</span>
+            {% endfor %}
+            {% if project.contributors|length > 4 %}
+              <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[9px] font-medium text-gray-600 ring-2 ring-white dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-900" title="{{ project.contributors|length }} contributors">+{{ project.contributors|length|add:"-4" }}</span>
+            {% endif %}
+          </span>
+          {% endif %}
+          
+          <div class="ml-auto flex items-center gap-3" onclick="event.stopPropagation()">
+            <div class="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+              <div class="h-full rounded-full bg-indigo-500 transition-all duration-300" style="width:{{ project.progress_pct }}%;"></div>
+            </div>
+            <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">{{ project.get_status_display }}</span>
+            
+            {% if can_edit %}<a href="{% url 'projects:edit' project.pk %}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Edit">✏️</a>{% endif %}
+            <a href="{% url 'projects:detail' project.pk %}" class="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400" title="Open">↗</a>
+          </div>
+        </div>
+        
+        <div class="hidden border-t border-gray-100 bg-gray-50/50 dark:border-gray-800 dark:bg-gray-900/50 tree-tasks" id="pt-{{ project.pk }}">
+          <div class="px-5 py-3.5">
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+              <span class="text-[11px] font-semibold text-gray-500">Filter:</span>
+              <button class="rounded bg-indigo-50 px-2.5 py-1 text-[10.5px] font-medium text-indigo-600 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/30" onclick="filterTasks('pt-{{ project.pk }}','all',this)">All</button>
+              <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" onclick="filterTasks('pt-{{ project.pk }}','todo',this)">To Do</button>
+              <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" onclick="filterTasks('pt-{{ project.pk }}','in_progress',this)">In Progress</button>
+              <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700" onclick="filterTasks('pt-{{ project.pk }}','done',this)">Done</button>
+            </div>
+            
+            <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+              <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                <thead class="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:border-gray-800 dark:bg-gray-800/50">
+                  <tr>
+                    <th class="px-3 py-2 w-8"><input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" onclick="toggleAllTasks('pt-{{ project.pk }}-tbody',this)"></th>
+                    <th class="px-3 py-2">Task</th>
+                    <th class="px-3 py-2 w-32">Status</th>
+                    <th class="px-3 py-2 w-24">Assignees</th>
+                    <th class="px-3 py-2 w-28">Deadline</th>
+                    <th class="px-3 py-2 w-20">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-800" id="pt-{{ project.pk }}-tbody">
+                  {% for task in project.prefetched_tasks %}
+                  <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50" id="tr-{{ task.pk }}" data-status="{{ task.status }}" data-title="{{ task.title|escapejs }}" data-priority="{{ task.priority }}" data-assigned="{{ task.assigned_to_id|default:'' }}" data-due="{{ task.due_date|default:'' }}">
+                    <td class="px-3 py-2"><input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"></td>
+                    <td class="px-3 py-2">
+                      <div class="font-medium text-gray-900 dark:text-white" data-task-title>
+                        {{ task.title }}
+                        <span class="ml-2 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset {% if task.priority == 'high' %}bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-900/30 dark:text-red-400{% elif task.priority == 'medium' %}bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-900/30 dark:text-amber-400{% else %}bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-800 dark:text-gray-400{% endif %}" id="prio-chip-{{ task.pk }}" title="Priority: {{ task.get_priority_display }}">{{ task.get_priority_display }}</span>
+                      </div>
+                      
+                      {% if task.live_subtask_count or can_create or project.handler_id == current_profile_pk %}
+                      <span class="mt-1 inline-flex cursor-pointer text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300" onclick="toggleSubs('subs-{{ task.pk }}',this)">{% if task.live_subtask_count %}▶ {{ task.live_subtask_count }} subtask{{ task.live_subtask_count|pluralize }}{% else %}▶ Add subtasks{% endif %}</span>
+                      <div class="hidden pl-3 pt-2 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 ml-1 mt-1" id="subs-{{ task.pk }}">
+                        {% for sub in task.subtasks.all %}{% if not sub.deleted %}
+                        <div class="flex items-center justify-between text-xs text-gray-700 dark:text-gray-300">
+                          <span>{{ sub.title }}</span>
+                          <span class="rounded bg-gray-100 px-1.5 py-0.5 text-[9.5px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">{{ sub.get_status_display }}</span>
+                        </div>
+                        {% endif %}{% endfor %}
+                        {% if can_create or project.handler_id == current_profile_pk %}
+                        <div class="mt-2 flex items-center gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+                          <input class="block w-full min-w-0 flex-1 rounded border-gray-300 px-2 py-1 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white" id="newsub-{{ task.pk }}" placeholder="Add subtask…" onkeydown="if(event.key==='Enter'){addSubtaskInline({{ task.pk }},this);event.preventDefault();}">
+                          <button class="shrink-0 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300" onclick="addSubtaskInline({{ task.pk }},document.getElementById('newsub-{{ task.pk }}'))">+</button>
+                        </div>
+                        {% endif %}
+                      </div>
+                      {% endif %}
+                    </td>
+                    <td class="px-3 py-2">
+                      <select class="block w-full rounded border-gray-300 py-1 pl-2 pr-8 text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onchange="updateTaskStatus({{ task.pk }},this)" {% if role == 'user' and task.pk not in my_task_ids %}disabled{% endif %}>
+                        {% for val, label in task.STATUS_CHOICES %}
+                        <option value="{{ val }}" {% if task.status == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td class="px-3 py-2">{% assignee_stack task kind='task' size='md' %}</td>
+                    <td class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">{{ task.due_date|default:"—" }}</td>
+                    <td class="px-3 py-2">
+                      <div class="flex items-center gap-1.5">
+                        {% if can_edit or task.assigned_to_id == current_profile_pk %}
+                        <button class="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400" title="Edit" onclick="openTaskEdit({{ task.pk }})">✏️</button>
+                        {% endif %}
+                        {% if can_delete %}
+                        <button type="button" class="text-red-400 hover:text-red-600" title="Delete"
+                                hx-post="{% url 'projects:task_delete' task.pk %}"
+                                hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                                hx-target="#tr-{{ task.pk }}"
+                                hx-swap="outerHTML swap:150ms"
+                                hx-confirm="Delete this task?">✗</button>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% if not project.prefetched_tasks %}
+                  <tr><td colspan="6" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">No tasks yet.</td></tr>
+                  {% endif %}
+                  {% if can_create or project.handler_id == current_profile_pk %}
+                  <tr class="bg-gray-50 dark:bg-gray-800/30" id="add-task-row-{{ project.pk }}">
+                    <td></td>
+                    <td colspan="5" class="p-2">
+                      <div class="flex items-center gap-2">
+                        <input class="block w-full flex-1 rounded-md border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white" id="newtask-{{ project.pk }}" placeholder="+ Add a task…" onkeydown="if(event.key==='Enter'){addTaskInline({{ project.pk }},this);event.preventDefault();}">
+                        <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700" onclick="addTaskInline({{ project.pk }},document.getElementById('newtask-{{ project.pk }}'))">Add</button>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not workspace_projects and not no_workspace_projects %}
+  <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-16 px-4 text-center dark:border-gray-700">
+    <div class="text-4xl text-gray-400">📁</div>
+    <div class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No projects yet</div>
+    <div class="mt-1 text-sm text-gray-500">Create your first project to get started.</div>
+    {% if can_create %}
+    <button class="mt-6 inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700" onclick="openModal('modal-new-proj')">Create First Project</button>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if archived_projects %}
+  <div id="archived-section" style="display:none;">
+    <div class="opacity-75 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div class="flex cursor-pointer items-center gap-2 border-b border-gray-700 bg-gray-700 p-3 hover:bg-gray-600" onclick="toggleCo('co-archived')">
+        <span class="text-xs text-gray-400 transition-transform duration-200" id="arr-co-archived">▶</span>
+        <span class="text-base">🗄️</span>
+        <span class="font-semibold text-white">Archived Projects</span>
+        <span class="text-xs text-gray-400">{{ archived_projects|length }} project{{ archived_projects|length|pluralize }}</span>
+      </div>
+      <div class="hidden divide-y divide-gray-100 dark:divide-gray-800" id="co-archived">
+        {% for project in archived_projects %}
+        <div class="group bg-gray-50 dark:bg-gray-800/20 tree-proj">
+          <div class="flex items-center gap-2.5 px-4 py-3 cursor-default">
+            <span class="text-sm text-gray-400">📁</span>
+            <span class="font-medium text-gray-600 dark:text-gray-400">{{ project.name }}</span>
+            {% if project.handler_id %}<span class="ml-1 text-[11px] text-gray-400">({{ project.handler.full_name }})</span>{% endif %}
+            <span class="mr-auto text-[11px] text-gray-400">{{ project.department.name|default:"No dept" }}{% if project.client %} · {{ project.client.name }}{% endif %}</span>
+            <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+              <span class="rounded bg-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">Archived</span>
+              {% if can_archive %}
+              <button type="button" class="text-gray-400 hover:text-emerald-500" title="Restore"
+                      hx-post="{% url 'projects:restore' project.pk %}"
+                      hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                      hx-target="closest .tree-proj"
+                      hx-swap="outerHTML swap:200ms">↩️</button>
+              {% endif %}
+              {% if can_delete %}
+              <button type="button" class="text-gray-400 hover:text-red-500" title="Delete"
+                      hx-post="{% url 'projects:delete' project.pk %}"
+                      hx-headers='{"X-CSRFToken":"{{ csrf_token }}"}'
+                      hx-target="closest .tree-proj"
+                      hx-swap="outerHTML swap:200ms"
+                      hx-confirm="Permanently delete?">🗑️</button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}

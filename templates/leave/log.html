@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Leave Log — {{ site_name }}{% endblock %}
+{% block page_title %}Leave Log{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="flex flex-col gap-6">
+
+  {% if not is_own_only %}
+  {% include 'leave/partials/_tabs.html' %}
+
+  <form data-ui-filter method="get" class="flex items-end gap-3 flex-wrap">
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-medium text-slate-500">Employee</label>
+      <select name="employee" onchange="this.form.requestSubmit()"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+        <option value="">All employees</option>
+        {% for e in employees %}
+        <option value="{{ e.employee_id }}" {% if selected_emp == e.employee_id %}selected{% endif %}>
+          {{ e.profile.user.get_full_name|default:e.profile.user.username }} ({{ e.employee_id }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+  {% endif %}
+
+  <div class="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
+    <table class="w-full text-left border-collapse text-sm">
+      <thead>
+        <tr class="bg-slate-50 dark:bg-slate-800/50 text-xs uppercase tracking-wider text-slate-500">
+          <th class="px-4 py-3 font-semibold">When</th>
+          {% if not is_own_only %}<th class="px-4 py-3 font-semibold">Employee</th>{% endif %}
+          <th class="px-4 py-3 font-semibold">Leave type</th>
+          <th class="px-4 py-3 font-semibold">Day</th>
+          <th class="px-4 py-3 font-semibold text-right">Change</th>
+          <th class="px-4 py-3 font-semibold">Reason</th>
+          <th class="px-4 py-3 font-semibold">By</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+        {% for e in entries %}
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+          <td class="px-4 py-3 whitespace-nowrap text-slate-500">{{ e.created_at|date:"d M Y H:i" }}</td>
+          {% if not is_own_only %}<td class="px-4 py-3 whitespace-nowrap">{{ e.profile.user.get_full_name|default:e.profile.user.username }}</td>{% endif %}
+          <td class="px-4 py-3 whitespace-nowrap">{{ e.leave_type.name|default:"—" }}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-slate-500">{% if e.affected_date %}{{ e.affected_date|date:"d M Y" }}{% else %}—{% endif %}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-right font-semibold {% if e.delta > 0 %}text-emerald-600{% elif e.delta < 0 %}text-red-600{% else %}text-slate-400{% endif %}">
+            {% if e.delta > 0 %}+{% endif %}{{ e.delta|floatformat:"-1" }}
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+              {% if e.reason == 'cancelled' or e.reason == 'attendance_refund' or e.reason == 'attendance_half_refund' %}bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300
+              {% elif e.reason == 'approved' %}bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300
+              {% else %}bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300{% endif %}">
+              {{ e.get_reason_display }}
+            </span>
+            {% if e.note %}<div class="text-xs text-slate-400 mt-1">{{ e.note }}</div>{% endif %}
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-slate-500">{% if e.actor %}{{ e.actor.user.get_full_name|default:e.actor.user.username }}{% else %}System{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No leave activity recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if entries|length == 500 %}
+  <p class="text-xs text-slate-400">Showing the most recent 500 entries.</p>
+  {% endif %}
+
+</div>
+
+</section>
+{% endblock %}

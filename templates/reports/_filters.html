@@ -1,0 +1,27 @@
+<div class="mb-5 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+  <form data-ui-filter method="get" class="flex flex-wrap items-end gap-3">{% include "workspaces/params.html" %}
+    <label class="grid gap-1 text-xs text-gray-600">Organization
+      {% if reports_shared %}<select name="org" class="rounded-md border-gray-300 text-sm"><option value="">All authorized organizations</option>{% for org in report_organizations %}<option value="{{ org.pk }}" {% if org_filter == org.pk|stringformat:'s' %}selected{% endif %}>{{ org.name }}</option>{% endfor %}</select>{% else %}<span class="block min-w-32 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900">{{ organization.name|default:'Current organization' }}</span>{% endif %}
+    </label>
+    <label class="grid gap-1 text-xs text-gray-600">From
+      <input type="date" name="start" value="{{ start|date:'Y-m-d' }}" class="rounded-md border-gray-300 text-sm">
+    </label>
+    <label class="grid gap-1 text-xs text-gray-600">To
+      <input type="date" name="end" value="{{ end|date:'Y-m-d' }}" class="rounded-md border-gray-300 text-sm">
+    </label>
+    <label class="grid gap-1 text-xs text-gray-600">Department
+      <select name="department" class="rounded-md border-gray-300 text-sm"><option value="">All departments</option><option value="unassigned" {% if department_id == 'unassigned' %}selected{% endif %}>Unassigned</option>{% for dept in departments %}<option value="{{ dept.pk }}" {% if department_id == dept.pk %}selected{% endif %}>{{ dept.name }}{% if reports_shared %} · {{ dept.report_organization }}{% endif %}</option>{% endfor %}</select>
+    </label>
+    <label class="grid gap-1 text-xs text-gray-600">Employee
+      <select name="employee" class="rounded-md border-gray-300 text-sm"><option value="">All employees</option>{% for emp in employee_options %}<option value="{{ emp.profile_id }}" {% if employee_id == emp.profile_id %}selected{% endif %}>{{ emp.profile.full_name }}{% if reports_shared %} · {{ emp.report_organization }}{% endif %}</option>{% endfor %}</select>
+    </label>
+    {% if statuses %}<label class="grid gap-1 text-xs text-gray-600">Status
+      <select name="status" class="rounded-md border-gray-300 text-sm"><option value="">All statuses</option>{% for code,label in statuses %}<option value="{{ code }}" {% if status == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    </label>{% endif %}
+    <button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white">Apply filters</button>
+    <a href="{% url 'reports:export' report_type %}?{{ request.GET.urlencode }}" class="rounded-md border border-gray-300 px-4 py-2 text-sm">Export CSV</a>
+    {% if balance_view %}<input type="hidden" name="view" value="balances">{% endif %}
+    {% if movement_view %}<input type="hidden" name="movement" value="{{ movement_view }}">{% endif %}
+    <a href="{{ request.path }}" class="rounded-md border border-gray-300 px-4 py-2 text-sm">Clear</a>
+  </form>
+</div>

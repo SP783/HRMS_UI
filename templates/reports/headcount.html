@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Headcount Report — {{ site_name }}{% endblock %}
+{% block page_title %}Headcount Report{% endblock %}
+
+{% block topbar_actions %}
+<div class="flex items-center gap-2">
+  <a href="{% url 'reports:index' %}" 
+     class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+    ← Reports
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+{% include "workspaces/controls.html" %}
+{% include "reports/_filters.html" %}
+<p class="mb-3 text-xs text-gray-500">Active headcount as of {{ as_of }}. Joiners and leavers use the selected date range.</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% for dept in department_rows %}<a href="?{{ request.GET.urlencode }}&amp;org={{ dept.organization_id }}&amp;department={{ dept.pk }}" class="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200 p-5"><span class="text-sm text-gray-500">{% if reports_shared %}{{ dept.organization }} / {% endif %}{{ dept.name }}</span><strong class="block text-2xl text-gray-900">{{ dept.count }}</strong><span class="text-xs text-indigo-600">View employees →</span></a>{% endfor %}
+  <div class="bg-indigo-50 rounded-lg border border-indigo-100 p-5"><span class="text-sm text-indigo-600">{% if movement_view == 'joined' %}Total joined{% elif movement_view == 'left' %}Total left{% else %}Total active{% endif %}</span><strong class="block text-2xl text-indigo-900">{{ report_total }}</strong></div>
+</div>
+{% if movement %}<div class="mb-6 overflow-x-auto rounded-lg border border-gray-200 bg-white"><h3 class="border-b p-3 font-medium">Joiners and leavers in selected range</h3><table class="min-w-full text-sm"><thead><tr><th class="p-3 text-left">Department</th><th class="p-3 text-left">Joined</th><th class="p-3 text-left">Left</th></tr></thead><tbody>{% for row in movement %}<tr class="border-t"><td class="p-3">{% if reports_shared %}{{ row.organization }} / {% endif %}{{ row.department }}</td><td class="p-3"><a href="?{{ request.GET.urlencode }}&amp;org={{ row.organization_id }}&amp;department={{ row.department_id }}&amp;movement=joined" class="text-indigo-600">{{ row.joined }}</a></td><td class="p-3"><a href="?{{ request.GET.urlencode }}&amp;org={{ row.organization_id }}&amp;department={{ row.department_id }}&amp;movement=left" class="text-indigo-600">{{ row.left }}</a></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+<div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+  <div class="px-4 py-4 sm:px-6 border-b border-gray-200 bg-gray-50">
+    <h3 class="text-lg font-medium leading-6 text-gray-900">{% if movement_view == 'joined' %}Employees who joined{% elif movement_view == 'left' %}Employees who left{% else %}Active employees{% endif %}</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table data-server-workspace="report-headcount" class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          {% if reports_shared %}<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Organization</th>{% endif %}<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for emp in employees %}
+        <tr class="hover:bg-gray-50 transition-colors">{% if reports_shared %}<td class="px-6 py-4 text-sm">{{ emp.report_organization }}</td>{% endif %}
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+            {{ emp.employee_id }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+            {{ emp.profile.full_name }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ emp.department.name|default:"—" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ emp.designation.name|default:"—" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ emp.get_employment_type_display }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ emp.joined_date|default:"—" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+              {% if emp.profile.role == 'admin' %} bg-purple-100 text-purple-800
+              {% elif emp.profile.role == 'manager' %} bg-blue-100 text-blue-800
+              {% else %} bg-gray-100 text-gray-800 {% endif %}">
+              {{ emp.profile.get_role_display }}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="px-6 py-10 text-center text-sm font-medium text-gray-500 bg-gray-50">
+            No employees found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "workspaces/pagination.html" %}
+</section>
+{% endblock %}

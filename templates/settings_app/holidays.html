@@ -1,0 +1,511 @@
+{% extends "base.html" %}
+{% block title %}Holidays — {{ site_name }}{% endblock %}
+{% block page_title %}Holiday Management{% endblock %}
+
+{% block content %}
+
+{% include "settings_app/partials/nav_hr.html" %}
+
+<div class="flex flex-col gap-6">
+
+  {# ── Holidays Card ── #}
+  <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+
+    {# Card header: title + filters + year selector #}
+    <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 flex-wrap">
+      <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mr-auto">
+        Holidays — {{ year_filter }}
+      </h2>
+      <div class="flex items-center gap-1 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden text-xs font-medium">
+        <a href="?year={{ year_filter }}"
+           class="px-3 py-1.5 transition-colors
+                  {% if not type_filter %}bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900
+                  {% else %}text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %}">
+          All
+        </a>
+        <a href="?year={{ year_filter }}&type=mandatory"
+           class="px-3 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700
+                  {% if type_filter == 'mandatory' %}bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900
+                  {% else %}text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %}">
+          Mandatory
+        </a>
+        <a href="?year={{ year_filter }}&type=optional"
+           class="px-3 py-1.5 transition-colors border-l border-gray-200 dark:border-gray-700
+                  {% if type_filter == 'optional' %}bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900
+                  {% else %}text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800{% endif %}">
+          Optional
+        </a>
+      </div>
+      <select onchange="location.href='?year='+this.value+'{% if type_filter %}&type={{ type_filter }}{% endif %}'"
+              class="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                     bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300
+                     focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                     focus:border-gray-400 transition-colors">
+        {% for yr in available_years %}
+        <option value="{{ yr }}" {% if yr == year_filter %}selected{% endif %}>{{ yr }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {# Add single holiday #}
+    <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/40 dark:bg-gray-800/20">
+      <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Add Holiday</p>
+      <form method="post" action="{% url 'settings_app:holidays' %}" class="flex items-end gap-3 flex-wrap">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_holiday">
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Date *</label>
+          <input type="date" name="holiday_date" required
+                 class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                        bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                        focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                        focus:border-gray-400 transition-colors">
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Occasion *</label>
+          <input type="text" name="holiday_occasion" placeholder="e.g. Republic Day" required
+                 class="w-52 px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                        bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400
+                        focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                        focus:border-gray-400 transition-colors">
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Type</label>
+          <select name="holiday_type"
+                  class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                         bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                         focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                         focus:border-gray-400 transition-colors">
+            <option value="mandatory">Mandatory</option>
+            <option value="optional">Optional</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Description</label>
+          <input type="text" name="holiday_description" placeholder="Optional notes"
+                 class="w-44 px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                        bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400
+                        focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                        focus:border-gray-400 transition-colors">
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-gray-600 dark:text-gray-400 invisible">.</span>
+          <label class="flex items-center gap-2 cursor-pointer py-2 whitespace-nowrap text-xs text-gray-600 dark:text-gray-400">
+            <input type="checkbox" name="holiday_is_recurring" id="addHolidayRecurring"
+                   class="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600">
+            <span>Recurring</span>
+          </label>
+          <p class="text-[10px] text-gray-400 dark:text-gray-500">Recurs every year</p>
+        </div>
+
+        <button type="submit"
+          class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100
+                 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors self-end">
+          Add Holiday
+        </button>
+      </form>
+    </div>
+
+    {# Bulk Upload #}
+    <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+      <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Bulk Upload</p>
+      <form method="post" action="{% url 'settings_app:holidays' %}" enctype="multipart/form-data"
+            class="flex items-center gap-3 flex-wrap">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="bulk_upload">
+
+        <label id="dropZone"
+               class="flex items-center gap-3 flex-1 min-w-72 px-4 py-3 rounded-lg border-2 border-dashed
+                      border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50
+                      hover:border-gray-400 dark:hover:border-gray-500 cursor-pointer transition-colors">
+          <input type="file" name="holiday_csv" id="csvInput" accept=".csv" required class="sr-only">
+          <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span class="text-xs text-gray-500 dark:text-gray-400" id="csvFileName">Drop CSV or click to browse</span>
+        </label>
+
+        <button type="submit"
+          class="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg
+                 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200
+                 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Bulk Upload
+        </button>
+
+        <button type="button" onclick="showCsvFormat()"
+          class="px-3.5 py-2 text-xs font-medium rounded-lg text-gray-500 dark:text-gray-400
+                 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          CSV Format
+        </button>
+      </form>
+
+      {# CSV format guide #}
+      <div id="csvFormatGuide" class="hidden mt-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+          <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span class="text-xs font-semibold text-gray-600 dark:text-gray-400">CSV Format</span>
+        </div>
+        <div class="px-4 py-3 overflow-x-auto">
+          <table class="text-xs font-mono w-full mb-4">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700">
+                <th class="text-left py-1.5 pr-6 font-semibold text-gray-500 dark:text-gray-400">date</th>
+                <th class="text-left py-1.5 pr-6 font-semibold text-gray-500 dark:text-gray-400">occasion</th>
+                <th class="text-left py-1.5 pr-6 font-semibold text-gray-500 dark:text-gray-400">type</th>
+                <th class="text-left py-1.5 font-semibold text-gray-500 dark:text-gray-400">recurring</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800 text-gray-600 dark:text-gray-400">
+              <tr><td class="py-1.5 pr-6">2026-01-26</td><td class="py-1.5 pr-6">Republic Day</td><td class="py-1.5 pr-6">mandatory</td><td class="py-1.5">yes</td></tr>
+              <tr><td class="py-1.5 pr-6">2026-10-02</td><td class="py-1.5 pr-6">Gandhi Jayanti</td><td class="py-1.5 pr-6">mandatory</td><td class="py-1.5">yes</td></tr>
+              <tr><td class="py-1.5 pr-6">2026-11-01</td><td class="py-1.5 pr-6">Karnataka Rajyotsava</td><td class="py-1.5 pr-6">optional</td><td class="py-1.5">no</td></tr>
+            </tbody>
+          </table>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {% for field in field_docs|default:"" %}{% endfor %}
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5">
+              <p class="text-xs font-semibold font-mono text-gray-700 dark:text-gray-300 mb-0.5">date</p>
+              <p class="text-[11px] text-gray-400 dark:text-gray-500">YYYY-MM-DD format</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5">
+              <p class="text-xs font-semibold font-mono text-gray-700 dark:text-gray-300 mb-0.5">occasion</p>
+              <p class="text-[11px] text-gray-400 dark:text-gray-500">Holiday name / reason</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5">
+              <p class="text-xs font-semibold font-mono text-gray-700 dark:text-gray-300 mb-0.5">type</p>
+              <p class="text-[11px] text-gray-400 dark:text-gray-500">mandatory or optional (default: mandatory)</p>
+            </div>
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2.5">
+              <p class="text-xs font-semibold font-mono text-gray-700 dark:text-gray-300 mb-0.5">recurring</p>
+              <p class="text-[11px] text-gray-400 dark:text-gray-500">yes/true/1 or no/false/0 (default: no)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Holiday list table #}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 dark:border-gray-800">
+            <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">Date</th>
+            <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Day</th>
+            <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Occasion</th>
+            <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Type</th>
+            <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Recurring</th>
+            <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Description</th>
+            <th class="text-right px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+          {% for h in holidays %}
+          <tr class="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+            <td class="px-5 py-3.5">
+              <span class="font-mono text-sm text-gray-800 dark:text-gray-200">{{ h.display_date|date:"Y-m-d" }}</span>
+              {% if h.is_projected %}
+              <span class="ml-1 text-[10px] text-gray-400 dark:text-gray-500">(projected)</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-3.5 text-xs text-gray-400 dark:text-gray-500">{{ h.display_date|date:"D" }}</td>
+            <td class="px-3 py-3.5 font-medium text-gray-800 dark:text-gray-200">{{ h.occasion }}</td>
+            <td class="px-3 py-3.5">
+              {% if h.type == 'mandatory' %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md
+                           bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400
+                           ring-1 ring-inset ring-red-200 dark:ring-red-800/50">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500 dark:bg-red-400"></span>
+                Mandatory
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md
+                           bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400
+                           ring-1 ring-inset ring-blue-200 dark:ring-blue-800/50">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400"></span>
+                Optional
+              </span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-3.5">
+              {% if h.is_recurring %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md
+                           bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400
+                           ring-1 ring-inset ring-green-200 dark:ring-green-800/50">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Recurring
+              </span>
+              {% else %}
+              <span class="text-gray-300 dark:text-gray-600">—</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-3.5 text-xs text-gray-400 dark:text-gray-500">{{ h.description|default:"—" }}</td>
+            <td class="px-5 py-3.5">
+              {% if not h.is_projected %}
+              <div class="flex items-center justify-end gap-1">
+                <button class="px-2.5 py-1.5 text-xs font-medium rounded-md text-gray-600 dark:text-gray-400
+                               hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        onclick="editHoliday({{ h.pk }}, '{{ h.date|date:"Y-m-d" }}', '{{ h.occasion|escapejs }}', '{{ h.type }}', '{{ h.description|escapejs }}', {{ h.is_recurring|yesno:'true,false' }})">
+                  Edit
+                </button>
+                <form method="post" action="{% url 'settings_app:holidays' %}" class="inline"
+                      onsubmit="return confirm('Delete &quot;{{ h.occasion|escapejs }}&quot;?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_holiday">
+                  <input type="hidden" name="holiday_id" value="{{ h.pk }}">
+                  <button type="submit"
+                    class="px-2.5 py-1.5 text-xs font-medium rounded-md text-red-500 dark:text-red-400
+                           hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    Delete
+                  </button>
+                </form>
+              </div>
+              {% else %}
+              <div class="flex flex-col items-end gap-1">
+                <button type="button" class="px-2.5 py-1.5 text-xs font-medium rounded-md"
+                  onclick="editHoliday({{ h.pk }}, '{{ h.display_date|date:"Y-m-d" }}', '{{ h.occasion|escapejs }}', '{{ h.type }}', '{{ h.description|escapejs }}', false, true)">Edit this year</button>
+                <button type="button" class="px-2.5 py-1.5 text-xs text-gray-500"
+                  onclick="editHoliday({{ h.pk }}, '{{ h.date|date:"Y-m-d" }}', '{{ h.occasion|escapejs }}', '{{ h.type }}', '{{ h.description|escapejs }}', true)">Edit recurring holiday</button>
+                <form method="post" onsubmit="return confirm('Skip this holiday for {{ year_filter }} only? Existing attendance and leave records will not be recalculated.');">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="skip_projected_holiday">
+                  <input type="hidden" name="holiday_id" value="{{ h.pk }}">
+                  <input type="hidden" name="holiday_date" value="{{ h.display_date|date:'Y-m-d' }}">
+                  <button class="px-2.5 py-1.5 text-xs text-red-600" type="submit">Skip this year</button>
+                </form>
+                <form method="post" onsubmit="return confirm('Delete the original recurring holiday and every projected occurrence based on it? Saved year-specific overrides remain.');">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_holiday">
+                  <input type="hidden" name="holiday_id" value="{{ h.pk }}">
+                  <button class="px-2.5 py-1.5 text-xs text-red-600" type="submit">Delete recurring holiday</button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="px-5 py-16 text-center">
+              <div class="flex flex-col items-center gap-2">
+                <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/>
+                  </svg>
+                </div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No holidays configured for {{ year_filter }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500">Add holidays above or upload a CSV file.</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ── Optional Holiday Selections ── #}
+  {% if skipped_holidays %}
+  <section class="p-5 rounded-xl border border-gray-200 dark:border-gray-700">
+    <h2 class="font-semibold">Skipped recurring holidays — {{ year_filter }}</h2>
+    {% for skip in skipped_holidays %}
+    <form method="post" class="flex items-center justify-between gap-3 py-2">
+      {% csrf_token %}
+      <span>{{ skip.date|date:'Y-m-d' }} — {{ skip.holiday.occasion }}</span>
+      <input type="hidden" name="action" value="restore_projected_holiday">
+      <input type="hidden" name="holiday_id" value="{{ skip.holiday_id }}">
+      <input type="hidden" name="holiday_date" value="{{ skip.date|date:'Y-m-d' }}">
+      <button type="submit" class="text-sm underline">Restore this year</button>
+    </form>
+    {% endfor %}
+  </section>
+  {% endif %}
+  {% if optional_selections %}
+  <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
+      <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+        Employee Optional Holiday Selections — {{ year_filter }}
+      </h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 dark:border-gray-800">
+            <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Employee</th>
+            <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Holiday</th>
+            <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Date</th>
+            <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Leave Request</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+          {% for sel in optional_selections %}
+          <tr class="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+            <td class="px-5 py-3.5">
+              <p class="font-medium text-gray-800 dark:text-gray-200 leading-tight">{{ sel.profile.full_name }}</p>
+              <p class="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">{{ sel.profile.employee_id }}</p>
+            </td>
+            <td class="px-3 py-3.5 text-gray-700 dark:text-gray-300">{{ sel.holiday.occasion }}</td>
+            <td class="px-3 py-3.5 font-mono text-xs text-gray-500 dark:text-gray-400">{{ sel.holiday.date|date:"Y-m-d" }}</td>
+            <td class="px-5 py-3.5">
+              {% if sel.leave_request %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md ring-1 ring-inset
+                {% if sel.leave_request.status == 'approved' %}
+                  bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 ring-green-200 dark:ring-green-800/50
+                {% elif sel.leave_request.status == 'pending' %}
+                  bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 ring-amber-200 dark:ring-amber-800/50
+                {% else %}
+                  bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 ring-gray-200 dark:ring-gray-700
+                {% endif %}">
+                {{ sel.leave_request.get_status_display }}
+              </span>
+              {% else %}
+              <span class="text-gray-300 dark:text-gray-600">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+{# ── Edit Holiday Modal ── #}
+<div id="editHolidayModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+      <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Edit Holiday</h3>
+      <button onclick="closeEditHoliday()"
+        class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-5 py-5">
+      <form method="post" action="{% url 'settings_app:holidays' %}" class="flex flex-col gap-4">
+        {% csrf_token %}
+        <input type="hidden" name="action" id="editHolidayAction" value="edit_holiday">
+        <p id="editHolidayScope" class="text-sm text-gray-600 dark:text-gray-400" role="status"></p>
+        <input type="hidden" name="holiday_id" id="editHolidayId">
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Date *</label>
+          <input type="date" name="holiday_date" id="editHolidayDate" required
+                 class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                        bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                        focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                        focus:border-gray-400 transition-colors">
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Occasion *</label>
+          <input type="text" name="holiday_occasion" id="editHolidayOccasion" required
+                 class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                        bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                        focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                        focus:border-gray-400 transition-colors">
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Type</label>
+          <select name="holiday_type" id="editHolidayType"
+                  class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                         bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                         focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                         focus:border-gray-400 transition-colors">
+            <option value="mandatory">Mandatory</option>
+            <option value="optional">Optional</option>
+          </select>
+        </div>
+
+        <label class="flex items-center gap-2.5 cursor-pointer">
+          <input type="checkbox" name="holiday_is_recurring" id="editHolidayRecurring"
+                 class="w-4 h-4 rounded border-gray-300 dark:border-gray-600">
+          <span class="text-sm text-gray-700 dark:text-gray-300">Recurring — repeats every year on this month-day</span>
+        </label>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Description</label>
+          <input type="text" name="holiday_description" id="editHolidayDesc" placeholder="Optional notes"
+                 class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                        bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400
+                        focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10
+                        focus:border-gray-400 transition-colors">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-1 border-t border-gray-100 dark:border-gray-800">
+          <button type="button" onclick="closeEditHoliday()"
+            class="px-3.5 py-2 text-xs font-medium rounded-lg text-gray-500 dark:text-gray-400
+                   hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            Cancel
+          </button>
+          <button type="submit"
+            class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100
+                   text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function editHoliday(pk, date, occasion, type, description, isRecurring, projected = false) {
+  document.getElementById('editHolidayAction').value = projected ? 'edit_projected_holiday' : 'edit_holiday';
+  document.getElementById('editHolidayDate').readOnly = projected;
+  document.getElementById('editHolidayRecurring').disabled = projected;
+  document.getElementById('editHolidayScope').textContent = projected
+    ? 'Changes apply to ' + date.slice(0, 4) + ' only. To change the date or recurrence, use Edit recurring holiday.'
+    : (isRecurring ? 'You are editing the original recurring holiday. Changes also affect years that use this recurring entry.' : 'You are editing this saved holiday.');
+  document.getElementById('editHolidayId').value = pk;
+  document.getElementById('editHolidayDate').value = date;
+  document.getElementById('editHolidayOccasion').value = occasion;
+  document.getElementById('editHolidayType').value = type;
+  document.getElementById('editHolidayDesc').value = description;
+  document.getElementById('editHolidayRecurring').checked = isRecurring;
+  const modal = document.getElementById('editHolidayModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+function closeEditHoliday() {
+  const modal = document.getElementById('editHolidayModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+function showCsvFormat() {
+  const guide = document.getElementById('csvFormatGuide');
+  guide.classList.toggle('hidden');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('editHolidayModal');
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeEditHoliday();
+    });
+  }
+  const csvInput = document.getElementById('csvInput');
+  const csvFileName = document.getElementById('csvFileName');
+  if (csvInput) {
+    csvInput.addEventListener('change', function() {
+      csvFileName.textContent = this.files[0]?.name || 'Drop CSV or click to browse';
+    });
+  }
+});
+</script>
+{% endblock %}

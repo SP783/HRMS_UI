@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}Apply for Leave — {{ site_name }}{% endblock %}
+{% block page_title %}Apply for Leave{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'leave:index' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  Back
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    
+    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">New Leave Request</h2>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Submit your leave application for approval</p>
+      </div>
+      <div class="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+    </div>
+
+    <div class="px-6 py-6">
+      <form method="post" id="leaveApplyForm">
+        {% csrf_token %}
+        
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            Leave type <span class="text-red-500">*</span>
+            <span class="text-gray-400 font-normal">— select category</span>
+          </label>
+          <select name="leave_type" required id="leaveTypeSelect" class="block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 dark:text-white transition-colors">
+            <option value="">— Select leave type —</option>
+            {% for lt in leave_types %}
+            <option value="{{ lt.pk }}" data-balance="{{ balance_info|default:None }}">
+              {{ lt.name }}
+              {% if lt.accrual_enabled %}(accrual: {{ lt.accrual_rate }} days/{{ lt.get_accrual_frequency_display }}){% else %}({{ lt.days_allowed }} days/yr){% endif %}
+              {% if lt.is_gender_restricted %} — {{ lt.get_gender_restriction_display }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <div id="balanceHint" class="mt-2 text-sm font-medium"></div>
+        </div>
+
+        {% if ineligible_list %}
+        <div class="mb-5 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+          <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+            <span>🚫</span> Unavailable leave types
+          </div>
+          <div class="space-y-2">
+            {% for item in ineligible_list %}
+            <div class="flex items-center gap-2 text-sm">
+              <span class="font-medium text-gray-600 dark:text-gray-400">{{ item.name }}</span>
+              <span class="text-amber-600 dark:text-amber-400 text-xs">— {{ item.reason }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if optional_summary %}
+        <div class="mb-5 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50">
+          <div class="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-2 flex items-center gap-2">
+            <span>🔵</span> Optional Holiday Leave
+          </div>
+          <div class="text-sm text-gray-700 dark:text-gray-300 mb-3">
+            You have used <strong class="text-gray-900 dark:text-white">{{ optional_summary.selected_count }}</strong> of <strong class="text-gray-900 dark:text-white">{{ optional_summary.max_allowed }}</strong> optional holidays for this year.
+            {% if optional_summary.remaining > 0 %}
+            <span class="text-green-600 dark:text-green-400 font-medium">({{ optional_summary.remaining }} remaining)</span>
+            {% else %}
+            <span class="text-red-600 dark:text-red-400 font-medium">(No remaining optional holidays)</span>
+            {% endif %}
+          </div>
+          
+          {% if optional_holidays_available %}
+          <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Available optional holidays you can apply for:</div>
+          <div class="flex flex-wrap gap-2 mb-3">
+            {% for h in optional_holidays_available %}
+            <span class="px-2.5 py-1 rounded-md bg-white dark:bg-gray-800 text-xs border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-sm">
+              {{ h.display_date|date:"M d" }} — {{ h.occasion }}
+            </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          
+          {% if optional_summary.selected_holidays %}
+          <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Already selected:</div>
+          <div class="flex flex-wrap gap-2">
+            {% for sel in optional_summary.selected_holidays %}
+            <span class="px-2.5 py-1 rounded-md bg-green-50 dark:bg-green-900/20 text-xs border border-green-200 dark:border-green-800/30 text-green-700 dark:text-green-400">
+              ✓ {{ sel.holiday.date|date:"M d" }} — {{ sel.holiday.occasion }}
+            </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          
+          <div class="text-xs text-gray-500 dark:text-gray-400 mt-3 flex gap-1.5">
+            <span>⚠️</span> 
+            <span>Rules: Optional leave only from the predefined list above. Cannot exceed {{ optional_summary.max_allowed }}/year. Cannot select optional leave on mandatory holidays or weekly offs.</span>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if holidays %}
+        <div class="mb-5 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+          <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+            <span>📅</span> Upcoming Holidays This Year
+          </div>
+          <div class="flex flex-wrap gap-2">
+            {% for h in holidays %}
+            <span class="px-2.5 py-1 rounded-md text-xs border {% if h.type == 'mandatory' %}bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/30 text-red-700 dark:text-red-400{% else %}bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/30 text-blue-700 dark:text-blue-400{% endif %}">
+              {% if h.type == 'mandatory' %}🔴{% else %}🔵{% endif %} {{ h.display_date|date:"M d" }} — {{ h.occasion }}
+            </span>
+            {% endfor %}
+          </div>
+          <div class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+            🔴 = Mandatory (all employees off) · 🔵 = Optional (choose to take or work)
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">From date <span class="text-red-500">*</span></label>
+            <input type="date" name="start_date" required id="startDate" class="block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 dark:text-white transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">To date <span class="text-red-500">*</span></label>
+            <input type="date" name="end_date" required id="endDate" class="block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 dark:text-white transition-colors">
+          </div>
+        </div>
+
+        <div id="dayCountPreview" style="display:none;" class="mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
+          <strong id="dayCountValue" class="text-gray-900 dark:text-white font-bold">0</strong> day(s) selected
+          <span id="balanceWarning" style="display:none;" class="text-amber-600 dark:text-amber-400 font-medium ml-2">⚠️ Exceeds remaining balance</span>
+        </div>
+
+        <div id="halfDayGroup" style="display:none;" class="mb-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50">
+          <div class="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-3">Half-Day Leave</div>
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input type="radio" name="half_day" value="" id="hdNone" checked onchange="updateDayCount()" class="w-4 h-4 text-blue-600 bg-white border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600">
+              <span>Full Day</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input type="radio" name="half_day" value="first_half" id="hdFirst" onchange="updateDayCount()" class="w-4 h-4 text-blue-600 bg-white border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600">
+              <span>First Half (Morning) <span class="text-gray-500 dark:text-gray-400">— 0.5 day deducted</span></span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input type="radio" name="half_day" value="second_half" id="hdSecond" onchange="updateDayCount()" class="w-4 h-4 text-blue-600 bg-white border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600">
+              <span>Second Half (Afternoon) <span class="text-gray-500 dark:text-gray-400">— 0.5 day deducted</span></span>
+            </label>
+          </div>
+          <div id="hdBalanceHint" class="mt-3 text-xs text-gray-500 dark:text-gray-400"></div>
+        </div>
+
+        <div id="halfDayNote" style="display:none;" class="mb-5 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 text-sm text-amber-800 dark:text-amber-300">
+          <div class="flex gap-2">
+            <span>⚠️</span>
+            <div>
+              Half-day: 0.5 day will be deducted from your <strong id="hdLeaveTypeName" class="font-semibold"></strong> balance. If second half is selected, you must be present in the morning.
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            Reason <span class="text-red-500">*</span>
+            <span class="text-gray-400 font-normal">— briefly describe</span>
+          </label>
+          <textarea name="reason" rows="4" placeholder="Please provide a brief reason for your leave request…" required class="block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 dark:text-white transition-colors"></textarea>
+        </div>
+
+        <div class="flex items-center gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <button type="submit" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Submit Request
+          </button>
+          <a href="{% url 'leave:index' %}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Leave balance data from server ──────────────────────────────────────
+const balanceData = {{ balance_info_for_js|safe }};
+const leaveTypes = {
+  {% for lt in leave_types %}
+  {{ lt.pk }}: {
+    name: '{{ lt.name|escapejs }}',
+    accrual: {{ lt.accrual_enabled|yesno:'true,false' }},
+    accrualFreq: '{{ lt.accrual_frequency }}',
+    accrualRate: {{ lt.accrual_rate }},
+    annualDays: {{ lt.get_annual_days }},
+    daysAllowed: {{ lt.days_allowed }},
+    gender: '{{ lt.gender_restriction }}',
+    genderDisplay: '{{ lt.get_gender_restriction_display|escapejs }}',
+    minMonths: {{ lt.min_months_employed }},
+    carryForward: {{ lt.carry_forward|yesno:'true,false' }},
+    maxCarryForward: {{ lt.max_carry_forward_days }},
+    allowHalfDay: {{ lt.allow_half_day|yesno:'true,false' }},
+  },
+  {% endfor %}
+};
+
+function updateBalanceHint() {
+  const sel = document.getElementById('leaveTypeSelect');
+  const pk = sel.value;
+  const hint = document.getElementById('balanceHint');
+  
+  // Clear previous color classes from Tailwind
+  hint.classList.remove('text-green-600', 'dark:text-green-400', 'text-red-600', 'dark:text-red-400');
+  
+  if (!pk) { hint.textContent = ''; return; }
+  
+  const bal = balanceData[pk];
+  const lt = leaveTypes[parseInt(pk)];
+  if (!bal || !lt) { hint.textContent = ''; return; }
+
+  let text = `📊 Balance: ${bal.remaining} remaining of ${bal.total_available}`;
+  if (bal.carried_forward > 0) text += ` (incl. ${bal.carried_forward} CF)`;
+  if (lt.accrual) {
+    const freqLabel = {monthly: 'month', quarterly: 'quarter', half_yearly: '6mo', yearly: 'year'}[lt.accrualFreq] || 'period';
+    text += ` | ⚡ Accrual: ${lt.accrualRate} × ${freqLabel} (~${lt.annualDays}/yr)`;
+  }
+  if (lt.carryForward) text += ` | Carry forward: Yes`;
+  
+  hint.textContent = text;
+  
+  // Apply Tailwind colors dynamically
+  if (bal.remaining > 0) {
+      hint.classList.add('text-green-600', 'dark:text-green-400');
+  } else {
+      hint.classList.add('text-red-600', 'dark:text-red-400');
+  }
+}
+
+function updateDayCount() {
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+  const preview = document.getElementById('dayCountPreview');
+  const warning = document.getElementById('balanceWarning');
+  const hdGroup = document.getElementById('halfDayGroup');
+  const hdNote = document.getElementById('halfDayNote');
+  const hdBalanceHint = document.getElementById('hdBalanceHint');
+  const hdLeaveTypeName = document.getElementById('hdLeaveTypeName');
+  
+  if (start && end) {
+    const sd = new Date(start);
+    const ed = new Date(end);
+    const isSingleDay = start === end;
+    const halfDay = document.querySelector('input[name="half_day"]:checked')?.value || '';
+    let days = Math.floor((ed - sd) / 86400000) + 1;
+    if (halfDay) days -= 0.5;
+
+    document.getElementById('dayCountValue').textContent = days;
+    preview.style.display = 'block';
+
+    // Show half-day options only for single-day requests AND if leave type allows it
+    const selectedPk = document.getElementById('leaveTypeSelect').value;
+    const selectedLt = leaveTypes[parseInt(selectedPk)];
+    if (isSingleDay && selectedLt && selectedLt.allowHalfDay) {
+      hdGroup.style.display = 'block';
+      hdNote.style.display = 'block';
+      const pk = document.getElementById('leaveTypeSelect').value;
+      const lt = leaveTypes[parseInt(pk)];
+      if (lt) hdLeaveTypeName.textContent = lt.name;
+      hdBalanceHint.textContent = `Balance after deduction: ${balanceData[pk]?.remaining !== undefined ? Math.max(0, balanceData[pk].remaining - 0.5) : '?'} days`;
+    } else {
+      hdGroup.style.display = 'none';
+      hdNote.style.display = 'none';
+      document.querySelectorAll('input[name="half_day"]').forEach(r => r.checked = r.value === '');
+    }
+    
+    // Check against balance
+    const pk = document.getElementById('leaveTypeSelect').value;
+    const bal = balanceData[pk];
+    if (bal && days > bal.remaining) {
+      warning.style.display = 'inline';
+    } else {
+      warning.style.display = 'none';
+    }
+  } else {
+    preview.style.display = 'none';
+    hdGroup.style.display = 'none';
+    hdNote.style.display = 'none';
+  }
+}
+
+document.getElementById('leaveTypeSelect').addEventListener('change', function() {
+  updateBalanceHint();
+  updateDayCount();
+});
+document.getElementById('startDate').addEventListener('change', updateDayCount);
+document.getElementById('endDate').addEventListener('change', updateDayCount);
+</script>
+{% endblock %}

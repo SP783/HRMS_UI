@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Fleet — {{ site_name }}{% endblock %}
+{% block page_title %}Fleet Summary{% endblock %}
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+{% include "tracker/partials/nav.html" %}
+
+{% if not configured %}
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+  <div class="p-10 text-center text-gray-600">Activity Tracker is not configured.</div>
+</div>
+{% elif connection_error %}
+<div class="mt-6 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+  Could not read the tracker DB: {{ connection_error }}
+</div>
+{% else %}
+
+{# ── Date range + export ─────────────────────────────────────────── #}
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 mt-2">
+  <div class="p-5">
+    <form data-ui-filter method="get" class="flex flex-col md:flex-row md:items-end gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+        <input type="date" name="start" value="{{ start_date|date:'Y-m-d' }}"
+               class="rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+        <input type="date" name="end" value="{{ end_date|date:'Y-m-d' }}"
+               class="rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+      </div>
+      <button type="submit"
+              class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+        Apply
+      </button>
+      <div class="md:ml-auto">
+        <a href="?start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}&export=csv"
+           class="inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+          Export CSV
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if silent_alerts %}
+<div class="mb-6 rounded-xl border border-amber-300 bg-amber-50 shadow-sm">
+  <div class="p-4 text-sm text-amber-900">
+    <strong class="font-semibold">{{ silent_alerts|length }} host{{ silent_alerts|length|pluralize }} silent during work hours:</strong>
+    {% for a in silent_alerts %}{{ a.hostname }}{% if not forloop.last %}, {% endif %}{% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── Headline stat cards ─────────────────────────────────────────── #}
+<div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">People</div>
+    <div class="mt-1 text-2xl font-semibold text-gray-900">{{ fleet.people }}</div>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Active now</div>
+    <div class="mt-1 text-2xl font-semibold text-emerald-600">{{ fleet.active_now }}</div>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Idle now</div>
+    <div class="mt-1 text-2xl font-semibold text-amber-600">{{ fleet.idle_now }}</div>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Offline now</div>
+    <div class="mt-1 text-2xl font-semibold text-gray-400">{{ fleet.offline_now }}</div>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Active hours (range)</div>
+    <div class="mt-1 text-2xl font-semibold text-gray-900">{{ fleet.total_active_hms }}</div>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Timesheet hours (range)</div>
+    <div class="mt-1 text-2xl font-semibold text-gray-900">{{ fleet.total_timesheet_hours|floatformat:1 }}h</div>
+    <div class="text-xs text-gray-500">{{ fleet.timesheet_people }} employee{{ fleet.timesheet_people|pluralize }} logged time</div>
+  </div>
+</div>
+
+{# ── Fleet table ─────────────────────────────────────────────────── #}
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+    <h3 class="text-base font-semibold text-gray-900">
+      Everyone — {{ start_date|date:"d M Y" }}{% if end_date != start_date %} → {{ end_date|date:"d M Y" }}{% endif %}
+    </h3>
+    {% if fleet.under_count %}
+    <span class="text-xs font-medium text-amber-700 bg-amber-50 rounded-full px-2.5 py-1">
+      {{ fleet.under_count }} under 80% utilization
+    </span>
+    {% endif %}
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 text-sm" id="fleet-table">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Employee</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Host</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Active</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Idle</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Render</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Tracked</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Active + Render</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Timesheet</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Difference</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Expected</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Utilization</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in rows %}
+        <tr class="hover:bg-gray-50 transition-colors {% if r.under_expected %}bg-amber-50/40{% endif %}">
+          <td class="px-4 py-3">
+            <a href="{% url 'tracker:dashboard' %}?employee={{ r.profile.pk }}&start={{ start_date|date:'Y-m-d' }}&end={{ end_date|date:'Y-m-d' }}"
+               class="font-medium text-gray-900 hover:text-indigo-600">{{ r.name }}</a>
+            <div class="text-xs text-gray-500">
+              {% if r.employee_id %}{{ r.employee_id }}{% endif %}{% if r.department %} · {{ r.department }}{% endif %}
+            </div>
+          </td>
+          <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ r.hostname }}</td>
+          <td class="px-4 py-3">
+            {% if r.status == 'active' %}
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Active</span>
+            {% elif r.status == 'idle' %}
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"><span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>Idle</span>
+            {% else %}
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500"><span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Offline</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums text-emerald-700">{{ r.active_hms }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-amber-700">{{ r.idle_hms }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-indigo-600">{{ r.render_hms }}</td>
+          <td class="px-4 py-3 text-right tabular-nums font-medium text-gray-900">{{ r.tracked_hms }}</td>
+          <td class="px-4 py-3 text-right tabular-nums text-gray-700">{{ r.active_render_hms }}</td>
+          <td class="px-4 py-3 text-right tabular-nums font-medium text-gray-900" title="Approved: {{ r.approved_hours|floatformat:1 }}h; includes draft, submitted, approved, and rejected entries">
+            {% if r.has_timesheet %}{{ r.timesheet_hours|floatformat:1 }}h <span class="block text-xs font-normal text-gray-500">{{ r.approved_hours|floatformat:1 }}h approved</span>{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums {% if r.comparison_hours is not None and r.comparison_hours > 0 %}text-amber-700{% else %}text-gray-600{% endif %}">
+            {% if r.comparison_hours is not None %}{% if r.comparison_hours > 0 %}+{% endif %}{{ r.comparison_hours|floatformat:1 }}h{% else %}—{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums text-gray-500">{{ r.expected_hms }}</td>
+          <td class="px-4 py-3 text-right tabular-nums">
+            {% if r.utilization is not None %}
+            <span class="font-semibold {% if r.utilization >= 90 %}text-emerald-600{% elif r.utilization >= 80 %}text-gray-700{% else %}text-amber-600{% endif %}">{{ r.utilization }}%</span>
+            {% else %}<span class="text-gray-400">—</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="12" class="px-4 py-10 text-center text-gray-500">
+          No workstations with assigned hostnames found for this range.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="px-5 py-3 border-t border-gray-200 text-xs text-gray-500">
+    Difference = timesheet hours minus Active + Render time. Timesheet includes all entry statuses; approved hours appear below the total. A difference is for review, not proof of missing work or attendance. “Now” status reflects activity in the last few minutes.
+  </div>
+</div>
+
+{% endif %}
+
+</section>
+{% endblock %}

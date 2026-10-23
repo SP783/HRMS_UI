@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Letter Templates — {{ site_name }}{% endblock %}
+{% block page_title %}Letter Templates{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'documents:letter_template_create' %}" class="inline-flex items-center gap-x-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all">
+  <svg class="-ml-0.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+  </svg>
+  New Template
+</a>
+{% endblock %}
+
+{% block content %}
+{% include "settings_app/partials/nav_hr.html" %}
+
+<div class="flex flex-col gap-6 max-w-7xl mx-auto">
+
+  {% include "documents/partials/nav.html" %}
+
+  <div class="bg-white shadow-sm sm:rounded-xl border border-gray-200 overflow-hidden flex flex-col">
+    <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between bg-gray-50/50">
+      <h3 class="text-base font-semibold leading-6 text-gray-900">Letter Templates</h3>
+      <span class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700 border border-indigo-200">
+        {{ templates|length }} Total
+      </span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="py-3.5 pl-6 pr-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+            <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+            <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
+            <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created By</th>
+            <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Updated</th>
+            <th scope="col" class="relative py-3.5 pl-3 pr-6 text-right">
+              <span class="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 bg-white">
+          {% for t in templates %}
+          <tr class="hover:bg-gray-50 transition-colors group">
+            <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-semibold text-gray-900">
+              {{ t.name }}
+            </td>
+            <td class="whitespace-nowrap px-3 py-4 text-sm">
+              <span class="inline-flex items-center rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-500/20">
+                {{ t.get_letter_type_display }}
+              </span>
+            </td>
+            <td class="px-3 py-4 text-sm text-gray-600 max-w-xs truncate" title="{{ t.subject }}">
+              {{ t.subject|truncatechars:60 }}
+            </td>
+            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-600">
+              {{ t.created_by.full_name|default:"—" }}
+            </td>
+            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+              {{ t.updated_at|date:"d M Y" }}
+            </td>
+            <td class="whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm font-medium">
+              <div class="flex items-center justify-end gap-2">
+                <a href="{% url 'documents:letter_template_edit' t.pk %}" class="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors">
+                  Edit
+                </a>
+                {% if role == 'super_admin' %}
+                <form method="post" action="{% url 'documents:letter_template_delete' t.pk %}" class="inline-block" onsubmit="return confirm('Delete this template? This action cannot be undone.');">
+                  {% csrf_token %}
+                  <button type="submit" class="inline-flex items-center rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-red-100 hover:bg-red-100 transition-colors">
+                    Delete
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="py-12 text-center">
+              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10l6 6v10a2 2 0 01-2 2zM13 2v6h6" />
+              </svg>
+              <h3 class="mt-2 text-sm font-medium text-gray-900">No templates yet</h3>
+              <p class="mt-1 text-sm text-gray-500">Create a new template to get started.</p>
+              <div class="mt-6">
+                <a href="{% url 'documents:letter_template_create' %}" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                  <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                  </svg>
+                  New Template
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white shadow-sm sm:rounded-xl border border-gray-200 overflow-hidden">
+    <div class="border-b border-gray-200 px-6 py-4 bg-gray-50/50">
+      <h3 class="text-base font-semibold leading-6 text-gray-900">Available Placeholders</h3>
+      <p class="mt-1 text-xs text-gray-500">Use these dynamic tags inside your letter templates.</p>
+    </div>
+    <div class="px-6 py-5">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {% for ph in placeholders %}
+        <div class="flex items-center justify-center bg-indigo-50/50 border border-indigo-100 rounded-lg px-3 py-2 text-[11px] sm:text-xs font-mono text-indigo-700 shadow-sm hover:border-indigo-300 hover:bg-indigo-50 transition-colors text-center truncate" title="{{ ph }}">
+          {{ ph }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

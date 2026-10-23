@@ -1,0 +1,37 @@
+<p class="px-muted pv-help">Move projects between columns by dragging a card or choosing its status. Showing {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }} filtered projects.</p>
+<div class="pv-board" aria-label="Project Kanban board" {% if selected_status %}style="grid-template-columns:minmax(0,1fr);grid-auto-flow:row;"{% endif %}>
+{% for column in kanban_columns %}
+{% if not selected_status or column.code == selected_status %}
+<section class="pv-column {% if selected_status %}pv-column--filtered{% endif %}" data-drop-status="{{ column.code }}" aria-label="{{ column.label }}">
+  <header><h2>{{ column.label }}</h2><span>{{ column.projects|length }}</span></header>
+  {% for project in column.projects %}
+  <article class="pv-card" data-pv-project="{{ project.pk }}" data-version="{{ project.move_version }}" data-current-status="{{ project.status }}" data-move-url="{% url 'projects:move_project' project.pk %}" {% if project.can_move %}draggable="true"{% endif %}>
+    <a href="{% url 'projects:detail' project.pk %}" data-open-project="{{ project.pk }}" class="pv-card-title">{{ project.name }}</a>
+    <p class="px-muted">{{ project.workspace.name|default:'No workspace' }}</p>
+    <p>Handler: {{ project.summary_owner.full_name|default:'Unassigned' }}</p>
+    <div class="pv-progress"><span style="width:{{ project.summary_progress }}%"></span></div>
+    <p class="px-muted">{{ project.summary_done }}/{{ project.summary_total }} tasks complete</p>
+    <p {% if project.overdue %}class="pv-overdue"{% endif %}>End: {{ project.end_date|date:'d M Y'|default:'Not set' }}</p>
+    {% if project.can_move %}<label class="pv-status-label">Status<select data-pv-status aria-label="Status for {{ project.name }}">{% for code,label in move_statuses %}<option value="{{ code }}" {% if project.status == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endif %}
+  </article>
+  {% empty %}<p class="pv-column-empty">No projects on this page</p>{% endfor %}
+</section>
+{% endif %}
+{% endfor %}
+</div>
+<style>
+  .pv-column--filtered { display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;align-content:start; }
+  .pv-column--filtered > header,.pv-column--filtered > .pv-column-empty { grid-column:1/-1;margin-bottom:0; }
+  .pv-column--filtered > .pv-card { margin-bottom:0; }
+</style>
+<script>
+if (!window.__projectKanbanStatusFilterBound) {
+  window.__projectKanbanStatusFilterBound = true;
+  document.addEventListener('change', function (event) {
+    if (!event.target.matches('.px-toolbar select[name="status"]')) return;
+    var workspace = event.target.closest('.px-workspace');
+    if (!workspace || !workspace.querySelector('.pv-board')) return;
+    event.target.form.requestSubmit();
+  });
+}
+</script>

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Restore database — {{ site_name }}{% endblock %}
+{% block page_title %}Restore database{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-5 w-full">
+  {% include "settings_app/partials/nav_system.html" %}
+
+  <div class="flex flex-col gap-4">
+
+    {# Big warning banner #}
+    <div class="card" style="border:2px solid var(--color-danger);background:var(--color-danger-bg);">
+      <div class="card-body">
+        <div class="flex items-center gap-3-5 mb-3">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <div>
+            <h2 style="margin:0;color:var(--color-danger);font-size:var(--font-size-xl);font-weight:800;">
+              Destructive operation
+            </h2>
+            <div class="text-sm text-muted">
+              This will overwrite the live {{ site_name }} database. Read carefully before proceeding.
+            </div>
+          </div>
+        </div>
+
+        <ul class="text-sm" style="line-height:1.7;margin:0;padding-left:22px;">
+          <li>All data created since the source backup will be <strong>lost</strong> — leave requests, attendance records, project edits, everything.</li>
+          <li>A <strong>safety snapshot</strong> of the current database will be taken automatically before the swap, so you can roll back if needed.</li>
+          <li>The restore is <strong>staged immediately</strong> but only applies when the {{ site_name }} server is restarted.</li>
+          <li>If this archive contains <strong>tracker_mysql.sql</strong>, the in-app restore will not import it. Restore that file separately with MySQL tools.</li>
+          <li>You must type the confirmation phrase exactly to proceed.</li>
+        </ul>
+      </div>
+    </div>
+
+    {# Pending-restore notice — shown if there's already a staged restore #}
+    {% if pending %}
+    <div class="card" style="border:1px solid var(--color-warning);background:var(--color-warning-bg);">
+      <div class="card-header">
+        <span class="card-title" style="color:var(--color-warning);">A restore is already staged</span>
+      </div>
+      <div class="card-body text-sm">
+        <p>
+          Staged at <strong>{{ pending.staged_at }}</strong>
+          by <strong>{{ pending.triggered_by_username|default:"unknown" }}</strong>.
+        </p>
+        <p>Source: {{ pending.source_description|default:"—" }}</p>
+        <p>You must either restart the server to apply it, or cancel it, before staging another one.</p>
+        <form method="post" action="{% url 'settings_app:restore_cancel' %}" class="mt-3">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--outline btn--sm"
+            data-confirm="Cancel the staged restore? The pending files will be deleted.">
+            Cancel staged restore
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {# The actual restore form #}
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">
+          {% if mode == 'history' %}
+            Restore from backup history
+          {% else %}
+            Restore from uploaded zip
+          {% endif %}
+        </span>
+      </div>
+      <div class="card-body">
+
+        {% if mode == 'history' and log %}
+        <table style="margin-bottom:18px;">
+          <tbody>
+            <tr><th style="text-align:left;width:160px;">Backup date</th><td>{{ log.run_at|date:"d M Y H:i" }}</td></tr>
+            <tr><th style="text-align:left;">Filename</th><td class="mono-sm">{{ log.filename }}</td></tr>
+            <tr><th style="text-align:left;">Triggered by</th><td>{{ log.triggered_by }}{% if log.triggered_by_user %} ({{ log.triggered_by_user.user.username }}){% endif %}</td></tr>
+            <tr><th style="text-align:left;">Size</th><td>{{ log.file_size_kb }} KB</td></tr>
+            <tr><th style="text-align:left;">Status</th><td>{{ log.overall_status }}</td></tr>
+          </tbody>
+        </table>
+        {% endif %}
+
+        <form method="post" action="{% url 'settings_app:restore_apply' %}"
+              enctype="multipart/form-data"
+              id="restoreForm"
+              {% if pending %}style="opacity:0.5;pointer-events:none;"{% endif %}>
+          {% csrf_token %}
+          <input type="hidden" name="source" value="{{ mode }}">
+          {% if log %}<input type="hidden" name="log_id" value="{{ log.pk }}">{% endif %}
+
+          {% if mode == 'upload' %}
+          <div class="form-group mb-4">
+            <label class="form-label">Backup zip file</label>
+            <input type="file" name="zip_file" accept=".zip" required class="form-input">
+            <div class="form-hint">Must be a {{ site_name }} backup zip (contains <code class="code-inline">studiohrs.sqlite3</code> and optionally <code class="code-inline">projects.sqlite3</code>).</div>
+          </div>
+          {% endif %}
+
+          <div class="form-group mb-4">
+            <label class="form-label" style="color:var(--color-danger);">
+              Type the following phrase exactly to confirm
+            </label>
+            <div class="mb-2 mono-sm" style="padding:10px 14px;background:var(--color-surface-2);border-radius:var(--radius-sm);user-select:all;font-weight:700;letter-spacing:0.02em;">
+              {{ confirmation_phrase }}
+            </div>
+            <input
+              type="text"
+              name="confirm_phrase"
+              class="form-input mono-sm"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              placeholder="Type the phrase above…"
+              required
+              id="confirmPhraseInput">
+            <div class="form-hint" id="confirmHint" style="color:var(--color-text-muted);">
+              The Restore button will activate once the phrase matches exactly.
+            </div>
+          </div>
+
+          <div class="btn-group">
+            <button type="submit" class="btn btn--danger" id="restoreSubmit" disabled>
+              Stage restore
+            </button>
+            <a href="{% url 'settings_app:backup' %}" class="btn btn--outline">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    var expected = "{{ confirmation_phrase|escapejs }}";
+    var input    = document.getElementById('confirmPhraseInput');
+    var btn      = document.getElementById('restoreSubmit');
+    var hint     = document.getElementById('confirmHint');
+    if (!input || !btn) return;
+
+    function check() {
+      if (input.value === expected) {
+        btn.disabled = false;
+        hint.textContent = 'Phrase matches. Click Stage restore to continue.';
+        hint.style.color = 'var(--color-success)';
+      } else {
+        btn.disabled = true;
+        hint.textContent = 'The Restore button will activate once the phrase matches exactly.';
+        hint.style.color = 'var(--color-text-muted)';
+      }
+    }
+    input.addEventListener('input', check);
+    input.addEventListener('paste', function () { setTimeout(check, 0); });
+    check();
+  })();
+</script>
+{% endblock %}

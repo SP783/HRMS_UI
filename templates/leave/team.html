@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Team Leave — {{ site_name }}{% endblock %}
+{% block page_title %}Team Leave{% endblock %}
+
+{% block topbar_actions %}
+  {% comment %}
+    Apply isn't shown here — team page is for reviewing others' leaves.
+    Apply is only on My Leave so the routing matches the mental model.
+  {% endcomment %}
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6">
+
+  {% include 'leave/partials/_tabs.html' %}
+
+  {% comment %}
+    Team page: show employee column, allow approving (decorator already
+    limited this to TL+), drive withdraw permissions from is_hr_or_above.
+  {% endcomment %}
+  {% include 'leave/partials/_requests_table.html' with show_employee_col=True can_apply=False %}
+
+</div>
+{% endblock %}

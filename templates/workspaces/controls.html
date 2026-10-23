@@ -1,0 +1,6 @@
+{{ workspace|json_script:'workspace-data' }}
+<div class="ws-toolbar" data-workspace-controls>
+  <span><strong>{{ workspace.total }}</strong> matching records · server filters and sorting apply to all matching records and exports.</span>
+  <div class="ws-actions"><button type="button" data-ws-views>Saved views</button><button type="button" data-ws-columns>View columns</button><a href="?_workspace_reset=1">Clear view</a></div>
+</div>
+<p class="ws-status" role="status" aria-live="polite" data-ws-status></p>

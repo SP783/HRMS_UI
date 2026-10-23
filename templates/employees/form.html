@@ -1,0 +1,536 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} Employee — {{ site_name }}{% endblock %}
+{% block page_title %}{{ action }} Employee{% endblock %}
+
+{% block topbar_actions %}
+  <a href={% url 'employees:list' %} class='inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors'>← Back</a>
+  {% if employee %}
+  <a href='{% url 'documents:gallery' employee.employee_id %}' class='inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors'>
+    📁 Employee Documents
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div id="employee-create-region">
+{% if employee_organizations %}
+<form method="get" action="{% url 'employees:create' %}" class="mb-4 p-4 border rounded-lg" hx-get="{% url 'employees:create' %}" hx-target="#employee-create-region" hx-select="#employee-create-region" hx-swap="outerHTML" hx-push-url="true">
+  <label>Organization <select name="organization_id" required onchange="this.form.requestSubmit()">
+    {% for org in employee_organizations %}<option value="{{ org.pk }}" {% if org.pk == employee_organization.pk %}selected{% endif %}>{{ org.name }}</option>{% endfor %}
+  </select></label>
+  <p class="text-sm text-gray-500">Choose the organization before entering employee details. Changing it reloads the form with that organization's departments, designations and shifts.</p>
+</form>
+{% endif %}
+<form method='post' enctype='multipart/form-data'>
+  {% csrf_token %}
+  {% if employee_organization %}<input type="hidden" name="organization_id" value="{{ employee_organization.pk }}">{% endif %}
+
+  {# Outer centering wrapper — grey page background #}
+  <div class='employee-form-shell'>
+
+    {# A4 card — 794px = 210mm at 96dpi #}
+    <div class='employee-form-card mx-auto bg-white border border-gray-200'>
+{% comment %} ═══════════════════════════════════════════════════════════
+         HEADER BAND
+      ═══════════════════════════════════════════════════════════ {% endcomment %}
+      <div class='flex items-center gap-5 px-10 py-6 border-b-2 border-gray-100'>
+
+        {# Logo #}
+        {% if company_logo_url or company_name %}
+        <div class='flex-shrink-0'>
+          {% if company_logo_url %}
+          <img src="{{ company_logo_url }}" alt="{{ company_name }}" class='h-12 w-auto object-contain'>
+          {% else %}
+          <span class='text-xl font-black text-gray-900 tracking-tight'>{{ company_name }}</span>
+          {% endif %}
+        </div>
+        <div class='w-px h-10 bg-gray-200 flex-shrink-0'></div>
+        {% endif %}
+
+        {# Photo — clickable portrait, triggers hidden file input #}
+        <div class='flex-shrink-0 relative group cursor-pointer' onclick='document.getElementById("id_profile_photo").click()' title='Click to change photo'>
+          {# Hidden real file input #}
+          <input type='file' id='id_profile_photo' name='profile_photo' accept='image/*'
+                 class='hidden' onchange='previewPhoto(this)'>
+
+          {# Photo or initials placeholder — passport size 2.5 x 3.5 cm, whole image fit (no crop) #}
+          {% if employee and employee.profile_photo %}
+          <img id='photo-preview' src="{{ employee.profile_photo.url }}" alt="Photo"
+               class='rounded object-contain shadow-sm border border-gray-200 block bg-gray-50'
+               style='width:2.5cm;height:3.5cm'>
+          {% elif employee and employee.profile.initials %}
+          <div id='photo-preview' class='rounded bg-indigo-100 text-indigo-700 font-bold text-base flex items-center justify-center shadow-sm border border-indigo-200'
+               style='width:2.5cm;height:3.5cm'>{{ employee.profile.initials }}</div>
+          {% else %}
+          <div id='photo-preview' class='rounded bg-gray-100 text-gray-400 font-bold text-base flex items-center justify-center border border-gray-200'
+               style='width:2.5cm;height:3.5cm'>?</div>
+          {% endif %}
+
+          {# Hover overlay #}
+          <div class='absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center'>
+            <svg class='text-white opacity-0 group-hover:opacity-100 transition-opacity' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'>
+              <path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'/>
+              <circle cx='12' cy='13' r='4'/>
+            </svg>
+          </div>
+        </div>
+
+        {# Name + meta #}
+        <div class='flex-1 min-w-0'>
+          <h1 class='text-lg font-bold text-gray-900 leading-snug truncate'>
+            {% if employee %}{{ employee.profile.full_name }}{% else %}New Employee{% endif %}
+          </h1>
+          <div class='flex items-center gap-2 mt-0.5 text-sm text-gray-500 flex-wrap'>
+            {% if employee %}
+            <span class='font-mono text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded'>{{ employee.employee_id }}</span>
+            <span class='text-gray-300'>·</span>
+            <span>{{ employee.designation.name|default:"No designation" }}</span>
+            {% else %}
+            <span class='text-gray-400 italic text-xs'>Fill in details below to create a new employee record</span>
+            {% endif %}
+          </div>
+          {% if employee %}
+          <div class='flex items-center gap-1.5 mt-2 flex-wrap'>
+            <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold
+              {% if employee.profile.role == "admin" %}bg-purple-100 text-purple-700
+              {% elif employee.profile.role == "manager" %}bg-blue-100 text-blue-700
+              {% elif employee.profile.role == "hr" %}bg-teal-100 text-teal-700
+              {% elif employee.profile.role == "finance" %}bg-amber-100 text-amber-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}'>
+              {{ employee.profile.get_role_display }}
+            </span>
+            <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold {{ employee.status_badge_class }}'>
+              {{ employee.display_status }}
+            </span>
+          </div>
+          {% endif %}
+        </div>
+
+        {# Save button — top right #}
+        <div class='flex-shrink-0'>
+          <button type='submit' class='inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm'>
+            <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg>
+            {% if action == 'Create' %}Create employee{% else %}Save changes{% endif %}
+          </button>
+        </div>
+      </div>
+
+     {% comment %} ═══════════════════════════════════════════════════════════
+         BODY
+      ═══════════════════════════════════════════════════════════ {% endcomment %}
+      <div class='px-10 py-8 space-y-10'>
+
+        {# helper macro: section title #}
+        {# ── Account credentials (create only) ── #}
+        {% if action == 'Create' %}
+        <section>
+          <div class='flex items-center gap-2 mb-5'>
+            <div class='flex items-center justify-center w-6 h-6 rounded bg-indigo-50 text-indigo-500 flex-shrink-0'>
+              <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='3' y='11' width='18' height='11' rx='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg>
+            </div>
+            <span class='text-xs font-bold text-gray-600 uppercase tracking-widest'>Account credentials</span>
+            <div class='flex-1 h-px bg-gray-100'></div>
+          </div>
+          <div class='grid grid-cols-2 gap-x-6 gap-y-4'>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Username *</label>
+              <input type='text' name='username' required autocomplete='off'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Password *</label>
+              <input type='password' name='password' required autocomplete='new-password'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition'>
+            </div>
+          </div>
+        </section>
+        {% endif %}
+
+        {# ── Personal information ── #}
+        <section>
+          <div class='flex items-center gap-2 mb-5'>
+            <div class='flex items-center justify-center w-6 h-6 rounded bg-indigo-50 text-indigo-500 flex-shrink-0'>
+              <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>
+            </div>
+            <span class='text-xs font-bold text-gray-600 uppercase tracking-widest'>Personal information</span>
+            <div class='flex-1 h-px bg-gray-100'></div>
+          </div>
+
+          <div class='grid grid-cols-2 gap-x-6 gap-y-4'>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>First name *</label>
+              <input type='text' name='first_name' required
+                value='{% if employee %}{{ employee.profile.user.first_name }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Last name</label>
+              <input type='text' name='last_name'
+                value='{% if employee %}{{ employee.profile.user.last_name }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Gender</label>
+              <select name='gender' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value=''>— Select —</option>
+                <option value='male'   {% if employee and employee.gender == 'male'   %}selected{% endif %}>Male</option>
+                <option value='female' {% if employee and employee.gender == 'female' %}selected{% endif %}>Female</option>
+                <option value='other'  {% if employee and employee.gender == 'other'  %}selected{% endif %}>Other</option>
+              </select>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Marital status</label>
+              <select name='marital_status' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value=''>— Select —</option>
+                <option value='single'   {% if employee and employee.marital_status == 'single'   %}selected{% endif %}>Single</option>
+                <option value='married'  {% if employee and employee.marital_status == 'married'  %}selected{% endif %}>Married</option>
+                <option value='divorced' {% if employee and employee.marital_status == 'divorced' %}selected{% endif %}>Divorced</option>
+                <option value='widowed'  {% if employee and employee.marital_status == 'widowed'  %}selected{% endif %}>Widowed</option>
+              </select>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Date of birth</label>
+              <input type='date' name='date_of_birth'
+                value='{% if employee %}{{ employee.date_of_birth|date:"Y-m-d" }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Phone</label>
+              <input type='text' name='phone'
+                value='{% if employee %}{{ employee.phone }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Personal email</label>
+              <input type='email' name='personal_email'
+                value='{% if employee %}{{ employee.personal_email }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Emergency contact name</label>
+              <input type='text' name='emergency_contact'
+                value='{% if employee %}{{ employee.emergency_contact }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Emergency contact phone</label>
+              <input type='text' name='emergency_phone'
+                value='{% if employee %}{{ employee.emergency_phone }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+            </div>
+          </div>
+          <div class='flex flex-col gap-1 mt-4'>
+            <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Address</label>
+            <textarea name='address' rows='2'
+              class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none transition'>{% if employee %}{{ employee.address }}{% endif %}</textarea>
+          </div>
+        </section>
+
+        {# ── Work information ── #}
+        <section>
+          <div class='flex items-center gap-2 mb-5'>
+            <div class='flex items-center justify-center w-6 h-6 rounded bg-indigo-50 text-indigo-500 flex-shrink-0'>
+              <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='2' y='7' width='20' height='14' rx='2'/><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'/></svg>
+            </div>
+            <span class='text-xs font-bold text-gray-600 uppercase tracking-widest'>Work information</span>
+            <div class='flex-1 h-px bg-gray-100'></div>
+          </div>
+          <div class='grid grid-cols-2 gap-x-6 gap-y-4'>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Work email</label>
+              <input type='email' name='work_email'
+                value='{% if employee %}{{ employee.profile.user.email }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Department</label>
+              <select name='department' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value=''>— Select —</option>
+                {% for dept in departments %}
+                <option value='{{ dept.pk }}' {% if employee and employee.department_id == dept.pk %}selected{% endif %}>{{ dept.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Designation / Job title</label>
+              <select name='designation' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value=''>— Select —</option>
+                {% for desig in designations %}
+                <option value='{{ desig.pk }}' {% if employee and employee.designation_id == desig.pk %}selected{% endif %}>{{ desig.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Employment type</label>
+              <select name='employment_type' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value='full_time' {% if employee and employee.employment_type == 'full_time' %}selected{% endif %}>Full Time</option>
+                <option value='part_time' {% if employee and employee.employment_type == 'part_time' %}selected{% endif %}>Part Time</option>
+                <option value='contract'  {% if employee and employee.employment_type == 'contract'  %}selected{% endif %}>Contract</option>
+                <option value='intern'    {% if employee and employee.employment_type == 'intern'    %}selected{% endif %}>Intern</option>
+              </select>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Assigned shift</label>
+              <select name='shift' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value=''>— No Shift —</option>
+                {% for s in shifts %}
+                <option value='{{ s.pk }}' {% if employee and employee.shift_id == s.pk %}selected{% endif %}>
+                  {{ s.name }} ({{ s.start_time|time:"H:i" }}–{{ s.end_time|time:"H:i" }})
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Date joined</label>
+              <input type='date' name='joined_date'
+                value='{% if employee %}{{ employee.joined_date|date:"Y-m-d" }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Date left</label>
+              <input type='date' name='date_left'
+                value='{% if employee %}{{ employee.date_left|date:"Y-m-d" }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>
+                Workstation hostname
+                <span class='text-gray-400 font-normal normal-case tracking-normal ml-1'>— activity tracker link</span>
+              </label>
+              <input type='text' name='hostname' placeholder='e.g. NZDWS-01' autocomplete='off'
+                value='{% if employee and employee.profile.hostname and employee.profile.hostname != "None" %}{{ employee.profile.hostname }}{% endif %}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+              <span class='text-xs text-gray-400 mt-0.5'>Must match exactly as it appears in the activity tracker DB</span>
+            </div>
+            {% if employee %}
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Employee ID</label>
+              {% if can_edit_employee_id %}
+              <input type='text' name='employee_id' required value='{{ employee.employee_id }}'
+                class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+              {% else %}
+              <input type='text' value='{{ employee.employee_id }}' disabled
+                class='px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-400 cursor-not-allowed'>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </section>
+
+        {# ── Reporting structure ── #}
+        <section>
+          <div class='flex items-center gap-2 mb-5'>
+            <div class='flex items-center justify-center w-6 h-6 rounded bg-indigo-50 text-indigo-500 flex-shrink-0'>
+              <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>
+            </div>
+            <span class='text-xs font-bold text-gray-600 uppercase tracking-widest'>Reporting structure</span>
+            <div class='flex-1 h-px bg-gray-100'></div>
+          </div>
+          <div class='grid grid-cols-3 gap-x-6 gap-y-4'>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Manager (RM1) <span class='text-gray-400 font-normal normal-case tracking-normal'>direct</span></label>
+              <select name='reports_to' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value=''>— None —</option>
+                {% for emp in employees %}{% if not employee or emp.pk != employee.pk %}
+                <option value='{{ emp.pk }}' {% if employee and employee.reports_to_id == emp.pk %}selected{% endif %}>{{ emp.employee_id }} — {{ emp.profile.full_name }}</option>
+                {% endif %}{% endfor %}
+              </select>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>RM2 <span class='text-gray-400 font-normal normal-case tracking-normal'>secondary</span></label>
+              <select name='rm2' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value=''>— None —</option>
+                {% for emp in employees %}{% if not employee or emp.pk != employee.pk %}
+                <option value='{{ emp.pk }}' {% if employee and employee.rm2_id == emp.pk %}selected{% endif %}>{{ emp.employee_id }} — {{ emp.profile.full_name }}</option>
+                {% endif %}{% endfor %}
+              </select>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Dept Head</label>
+              <select name='dept_head' class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <option value=''>— None —</option>
+                {% for emp in employees %}{% if not employee or emp.pk != employee.pk %}
+                <option value='{{ emp.pk }}' {% if employee and employee.dept_head_id == emp.pk %}selected{% endif %}>{{ emp.employee_id }} — {{ emp.profile.full_name }}</option>
+                {% endif %}{% endfor %}
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {# ── Probation & Notice — side by side ── #}
+        <div class='grid grid-cols-2 gap-8'>
+
+          {# Probation #}
+          <section class='bg-amber-50 border border-amber-100 rounded-lg p-5'>
+            <div class='flex items-center gap-2 mb-4'>
+              <div class='flex items-center justify-center w-6 h-6 rounded bg-amber-100 text-amber-600 flex-shrink-0'>
+                <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>
+              </div>
+              <span class='text-xs font-bold text-amber-700 uppercase tracking-widest'>Probation</span>
+            </div>
+            <div class='space-y-3'>
+              <label class='flex items-center gap-2 cursor-pointer'>
+                <input type='checkbox' name='on_probation' id='id_on_probation'
+                  {% if employee and employee.on_probation %}checked{% endif %}
+                  onchange='toggleProbationFields()'
+                  class='w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500'>
+                <span class='text-sm font-medium text-gray-700'>Currently on probation</span>
+              </label>
+              <div class='flex flex-col gap-1'>
+                <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Period (months)</label>
+                <input type='number' name='probation_months' id='id_probation_months'
+                  min='1' max='24' value='{% if employee %}{{ employee.probation_months }}{% else %}3{% endif %}'
+                  onchange='calculateProbationEndDate()'
+                  class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+              </div>
+              <div class='flex flex-col gap-1'>
+                <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>End date <span class='text-gray-400 font-normal normal-case tracking-normal'>auto-calculated</span></label>
+                <input type='date' name='probation_end_date' id='id_probation_end_date'
+                  value='{% if employee %}{{ employee.probation_end_date|date:"Y-m-d" }}{% endif %}' readonly
+                  class='px-3 py-2 text-sm border border-gray-200 rounded-md bg-white text-gray-500 cursor-not-allowed'>
+              </div>
+            </div>
+          </section>
+
+          {# Notice #}
+          <section class='bg-rose-50 border border-rose-100 rounded-lg p-5'>
+            <div class='flex items-center gap-2 mb-4'>
+              <div class='flex items-center justify-center w-6 h-6 rounded bg-rose-100 text-rose-600 flex-shrink-0'>
+                <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z'/><line x1='4' y1='22' x2='4' y2='15'/></svg>
+              </div>
+              <span class='text-xs font-bold text-rose-700 uppercase tracking-widest'>Notice period</span>
+            </div>
+            <div class='space-y-3'>
+              <label class='flex items-center gap-2 cursor-pointer'>
+                <input type='checkbox' name='on_notice' id='id_on_notice'
+                  {% if employee and employee.on_notice %}checked{% endif %}
+                  onchange='toggleNoticeFields()'
+                  class='w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500'>
+                <span class='text-sm font-medium text-gray-700'>Currently on notice</span>
+              </label>
+              <div class='flex flex-col gap-1'>
+                <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Period (months)</label>
+                <input type='number' name='notice_months' id='id_notice_months'
+                  min='0' max='6' value='{% if employee %}{{ employee.notice_months }}{% else %}1{% endif %}'
+                  class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white transition'>
+                <span class='text-xs text-gray-400 mt-0.5'>Set at joining; used when resignation is applied</span>
+              </div>
+              <div class='flex flex-col gap-1'>
+                <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Notice start</label>
+                <input type='date' name='notice_start' id='id_notice_start'
+                  value='{% if employee %}{{ employee.notice_start|date:"Y-m-d" }}{% endif %}'
+                  onchange='calculateNoticeEndDate()'
+                  class='px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 transition'>
+                <span class='text-xs text-gray-400 mt-0.5'>Date of resignation application</span>
+              </div>
+              <div class='flex flex-col gap-1'>
+                <label class='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Notice end <span class='text-gray-400 font-normal normal-case tracking-normal'>auto-calculated</span></label>
+                <input type='date' name='notice_end' id='id_notice_end'
+                  value='{% if employee %}{{ employee.notice_end|date:"Y-m-d" }}{% endif %}' readonly
+                  class='px-3 py-2 text-sm border border-gray-200 rounded-md bg-white text-gray-500 cursor-not-allowed'>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+
+      {% comment %} ═══════════════════════════════════════════════════════════
+         FOOTER
+      ═══════════════════════════════════════════════════════════ {% endcomment %}
+      <div class='flex items-center gap-3 px-10 py-5 border-t-2 border-gray-100 bg-gray-50 no-print'>
+        <button type='submit' class='inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm'>
+          <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/><polyline points='17 21 17 13 7 13 7 21'/><polyline points='7 3 7 8 15 8'/></svg>
+          {% if action == 'Create' %}Create employee{% else %}Save changes{% endif %}
+        </button>
+        <a href={% url 'employees:list' %} class='inline-flex items-center px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors'>
+          Cancel
+        </a>
+      </div>
+
+    </div>
+  </div>
+</form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function previewPhoto(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const preview = document.getElementById('photo-preview');
+        // Replace whatever element is there with an img showing the new photo
+        const img = document.createElement('img');
+        img.id = 'photo-preview';
+        img.src = e.target.result;
+        img.alt = 'Photo';
+        img.style.cssText = 'width:2.5cm;height:3.5cm';
+        img.className = 'rounded object-contain shadow-sm border border-gray-200 block bg-gray-50';
+        preview.replaceWith(img);
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
+function addMonths(dateStr, months) {
+    if (!dateStr) return null;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const newMonth = m + parseInt(months);
+    const newYear = y + Math.floor((newMonth - 1) / 12);
+    const resultMonth = ((newMonth - 1) % 12) + 1;
+    const lastDay = new Date(newYear, resultMonth, 0).getDate();
+    const resultDay = Math.min(d, lastDay);
+    return `${newYear}-${String(resultMonth).padStart(2, '0')}-${String(resultDay).padStart(2, '0')}`;
+}
+
+function calculateProbationEndDate() {
+    const joinedDate = document.querySelector('input[name="joined_date"]').value;
+    const probationMonths = document.getElementById('id_probation_months').value;
+    const endDateInput = document.getElementById('id_probation_end_date');
+    const isOnProbation = document.getElementById('id_on_probation').checked;
+    endDateInput.value = (isOnProbation && joinedDate && probationMonths) ? addMonths(joinedDate, probationMonths) : '';
+}
+
+function toggleProbationFields() { calculateProbationEndDate(); }
+
+function calculateNoticeEndDate() {
+    const noticeStart = document.getElementById('id_notice_start').value;
+    const noticeMonths = document.getElementById('id_notice_months').value;
+    const endDateInput = document.getElementById('id_notice_end');
+    endDateInput.value = (noticeStart && noticeMonths) ? addMonths(noticeStart, noticeMonths) : '';
+}
+
+function toggleNoticeFields() {
+    const isOnNotice = document.getElementById('id_on_notice').checked;
+    const noticeStartInput = document.getElementById('id_notice_start');
+    if (isOnNotice) {
+        if (!noticeStartInput.value) noticeStartInput.value = new Date().toISOString().split('T')[0];
+        calculateNoticeEndDate();
+    } else {
+        noticeStartInput.value = '';
+        document.getElementById('id_notice_end').value = '';
+    }
+}
+
+function initializeEmployeeForm() {
+    const joinedDateInput = document.querySelector('input[name="joined_date"]');
+    const probationMonthsInput = document.getElementById('id_probation_months');
+    if (joinedDateInput) joinedDateInput.addEventListener('change', calculateProbationEndDate);
+    if (probationMonthsInput) probationMonthsInput.addEventListener('change', calculateProbationEndDate);
+
+    const noticeStartInput = document.getElementById('id_notice_start');
+    const noticeMonthsInput = document.getElementById('id_notice_months');
+    if (noticeStartInput) noticeStartInput.addEventListener('change', calculateNoticeEndDate);
+    if (noticeMonthsInput) noticeMonthsInput.addEventListener('change', calculateNoticeEndDate);
+
+    calculateProbationEndDate();
+    calculateNoticeEndDate();
+}
+document.addEventListener('DOMContentLoaded', initializeEmployeeForm);
+document.addEventListener('htmx:afterSwap', function (event) {
+    if (event.detail.target.id === 'employee-create-region') initializeEmployeeForm();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,331 @@
+{% load project_tags %}
+{% comment %} ═══════════════════════════════════════════════════════════════════════
+   Partial: _project_row.html
+   Context variables expected:
+     project          – the Project instance
+     workspace_pk     – pk string OR "none" for no-client rows
+     can_edit, can_delete, can_archive, can_create
+     current_profile_pk
+     role
+     my_task_ids
+   Fix #16 – single source of truth for project rows (replaces duplication)
+   Fix #7  – consistent progress-bar colour logic in all rows
+   Fix #8  – data-client always present (passes workspace_pk)
+   Fix #9  – Directory sub-tab always present
+   Fix #14 – Review + Blocked filter buttons always present
+   Fix #15 – Completed column always present; colspan synced to 7
+═══════════════════════════════════════════════════════════════════════ {% endcomment %}
+<div class="tree-proj tree-row group"
+     id="proj-row-{{ project.pk }}"
+     data-status="{{ project.status }}"
+     data-client="{{ workspace_pk }}"
+     data-client-name="{{ project.client_name|lower }}"
+     data-name="{{ project.name|lower }}"
+     data-date="{{ project.created_at|date:'U' }}">
+
+  {# ── Row header ── #}
+  <div class="flex cursor-pointer items-center gap-2.5 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800/60"
+       onclick="toggleProj('pt-{{ project.pk }}')">
+    <span class="tree-proj-arrow text-xs text-gray-400 transition-transform duration-200" id="arr-pt-{{ project.pk }}">▶</span>
+    <span>📁</span>
+    <span class="font-medium text-gray-900 dark:text-gray-100">{{ project.name }}</span>
+    {% if project.handler_id %}
+      <span class="ml-1 text-[11px] text-gray-500">({{ project.handler.full_name }})</span>
+    {% endif %}
+
+    <span class="ml-2 flex items-center gap-1" onclick="event.stopPropagation()" id="dates-{{ project.pk }}">
+      {% if not can_edit %}
+        <span class="text-xs text-gray-500">{{ project.start_date|date:'d M Y' }} → {{ project.end_date|date:'d M Y'|default:'Not set' }}</span>
+      {% elif project.start_date or project.end_date %}
+        <input type="date"
+               class="rounded border-none bg-transparent px-1 py-0 text-xs text-gray-600 hover:bg-gray-200 focus:ring-0 dark:text-gray-400 dark:hover:bg-gray-700"
+               value="{{ project.start_date|date:'Y-m-d' }}" title="Start date"
+               onchange="updateDate({{ project.pk }},'start_date',this.value)">
+        <span class="text-gray-400">→</span>
+        <input type="date"
+               class="rounded border-none bg-transparent px-1 py-0 text-xs text-gray-600 hover:bg-gray-200 focus:ring-0 dark:text-gray-400 dark:hover:bg-gray-700"
+               value="{{ project.end_date|date:'Y-m-d' }}" title="End date"
+               onchange="updateDate({{ project.pk }},'end_date',this.value)">
+      {% elif can_edit %}
+        <button type="button"
+                class="rounded px-2 py-0.5 text-[11px] text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                onclick="showProjectDates({{ project.pk }})" title="Set start / end dates">📅 Set dates</button>
+      {% endif %}
+    </span>
+
+    {% if project.contributors %}
+    <span class="ml-3 flex -space-x-1 overflow-hidden" title="Contributors (tasks + subtasks)"
+          aria-label="Project contributors" onclick="event.stopPropagation()">
+      {% for u in project.contributors|slice:":4" %}
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[9px] font-medium text-indigo-700 ring-2 ring-white dark:ring-gray-900"
+              title="{{ u.full_name }}">{{ u.initials }}</span>
+      {% endfor %}
+      {% if project.contributors|length > 4 %}
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[9px] font-medium text-gray-600 ring-2 ring-white dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-900"
+              title="{{ project.contributors|length }} contributors">+{{ project.contributors|length|add:"-4" }}</span>
+      {% endif %}
+    </span>
+    {% endif %}
+
+    <div class="ml-auto flex items-center gap-3" onclick="event.stopPropagation()">
+      {# Comment badge #}
+      <a href="{% url 'projects:detail' project.pk %}#project-comments"
+         class="proj-comment-badge inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[11px] no-underline transition-colors {% if project.comment_count %}bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400{% else %}bg-transparent text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}"
+         data-project-id="{{ project.pk }}"
+         onclick="event.stopPropagation(); if (window.openProjComment) { window.openProjComment(this); } return false;"
+         title="{% if project.comment_count %}{{ project.comment_count }} comment{{ project.comment_count|pluralize }}{% else %}No comments yet — click to start the discussion{% endif %}">
+        💬 <span data-comment-count-num>{{ project.comment_count|default:"0" }}</span>
+      </a>
+
+      {# Fix #7 – progress bar colour consistent in ALL rows #}
+      <div class="h-1.5 w-20 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div class="h-full rounded-full transition-all duration-300
+          {% if project.progress_pct >= 80 %}bg-emerald-500
+          {% elif project.progress_pct >= 50 %}bg-indigo-500
+          {% elif project.progress_pct >= 25 %}bg-amber-500
+          {% else %}bg-red-500{% endif %}"
+             style="width:{{ project.progress_pct }}%;"></div>
+      </div>
+
+      <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+        {{ project.get_status_display }}
+      </span>
+
+      {% if can_edit %}
+        <a href="{% url 'projects:edit' project.pk %}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Edit">✏️</a>
+      {% endif %}
+      {% if can_archive %}
+      <form method="post" action="{% url 'projects:archive' project.pk %}" class="inline">
+        {% csrf_token %}<input type="hidden" name="next" value="{% url 'projects:index' %}">
+        <button type="submit" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                title="Archive" data-confirm="Archive this project?">🗄️</button>
+      </form>
+      {% endif %}
+      {% if can_delete %}
+      <form method="post" action="{% url 'projects:delete' project.pk %}" class="inline">
+        {% csrf_token %}<input type="hidden" name="next" value="{% url 'projects:index' %}">
+        <button type="submit" class="text-red-400 hover:text-red-600"
+                title="Delete" data-confirm="Permanently delete this project?">🗑️</button>
+      </form>
+      {% endif %}
+      <a href="{% url 'projects:detail' project.pk %}"
+         class="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400" title="Open">↗</a>
+    </div>
+  </div>
+
+  {# ── Expanded panel ── #}
+  <div class="tree-tasks border-t border-gray-100 bg-gray-50/50 dark:border-gray-800 dark:bg-gray-900/50"
+       id="pt-{{ project.pk }}">
+
+    {# Fix #9 – Directory tab always present (was missing for no-client rows) #}
+    <div class="flex gap-4 border-b border-gray-200 px-4 pt-2 dark:border-gray-800">
+      <button class="proj-tab border-b-2 border-indigo-500 px-1 pb-2 text-sm font-medium text-indigo-600 dark:text-indigo-400"
+              onclick="switchProjTab('pt-{{ project.pk }}','tasks',this)">Tasks</button>
+      <button class="proj-tab border-b-2 border-transparent px-1 pb-2 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              onclick="switchProjTab('pt-{{ project.pk }}','directory',this)">📂 Directory</button>
+    </div>
+
+    {# ── TASKS VIEW ── #}
+    <div class="proj-view active p-4" id="pt-{{ project.pk }}-tasks">
+      {# Fix #14 – Review + Blocked filter buttons always present #}
+      <div class="mb-3 flex flex-wrap items-center gap-2">
+        <span class="text-[11px] font-semibold text-gray-500">Filter:</span>
+        <button class="rounded bg-indigo-50 px-2.5 py-1 text-[10.5px] font-medium text-indigo-600 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/30"
+                onclick="filterTasks('pt-{{ project.pk }}','all',this)">All</button>
+        <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                onclick="filterTasks('pt-{{ project.pk }}','todo',this)">To Do</button>
+        <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                onclick="filterTasks('pt-{{ project.pk }}','in_progress',this)">In Progress</button>
+        <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                onclick="filterTasks('pt-{{ project.pk }}','review',this)">Review</button>
+        <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                onclick="filterTasks('pt-{{ project.pk }}','done',this)">Done</button>
+        <button class="rounded bg-gray-100 px-2.5 py-1 text-[10.5px] font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                onclick="filterTasks('pt-{{ project.pk }}','blocked',this)">Blocked</button>
+      </div>
+
+      <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+          <thead class="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:border-gray-800 dark:bg-gray-800/50">
+            <tr>
+              {# Fix #15 – all task tables have the same 7 columns #}
+              <th class="px-3 py-2 w-8">
+                <input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                       onclick="toggleAllTasks('pt-{{ project.pk }}-tbody',this)">
+              </th>
+              <th class="px-3 py-2">Task</th>
+              <th class="px-3 py-2 w-32">Status</th>
+              <th class="px-3 py-2 w-24">Assignees</th>
+              <th class="px-3 py-2 w-28">Deadline</th>
+              <th class="px-3 py-2 w-32">Completed</th>
+              <th class="px-3 py-2 w-20">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-800" id="pt-{{ project.pk }}-tbody">
+            {% for task in project.prefetched_tasks %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                id="tr-{{ task.pk }}"
+                data-status="{{ task.status }}"
+                data-title="{{ task.title|escapejs }}"
+                data-priority="{{ task.priority }}"
+                data-assigned="{{ task.assigned_to_id|default:'' }}"
+                data-due="{{ task.due_date|default:'' }}">
+              <td class="px-3 py-2">
+                <input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+              </td>
+              <td class="px-3 py-2">
+                <div class="font-medium text-gray-900 dark:text-white" data-task-title>
+                  {{ task.title }}
+                  <span class="ml-2 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset
+                    {% if task.priority == 'high' %}bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-900/30 dark:text-red-400
+                    {% elif task.priority == 'medium' %}bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-900/30 dark:text-amber-400
+                    {% else %}bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-800 dark:text-gray-400{% endif %}"
+                       id="prio-chip-{{ task.pk }}"
+                       title="Priority: {{ task.get_priority_display }}">{{ task.get_priority_display }}</span>
+                </div>
+                {% if task.live_subtask_count or can_create or task.assigned_to_id == current_profile_pk or project.handler_id == current_profile_pk %}
+                <span class="mt-1 inline-flex cursor-pointer text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                      onclick="toggleSubs('subs-{{ task.pk }}',this)">
+                  {% if task.live_subtask_count %}▶ {{ task.live_subtask_count }} subtask{{ task.live_subtask_count|pluralize }}{% else %}▶ Add subtasks{% endif %}
+                </span>
+                <div class="pl-3 pt-2 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 ml-1 mt-1"
+                     id="subs-{{ task.pk }}">
+					 <style="display:none">
+                  {% for sub in task.subtasks.all %}{% if not sub.deleted %}
+                  <div class="flex items-center gap-2 text-xs" id="sub-row-{{ sub.pk }}"
+                       data-sub="{{ sub.pk }}" data-title="{{ sub.title|escapejs }}"
+                       data-status="{{ sub.status }}" data-assigned="{{ sub.assigned_to_id|default:'' }}">
+                    <span class="h-1.5 w-1.5 rounded-full {% if sub.status == 'done' %}bg-emerald-500{% else %}bg-gray-400{% endif %}"
+                          title="{{ sub.get_status_display }}"></span>
+                    <span class="text-gray-700 dark:text-gray-300">{{ sub.title }}</span>
+                    {% assignee_stack sub kind='subtask' size='sm' %}
+                    {% if can_create or task.assigned_to_id == current_profile_pk or sub.assigned_to_id == current_profile_pk or project.handler_id == current_profile_pk %}
+                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            title="Edit subtask" onclick="openSubEdit({{ sub.pk }})">✏️</button>
+                    {% endif %}
+                    {% if can_delete %}
+                    <button type="button" class="text-red-400 hover:text-red-600"
+                            title="Delete subtask" onclick="deleteSubtaskInline({{ sub.pk }})">✗</button>
+                    {% endif %}
+                    <select class="ml-auto block rounded border-gray-300 py-0.5 pl-2 pr-6 text-[10px] focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                            onchange="updateSubStatus({{ sub.pk }},this)"
+                            {% if role == 'user' and sub.assigned_to_id != current_profile_pk and task.assigned_to_id != current_profile_pk %}disabled{% endif %}>
+                      {% for val, label in sub.STATUS_CHOICES %}
+                        <option value="{{ val }}" {% if sub.status == val %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  {% endif %}{% endfor %}
+                  {% if can_create or task.assigned_to_id == current_profile_pk or project.handler_id == current_profile_pk %}
+                  <div class="mt-2 flex items-center gap-2 border-t border-gray-100 pt-2 dark:border-gray-800"
+                       id="sub-add-{{ task.pk }}">
+                    <input class="block w-full min-w-[100px] flex-1 rounded border-gray-300 px-2 py-1 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                           id="newsub-{{ task.pk }}" placeholder="Add subtask…"
+                           onkeydown="if(event.key==='Enter'){addSubtaskInline({{ task.pk }},this);event.preventDefault();}">
+                    <button class="shrink-0 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                            onclick="addSubtaskInline({{ task.pk }},document.getElementById('newsub-{{ task.pk }}'))">+</button>
+                    <button type="button" class="shrink-0 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                            title="Add several subtasks at once" onclick="toggleBulkSubtasks({{ task.pk }})">Bulk add</button>
+                  </div>
+                  <div class="mt-2" id="bulksub-panel-{{ task.pk }}" style="display:none;">
+                    <textarea id="bulksub-ta-{{ task.pk }}" rows="4"
+                              class="block w-full rounded border-gray-300 px-2 py-1 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                              placeholder="One subtask per line…"></textarea>
+                    <div class="mt-1 flex items-center gap-2">
+                      <button type="button" class="shrink-0 rounded bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700"
+                              onclick="submitBulkSubtasks({{ task.pk }})">Add all</button>
+                      <button type="button" class="shrink-0 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                              onclick="toggleBulkSubtasks({{ task.pk }})">Cancel</button>
+                      <span class="text-[10px] text-gray-400">One per line · up to 100</span>
+                    </div>
+                  </div>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2">
+                <select class="block w-full rounded border-gray-300 py-1 pl-2 pr-8 text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                        onchange="updateTaskStatus({{ task.pk }},this)"
+                        {% if role == 'user' and task.pk not in my_task_ids %}disabled{% endif %}>
+                  {% for val, label in task.STATUS_CHOICES %}
+                    <option value="{{ val }}" {% if task.status == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="px-3 py-2">{% assignee_stack task kind='task' size='md' %}</td>
+              <td class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">{{ task.due_date|default:"—" }}</td>
+              {# Fix #15 – Completed column always present #}
+              <td class="px-3 py-2 text-xs {% if task.completed_at %}text-emerald-600 dark:text-emerald-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                {% if task.completed_at %}✓ {{ task.completed_at }}{% else %}—{% endif %}
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-1.5">
+                  {% if can_edit or task.assigned_to_id == current_profile_pk %}
+                  <button class="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                          title="Edit" onclick="openTaskEdit({{ task.pk }})">✏️</button>
+                  {% endif %}
+                  {% if can_delete %}
+                  <button type="button" class="text-red-400 hover:text-red-600"
+                          title="Delete" onclick="deleteTaskInline({{ task.pk }})">✗</button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not project.prefetched_tasks %}
+            <tr>
+              {# Fix #15 – colspan matches 7-column header #}
+              <td colspan="7" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">No tasks yet.</td>
+            </tr>
+            {% endif %}
+            {% if can_create or project.handler_id == current_profile_pk %}
+            <tr class="bg-gray-50 dark:bg-gray-800/30" id="add-task-row-{{ project.pk }}">
+              <td></td>
+              {# Fix #15 – colspan 6 matches 7-column header (1 checkbox + 6) #}
+              <td colspan="6" class="p-2">
+                <div class="flex items-center gap-2">
+                  <input class="block w-full flex-1 rounded-md border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                         id="newtask-{{ project.pk }}" placeholder="+ Add a task…"
+                         onkeydown="if(event.key==='Enter'){addTaskInline({{ project.pk }},this);event.preventDefault();}">
+                  <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+                          onclick="addTaskInline({{ project.pk }},document.getElementById('newtask-{{ project.pk }}'))">Add</button>
+                </div>
+              </td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# ── DIRECTORY VIEW (Fix #9 – always present) ── #}
+    <div class="proj-view p-4" id="pt-{{ project.pk }}-directory">
+      <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div class="text-sm font-semibold text-gray-900 dark:text-white">Project Directory</div>
+          <div class="text-xs text-gray-500">Click files to open · folders expand</div>
+        </div>
+        <div class="mb-4 flex items-center gap-2 rounded-md bg-gray-50 p-2 dark:bg-gray-800/50">
+          <span class="text-base">📁</span>
+          <input class="block w-full flex-1 rounded border-transparent bg-transparent px-2 py-1 text-sm text-gray-900 focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 dark:text-white dark:focus:bg-gray-800"
+                 id="dir-root-{{ project.pk }}"
+                 placeholder="Paste root path, e.g. /Users/name/projects/my-project"
+                 onchange="dirSetRoot('{{ project.pk }}',this.value)">
+          <button class="shrink-0 whitespace-nowrap rounded bg-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  onclick="dirSetRoot('{{ project.pk }}',document.getElementById('dir-root-{{ project.pk }}').value)">Set Root</button>
+        </div>
+        <div id="dir-tree-{{ project.pk }}" class="ml-2 border-l border-gray-200 pl-4 dark:border-gray-700"></div>
+        <div class="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <span class="whitespace-nowrap text-xs font-semibold text-gray-500">Add entry:</span>
+          <input class="block w-full flex-1 rounded-md border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                 id="dir-add-{{ project.pk }}"
+                 placeholder="filename.ext or folder/ (end with / for folder)"
+                 onkeydown="if(event.key==='Enter')dirAdd('{{ project.pk }}',this)">
+          <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+                  onclick="dirAdd('{{ project.pk }}',document.getElementById('dir-add-{{ project.pk }}'))">Add</button>
+        </div>
+      </div>
+    </div>
+
+  </div>{# /expanded panel #}
+</div>{# /tree-proj #}

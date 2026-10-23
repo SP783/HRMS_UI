@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Backup History — {{ site_name }}{% endblock %}
+{% block page_title %}Backup History{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'settings_app:backup' %}" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+  &larr; Backup settings
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-sm border border-gray-200 sm:rounded-lg overflow-hidden">
+  <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-gray-50 border-b border-gray-200">
+    <h3 class="text-lg leading-6 font-semibold text-gray-900">All backup runs</h3>
+    <span class="text-sm font-medium text-gray-500">{{ logs|length }} records</span>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date / time</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trigger</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Overall</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Local</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GDrive</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OneDrive</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NAS</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telegram</th>
+          {% if role == "super_admin" %}
+          <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Download</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for log in logs %}
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.run_at|date:"d M Y H:i" }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.triggered_by }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600">{{ log.filename }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.file_size_kb }} KB</td>
+          
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+              {% if log.overall_status == 'success' %} bg-green-100 text-green-800
+              {% elif log.overall_status == 'partial' %} bg-yellow-100 text-yellow-800
+              {% else %} bg-red-100 text-red-800 {% endif %}">
+              {{ log.overall_status }}
+            </span>
+          </td>
+
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if log.local_status %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize
+                {% if log.local_status == 'success' %} bg-green-100 text-green-800
+                {% elif log.local_status == 'error' or log.local_status == 'failed' %} bg-red-100 text-red-800
+                {% else %} bg-gray-100 text-gray-800 {% endif %}">
+                {{ log.local_status }}
+              </span>
+            {% else %}
+              <span class="text-gray-400">&mdash;</span>
+            {% endif %}
+          </td>
+
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if log.gdrive_status %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize
+                {% if log.gdrive_status == 'success' %} bg-green-100 text-green-800
+                {% elif log.gdrive_status == 'error' or log.gdrive_status == 'failed' %} bg-red-100 text-red-800
+                {% else %} bg-gray-100 text-gray-800 {% endif %}">
+                {{ log.gdrive_status }}
+              </span>
+            {% else %}
+              <span class="text-gray-400">&mdash;</span>
+            {% endif %}
+          </td>
+
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if log.onedrive_status %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize
+                {% if log.onedrive_status == 'success' %} bg-green-100 text-green-800
+                {% elif log.onedrive_status == 'error' or log.onedrive_status == 'failed' %} bg-red-100 text-red-800
+                {% else %} bg-gray-100 text-gray-800 {% endif %}">
+                {{ log.onedrive_status }}
+              </span>
+            {% else %}
+              <span class="text-gray-400">&mdash;</span>
+            {% endif %}
+          </td>
+
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if log.nas_status %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize
+                {% if log.nas_status == 'success' %} bg-green-100 text-green-800
+                {% elif log.nas_status == 'error' or log.nas_status == 'failed' %} bg-red-100 text-red-800
+                {% else %} bg-gray-100 text-gray-800 {% endif %}">
+                {{ log.nas_status }}
+              </span>
+            {% else %}
+              <span class="text-gray-400">&mdash;</span>
+            {% endif %}
+          </td>
+
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if log.telegram_sent %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Sent</span>
+            {% elif log.telegram_error %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 cursor-help" title="{{ log.telegram_error }}">Failed</span>
+            {% else %}
+              <span class="text-gray-400">&mdash;</span>
+            {% endif %}
+          </td>
+
+          {% if role == "super_admin" %}
+          <td class="px-6 py-4 whitespace-nowrap text-center">
+            <a href="{% url 'settings_app:download_backup' log.pk %}" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors" title="Download">
+              &darr;
+            </a>
+          </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="11" class="px-6 py-12 text-center text-sm text-gray-500 italic bg-white">
+            No backup history yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

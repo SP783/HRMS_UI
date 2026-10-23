@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Leave Usage Report — {{ site_name }}{% endblock %}
+{% block page_title %}Leave Usage Report{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'leave:index' %}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+    &larr; Leave Requests
+  </a>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+{% include 'leave/partials/_tabs.html' %}
+
+
+<div class="bg-white shadow rounded-lg mb-6">
+  <div class="p-4 sm:p-6">
+    <form data-ui-filter method="get" class="flex flex-wrap items-center gap-4">
+      
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-700">Year:</label>
+        <input type="number" name="year" class="block w-24 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-blue-500 outline-none shadow-sm" value="{{ year }}">
+      </div>
+
+      {% if not is_own_only %}
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-700">Dept:</label>
+        <select name="dept" class="block w-full sm:w-auto min-w-[160px] rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-blue-500 outline-none shadow-sm">
+          <option value="">All Departments</option>
+          {% for d in departments %}
+          <option value="{{ d.pk }}" {% if dept_id == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-700">Type:</label>
+        <select name="type" class="block w-full sm:w-auto min-w-[140px] rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-blue-500 outline-none shadow-sm">
+          <option value="">All Types</option>
+          {% for lt in leave_types %}
+          <option value="{{ lt.pk }}" {% if lt_id == lt.pk|stringformat:"s" %}selected{% endif %}>{{ lt.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if not is_own_only %}
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-700">Employee:</label>
+        <select name="emp" class="block w-full sm:w-auto min-w-[180px] rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-blue-500 outline-none shadow-sm">
+          <option value="">All Employees</option>
+          {% for e in employees %}
+          <option value="{{ e.employee_id }}" {% if emp_id == e.employee_id %}selected{% endif %}>{{ e.profile.full_name }} ({{ e.employee_id }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <button type="submit" class="inline-flex items-center px-4 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+        Filter
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+  <div class="bg-white shadow rounded-lg p-5 flex items-center">
+    <div class="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 text-blue-600">
+      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    </div>
+    <div class="ml-4">
+      <span class="block text-sm font-medium text-gray-500">Employees</span>
+      <span class="block text-2xl font-semibold text-gray-900">{{ employee_usage|length }}</span>
+    </div>
+  </div>
+  
+  <div class="bg-white shadow rounded-lg p-5 flex items-center">
+    <div class="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 text-yellow-600">
+      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <div class="ml-4">
+      <span class="block text-sm font-medium text-gray-500">Total Days Used</span>
+      <span class="block text-2xl font-semibold text-gray-900">{{ total_days_used|floatformat:"-1" }}</span>
+    </div>
+  </div>
+</div>
+
+{% for emp_id, data in employee_usage.items %}
+<div class="bg-white shadow rounded-lg mb-6 overflow-hidden">
+  
+  <div class="px-4 py-4 sm:px-6 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-600 uppercase">
+        {{ data.profile.initials }}
+      </div>
+      <div>
+        <div class="text-sm font-semibold text-gray-900">{{ data.profile.full_name }}</div>
+        <div class="text-sm text-gray-500">{{ data.profile.employee_id }}</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+        {{ data.department.name|default:"No Dept" }}
+      </span>
+      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+        {{ data.total_days|floatformat:"-1" }} days used
+      </span>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-white">
+        <tr>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">To</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Half Day</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved By</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for req in data.requests %}
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+              {{ req.leave_type.name }}
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ req.start_date|date:"d M Y" }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ req.end_date|date:"d M Y" }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+            {{ req.total_days }}
+            {% if req.half_day %}
+            <span class="text-xs text-gray-400 font-normal ml-1">(½)</span>
+            {% endif %}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if req.half_day %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+              {{ req.get_half_day_display }}
+            </span>
+            {% else %}
+            <span class="text-sm text-gray-400">&mdash;</span>
+            {% endif %}
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-500 max-w-[200px] truncate">
+            {{ req.reason|default:"&mdash;" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {{ req.reviewed_by.full_name|default:"&mdash;" }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% empty %}
+<div class="bg-white shadow rounded-lg p-10 text-center">
+  <div class="text-5xl mb-4">📋</div>
+  <h3 class="text-lg font-medium text-gray-900">No leave usage found</h3>
+  <p class="mt-2 text-sm text-gray-500">No approved leave requests match your filters for {{ year }}.</p>
+</div>
+{% endfor %}
+
+
+</section>
+{% endblock %}

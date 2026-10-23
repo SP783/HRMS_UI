@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Reports — {{ site_name }}{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+
+{% block content %}
+{% if reports_shared %}<form method="get" class="mb-5 flex flex-wrap items-end gap-3 rounded-lg border p-4"><label class="grid gap-1 text-sm">Organization<select name="org" class="rounded-md border p-2"><option value="">All authorized organizations</option>{% for org in report_organizations %}<option value="{{ org.pk }}" {% if org_filter == org.pk|stringformat:'s' %}selected{% endif %}>{{ org.name }}</option>{% endfor %}</select></label><button class="rounded-md border px-4 py-2">Apply</button><p class="text-sm text-muted">Reports retain each organization’s Reports permissions and department restrictions.</p></form>{% endif %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 flex flex-col">
+    <div class="p-6 flex-1 flex flex-col">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Attendance Report</h3>
+          <p class="text-sm text-gray-500">Monthly check-in/out records</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600 mb-6 flex-1">View and export monthly attendance data including check-in/out times, duration, and status for all employees.</p>
+      <div class="flex flex-wrap items-center gap-3 mt-auto">
+        <a href="{% url 'reports:attendance' %}?{{ request.GET.urlencode }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          View Report
+        </a>
+        <a href="{% url 'reports:export' 'attendance' %}?{{ request.GET.urlencode }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          Export CSV
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 flex flex-col">
+    <div class="p-6 flex-1 flex flex-col">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Leave Report</h3>
+          <p class="text-sm text-gray-500">Leave requests by type and status</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600 mb-6 flex-1">Track leave requests by type, status, and employee. Monitor leave utilization across departments.</p>
+      <div class="flex flex-wrap items-center gap-3 mt-auto">
+        <a href="{% url 'reports:leave' %}?{{ request.GET.urlencode }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          View Report
+        </a>
+        <a href="{% url 'reports:export' 'leave' %}?{{ request.GET.urlencode }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          Export CSV
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 flex flex-col">
+    <div class="p-6 flex-1 flex flex-col">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Headcount Report</h3>
+          <p class="text-sm text-gray-500">Active employees by department</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600 mb-6 flex-1">View active employee counts by department, designation, and employment type. Track workforce composition.</p>
+      <div class="flex flex-wrap items-center gap-3 mt-auto">
+        <a href="{% url 'reports:headcount' %}?{{ request.GET.urlencode }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          View Report
+        </a>
+        <a href="{% url 'reports:export' 'headcount' %}?{{ request.GET.urlencode }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          Export CSV
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {% if role == "super_admin" %}
+  <div class="md:col-span-2 lg:col-span-3 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border-2 border-indigo-200 shadow-sm flex flex-col">
+    <div class="p-6">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="flex-shrink-0 w-14 h-14 flex items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-gray-900">Export All Data</h3>
+          <p class="text-sm text-indigo-700 font-medium">Complete system data export (Super Admin)</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-700 mb-6 max-w-3xl">One-click export of all system data including employees, attendance records, leave requests, and projects. Available in Excel (.xlsx) and CSV formats.</p>
+      
+      <div class="flex flex-wrap items-center gap-4">
+        <form method="post" action="{% url 'settings_app:export_all' %}" class="inline-block">
+          {% csrf_token %}
+          <input type="hidden" name="format" value="xlsx">
+          <button type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors shadow-sm">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Excel
+          </button>
+        </form>
+        
+        <form method="post" action="{% url 'settings_app:export_all' %}" class="inline-block">
+          {% csrf_token %}
+          <input type="hidden" name="format" value="csv">
+          <button type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium text-indigo-700 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors shadow-sm">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

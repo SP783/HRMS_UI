@@ -1,0 +1,77 @@
+{% comment %}
+Design tokens (CSS custom properties) for the Projects family of pages.
+
+[TAILWIND REFACTOR NOTE]: 
+The HTML templates have been migrated to use Tailwind utility classes 
+(e.g., bg-gray-50, text-indigo-600). These CSS variables have been updated 
+to output exact Tailwind color hexes to act as a bridge. This ensures any 
+lingering custom CSS (like projects.css) perfectly matches the new Tailwind 
+theme until all legacy CSS is fully removed.
+{% endcomment %}
+{% load static %}
+<style>
+  /* Self-hosted Fraunces (variable: opsz 9–144, wght 300–600) — no Google
+     Fonts / internet dependency. Font file lives in static/fonts/. */
+  @font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url("{% static 'fonts/fraunces-variable.woff2' %}") format('woff2-variations');
+  }
+
+  :root {
+    /* Mapped to Tailwind 'Gray' */
+    --ink: #111827;       /* text-gray-900 */
+    --ink2: #4b5563;      /* text-gray-600 */
+    --ink3: #9ca3af;      /* text-gray-400 */
+    --bg: #f9fafb;        /* bg-gray-50 */
+    --bg2: #f3f4f6;       /* bg-gray-100 */
+    --bg3: #e5e7eb;       /* bg-gray-200 */
+    --surface: #ffffff;   /* bg-white */
+    --surface2: #f9fafb;  /* bg-gray-50 */
+    --border: #e5e7eb;    /* border-gray-200 */
+    --border2: #d1d5db;   /* border-gray-300 */
+    
+    /* Mapped to Tailwind 'Indigo' (Primary Accent) */
+    --accent: #4f46e5;    /* indigo-600 */
+    --accent-lt: #eef2ff; /* indigo-50 */
+    --accent-light: rgba(79, 70, 229, 0.12);
+    
+    /* Status Colors */
+    --green: #10b981;     /* emerald-500 */
+    --green-lt: #ecfdf5;  /* emerald-50 */
+    --amber: #f59e0b;     /* amber-500 */
+    --amber-lt: #fffbeb;  /* amber-50 */
+    --red: #ef4444;       /* red-500 */
+    --red-lt: #fef2f2;    /* red-50 */
+    --purple: #8b5cf6;    /* purple-500 */
+    --purple-lt: #f5f3ff; /* purple-50 */
+    --teal: #14b8a6;      /* teal-500 */
+    --teal-lt: #f0fdfa;   /* teal-50 */
+    
+    /* Tailwind Default Shadows & Radii */
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --r: 0.5rem;          /* rounded-lg */
+    
+    /* Tailwind Default Sans-Serif Font Stack */
+    --font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  
+  [data-theme="dark"] {
+    /* Mapped to Tailwind Dark Mode 'Gray' */
+    --ink: #f9fafb;       /* text-gray-50 */
+    --ink2: #9ca3af;      /* text-gray-400 */
+    --ink3: #6b7280;      /* text-gray-500 */
+    --bg: #111827;        /* bg-gray-900 */
+    --bg2: #1f2937;       /* bg-gray-800 */
+    --bg3: #374151;       /* bg-gray-700 */
+    --surface: #1f2937;   /* bg-gray-800 */
+    --surface2: #111827;  /* bg-gray-900 */
+    --border: #374151;    /* border-gray-700 */
+    --border2: #4b5563;   /* border-gray-600 */
+  }
+  
+  .fraunces { font-family: 'Fraunces', serif; }
+</style>

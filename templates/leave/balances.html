@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Leave Balances — {{ site_name }}{% endblock %}
+{% block page_title %}Leave Balances{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'leave:index' %}" class="text-sm text-gray-600 hover:text-gray-900 flex items-center font-medium transition-colors">
+    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+    Leave Requests
+  </a>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+{% include 'leave/partials/_tabs.html' %}
+
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+  <div class="p-4">
+    <form data-ui-filter method="get" class="flex gap-4 items-center flex-wrap">
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500 font-medium">Year:</label>
+        <input type="number" name="year" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-24" value="{{ year }}">
+      </div>
+      
+      {% if not is_own_only %}
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500 font-medium">Dept:</label>
+        <select name="dept" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-w-[160px]">
+          <option value="">All Departments</option>
+          {% for d in departments %}
+          <option value="{{ d.pk }}" {% if dept_id == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      
+      <button type="submit" class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md px-4 py-1.5 text-sm font-medium transition-colors shadow-sm">
+        Filter
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse whitespace-nowrap">
+      <thead>
+        <tr class="bg-gray-50 border-b border-gray-200">
+          <th class="px-4 py-3 font-semibold text-gray-700 text-sm">EMP ID</th>
+          <th class="px-4 py-3 font-semibold text-gray-700 text-sm">Name</th>
+          <th class="px-4 py-3 font-semibold text-gray-700 text-sm">Department</th>
+          {% for lt in leave_types %}
+          <th class="px-4 py-3 font-semibold text-gray-700 text-sm text-center min-w-[120px]">
+            {{ lt.name }}
+            {% if lt.is_gender_restricted %}
+            <br><span class="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">{{ lt.get_gender_restriction_display }}</span>
+            {% endif %}
+          </th>
+          {% endfor %}
+          <th class="px-4 py-3 font-semibold text-gray-700 text-sm text-center">Total Used</th>
+          <th class="px-4 py-3 font-semibold text-gray-700 text-sm text-center">Total Remaining</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for row in balance_rows %}
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-4 py-3 text-gray-500 text-sm font-mono">{{ row.profile.employee_id }}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+                {{ row.profile.initials }}
+              </div>
+              <span class="font-medium text-gray-900 text-sm">{{ row.profile.full_name }}</span>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-sm">
+            {% if row.employee.department %}
+            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{{ row.employee.department.name }}</span>
+            {% else %}
+            <span class="text-gray-400">—</span>
+            {% endif %}
+          </td>
+          
+          {% for lt, bal in row.ordered_pairs %}
+          <td class="px-4 py-3 text-center align-middle">
+            {% if bal %}
+              {% if bal.pk %}
+              <div class="flex items-center justify-center gap-1.5">
+                <span title="Allocated: {{ bal.allocated|floatformat:"-1" }} | Used: {{ bal.used|floatformat:"-1" }} | CF: {{ bal.carried_forward|floatformat:"-1" }} | Remaining: {{ bal.remaining|floatformat:"-1" }}">
+                  <span class="font-semibold text-sm {% if bal.remaining == 0 %}text-red-600{% elif bal.pct_used > 80 %}text-red-600{% elif bal.pct_used > 50 %}text-yellow-600{% else %}text-gray-900{% endif %}">
+                    {{ bal.remaining|floatformat:"-1" }}
+                  </span>
+                  <span class="text-gray-400 text-xs"> / {{ bal.total_available|floatformat:"-1" }}</span>
+                </span>
+                
+                {% if can_edit %}
+                <button type="button" class="text-gray-400 hover:text-blue-600 transition-colors p-1" 
+                  onclick="openBalanceModal({{ bal.pk }}, '{{ lt.name|escapejs }}', '{{ row.profile.full_name|escapejs }}', {{ bal.allocated }}, {{ bal.used }}, {{ bal.carried_forward }})"
+                  title="Edit {{ lt.name }} balance">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </button>
+                {% endif %}
+              </div>
+              {% else %}
+              <span title="Allocated: {{ bal.allocated|floatformat:"-1" }} | Not yet saved to database" class="inline-block">
+                <span class="font-semibold text-sm text-gray-900">{{ bal.remaining|floatformat:"-1" }}</span>
+                <span class="text-gray-400 text-xs"> / {{ bal.total_available|floatformat:"-1" }}</span>
+              </span>
+              {% endif %}
+              
+              <div class="w-full bg-gray-100 rounded-full h-1 mt-1.5 overflow-hidden">
+                <div class="h-full rounded-full {% if bal.pct_used > 80 %}bg-red-500{% elif bal.pct_used > 50 %}bg-yellow-400{% else %}bg-green-500{% endif %}" style="width:{{ bal.pct_used }}%"></div>
+              </div>
+              
+            {% else %}
+              {% if can_edit %}
+                <a href="{% url 'leave:balance_grant' row.profile.pk lt.pk %}?year={{ year }}"
+                   class="inline-block text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:bg-blue-50 rounded px-2 py-1 transition-colors"
+                   title="Grant {{ lt.name }} manually (overrides eligibility)">
+                  + Grant
+                </a>
+              {% else %}
+                <span class="text-gray-300">—</span>
+              {% endif %}
+            {% endif %}
+          </td>
+          {% endfor %}
+          
+          <td class="px-4 py-3 text-center font-semibold text-sm text-gray-900">{{ row.total_used|floatformat:"-1" }}</td>
+          <td class="px-4 py-3 text-center font-semibold text-sm {% if row.total_remaining == 0 %}text-red-600{% else %}text-gray-900{% endif %}">{{ row.total_remaining|floatformat:"-1" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{{ colspan }}" class="px-4 py-12">
+            <div class="flex flex-col items-center justify-center text-center">
+              <div class="text-4xl mb-3">📊</div>
+              <h3 class="text-lg font-medium text-gray-900 mb-1">No employee balances found</h3>
+              <p class="text-sm text-gray-500">Try adjusting the filters above.</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if can_edit %}
+<div id="balanceModal" class="fixed inset-0 z-50 items-center justify-center bg-gray-900/50 backdrop-blur-sm hidden p-4">
+  <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+    
+    <div class="flex justify-between items-center px-5 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-gray-900">Edit Leave Balance</h3>
+      <button type="button" class="text-gray-400 hover:text-gray-600 transition-colors" onclick="closeBalanceModal()">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    
+    <form method="post" id="balanceModalForm" action="">
+      {% csrf_token %}
+      <input type="hidden" name="year" value="{{ year }}">
+      <input type="hidden" name="dept" value="{{ dept_id }}">
+      
+      <div class="p-5">
+        <p class="text-sm font-medium text-gray-600 mb-4 pb-3 border-b border-gray-100" id="balanceModalDesc"></p>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Allocated</label>
+            <input type="number" name="allocated" id="balanceAllocated" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min="0" step="0.5">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Used</label>
+            <input type="number" name="used" id="balanceUsed" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min="0" step="0.5">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Carried Forward</label>
+            <input type="number" name="carried_forward" id="balanceCF" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" min="0" step="0.5">
+          </div>
+        </div>
+      </div>
+      
+      <div class="px-5 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+        <button type="button" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm transition-colors" onclick="closeBalanceModal()">Cancel</button>
+        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 shadow-sm transition-colors">Save Changes</button>
+      </div>
+    </form>
+    
+  </div>
+</div>
+
+<script>
+(function() {
+  // Django-generated URL template with __ID__ placeholder
+  var urlTemplate = "{% url 'leave:balance_edit' 0 %}".replace('/0/', '/__ID__/');
+
+  window.openBalanceModal = function(balanceId, leaveType, employeeName, allocated, used, carriedForward) {
+    var modal = document.getElementById('balanceModal');
+    var form = document.getElementById('balanceModalForm');
+    
+    form.action = urlTemplate.replace('__ID__', balanceId);
+    document.getElementById('balanceModalDesc').textContent = employeeName + ' — ' + leaveType;
+    document.getElementById('balanceAllocated').value = allocated;
+    document.getElementById('balanceUsed').value = used;
+    document.getElementById('balanceCF').value = carriedForward;
+    
+    // Tailwind toggle
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.closeBalanceModal = function() {
+    var modal = document.getElementById('balanceModal');
+    
+    // Tailwind toggle
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.style.overflow = '';
+  };
+
+  if (!window.balanceEscapeBound) document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') window.closeBalanceModal();
+  });
+window.balanceEscapeBound = true;
+})();
+</script>
+{% endif %}
+
+
+</section>
+{% endblock %}

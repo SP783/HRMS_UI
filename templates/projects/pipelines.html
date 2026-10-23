@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Pipelines — Projects — {{ site_name }}{% endblock %}
+{% block page_title %}Pipelines{% endblock %}
+{% block breadcrumb %}
+  <div class="text-sm text-slate-500 mb-4">
+    <a href="{% url 'projects:index' %}" class="hover:text-slate-800 transition-colors">Projects</a> / <span class="text-slate-800">Pipelines</span>
+  </div>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'projects:index' %}" class="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors">
+    &larr; Projects
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+  <div>
+    <h2 class="font-serif text-2xl font-light text-slate-800">Pipeline Templates</h2>
+    <p class="text-sm text-slate-500 mt-1">Tasks that auto-create when a new project is added to a department</p>
+  </div>
+</div>
+
+{% for dept in pipeline_departments %}
+<div class="mb-5 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+  
+  <div class="flex items-center gap-3 py-3 px-5 bg-slate-900">
+    <span class="font-serif text-base text-white flex-1">{{ dept.name }}</span>
+    <span class="text-xs text-slate-400">{{ dept.pipeline_tasks|length }} template task{{ dept.pipeline_tasks|length|pluralize }}</span>
+  </div>
+  
+  {% for pt in dept.pipeline_tasks %}
+  <div class="border-b border-slate-200 last:border-b-0">
+    
+    <div class="flex items-center gap-2 px-5 py-2.5 bg-white">
+      <span class="text-sm font-semibold text-slate-800 flex-1">{{ pt.title }}</span>
+      {% if can_create %}
+      <form method="post" action="{% url 'projects:pipeline_task_delete' pt.pk %}" class="inline" onsubmit="return confirm('Remove template task?')">
+        {% csrf_token %}
+        <button type="submit" class="text-red-500 hover:text-red-700 opacity-60 hover:opacity-100 transition-opacity p-1 text-xs" title="Remove">&#10005;</button>
+      </form>
+      {% endif %}
+    </div>
+    
+    {% for pst in pt.subtasks.all %}
+    <div class="flex items-center gap-2 py-1.5 pr-5 pl-10 bg-slate-50 border-t border-slate-100">
+      <span class="text-slate-300 text-xs">&#9492;</span>
+      <span class="flex-1 text-xs text-slate-600">{{ pst.title }}</span>
+      {% if can_create %}
+      <form method="post" action="{% url 'projects:pipeline_subtask_delete' pst.pk %}" class="inline">
+        {% csrf_token %}
+        <button type="submit" class="text-red-500 hover:text-red-700 opacity-60 hover:opacity-100 transition-opacity p-1 text-[10px]" title="Remove">&#10005;</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+    
+    {% if can_create %}
+    <form method="post" action="{% url 'projects:pipeline_subtask_add' pt.pk %}" 
+          class="flex items-center gap-2 py-1.5 pr-5 pl-10 bg-slate-50 border-t border-slate-100 m-0"
+          onsubmit="return addPipelineSubtaskSubmit(event, {{ pt.pk }});">
+      {% csrf_token %}
+      <input class="flex-1 px-2.5 py-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-800" 
+             id="psub-{{ pt.pk }}" name="title" placeholder="Add subtask template&hellip;">
+      <button type="submit" class="px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-100 transition-colors">Add</button>
+    </form>
+    {% endif %}
+  </div>
+  
+  {% empty %}
+  <div class="py-4 px-5 text-sm text-slate-500">No template tasks yet &mdash; add one below.</div>
+  {% endfor %}
+  
+  {% if can_create %}
+  <form method="post" action="{% url 'projects:pipeline_task_add' %}"
+        class="flex items-center gap-2 px-5 py-2.5 border-t border-slate-200 bg-slate-50 m-0"
+        onsubmit="return addPipelineTaskSubmit(event, {{ dept.pk }});">
+    {% csrf_token %}
+    <input type="hidden" name="dept_id" value="{{ dept.pk }}">
+    <input class="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-800" 
+           id="ptask-{{ dept.pk }}" name="title" placeholder="Add template task for {{ dept.name }}&hellip;">
+    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors shadow-sm">Add Task</button>
+  </form>
+  {% endif %}
+</div>
+
+{% empty %}
+<div class="py-12 px-6 text-center text-slate-500">
+  <div class="text-4xl mb-3 opacity-60">&#127976;</div>
+  <div class="text-sm font-semibold text-slate-800">No departments yet</div>
+  <div class="text-sm mt-1">Create departments first, then add pipeline templates.</div>
+</div>
+{% endfor %}
+
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 translate-y-5 bg-slate-900 text-white px-4 py-2.5 rounded-lg text-sm opacity-0 pointer-events-none transition-all duration-300 z-50 shadow-lg"></div>
+
+<script>
+/* Pipelines page JS.
+ *
+ * The Add Task / Add Subtask rows are real <form> elements. Their
+ * onsubmit calls these handlers, which:
+ * 1. Try AJAX fetch (snappy, no reload).
+ * 2. If anything throws (no network, JS error, etc.), return true
+ * so the browser submits the form natively — the server-side
+ * view handles non-AJAX POSTs and redirects back here.
+ *
+ * Returning false from onsubmit prevents native submission, which is
+ * what we want when fetch will handle the work. Returning true (or
+ * undefined) lets the form submit normally.
+ */
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  if (!t) { return; }  // toast div missing — nothing to do
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._t);
+  t._t = setTimeout(function () {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(20px)';
+  }, 2800);
+}
+
+function _postFormAjax(form, successMsg) {
+  var data = new FormData(form);
+  // Tell the server we want JSON back so the dual-mode view returns
+  // a JsonResponse instead of redirecting.
+  fetch(form.action, {
+    method: 'POST',
+    body: data,
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    credentials: 'same-origin',
+  })
+    .then(function (r) {
+      if (!r.ok) { throw new Error('HTTP ' + r.status); }
+      return r.json();
+    })
+    .then(function (res) {
+      if (!res.ok) {
+        showToast(res.error || 'Failed');
+        return;
+      }
+      showToast(successMsg + ' — refreshing…');
+      setTimeout(function () { location.reload(); }, 600);
+    })
+    .catch(function () {
+      // AJAX path failed for some reason. Fall back to a native form
+      // submit so the user still gets the result.
+      showToast('Submitting…');
+      // Detach our onsubmit so the second submit doesn't re-trigger
+      // this handler infinitely.
+      form.onsubmit = null;
+      form.submit();
+    });
+}
+
+function addPipelineTaskSubmit(event, deptPk) {
+  // Validate client-side; empty title → swallow without submission
+  var input = event.target.querySelector('input[name="title"]');
+  if (!input || !input.value.trim()) {
+    event.preventDefault();
+    return false;
+  }
+  event.preventDefault();
+  _postFormAjax(event.target, 'Template task added');
+  return false;
+}
+
+function addPipelineSubtaskSubmit(event, ptPk) {
+  var input = event.target.querySelector('input[name="title"]');
+  if (!input || !input.value.trim()) {
+    event.preventDefault();
+    return false;
+  }
+  event.preventDefault();
+  _postFormAjax(event.target, 'Subtask added');
+  return false;
+}
+</script>
+{% endblock %}

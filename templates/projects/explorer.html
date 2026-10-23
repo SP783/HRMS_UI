@@ -1,0 +1,77 @@
+{% extends 'base.html' %}{% load static project_tags %}
+{% block title %}Projects — {{ site_name }}{% endblock %}
+{% block page_title %}Projects{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/project-views.css' %}"><link rel="stylesheet" href="{% static 'css/project-explorer.css' %}">{% endblock %}
+{% block content %}
+<section class="px-workspace" data-organization="{{ request.organization.pk }}" data-actor="{{ request.user.pk }}" data-action-url="{% url 'projects:explorer_action' %}" data-base="{% url 'projects:index' %}">
+  <div id="px-list-region">
+  <header class="px-heading"><nav class="px-workspace-pills" aria-label="Workspace">{% for pill in workspace_pills %}<a class="px-workspace-pill" href="{{ pill.url }}" {% if pill.selected %}aria-current="page"{% endif %}>{{ pill.name }} <span>{{ pill.count }}</span></a>{% endfor %}</nav><div class="px-heading-actions">{% if can_manage_workspaces %}<button class="px-button" data-px-action="workspace">+ Add workspace</button>{% endif %}{% if can_create %}<a class="px-button px-primary" data-create-project data-popup-url="{% url 'projects:create_popup' %}?organization={{ request.organization.pk }}&amp;workspace={{ selected_workspace }}" href="{% url 'projects:create' %}">+ New project</a><button class="px-button" data-px-action="projects">Bulk projects</button>{% endif %}</div></header>
+
+  <nav class="pv-switch" aria-label="Project view">{% for view in view_links %}<a class="px-button" href="{{ view.url }}" hx-get="{{ view.url }}" hx-target="#px-list-region" hx-select="#px-list-region" hx-swap="outerHTML" hx-push-url="true" {% if selected_view == view.key %}aria-current="page"{% endif %}>{{ view.label }}</a>{% endfor %}</nav>
+  <p id="pv-feedback" role="status" aria-live="polite"></p>
+  <form class="px-toolbar" method="get" hx-get="{% url 'projects:index' %}" hx-target="#px-list-region" hx-select="#px-list-region" hx-swap="outerHTML" hx-push-url="true"><label class="px-search"><span>Search projects</span><input name="q" value="{{ q }}" placeholder="Search project or client…" type="search"></label><label>Status<select name="status"><option value="">All current projects</option>{% for code,label in status_choices %}<option value="{{ code }}" {% if selected_status == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><input type="hidden" name="view" value="{{ selected_view }}"><input type="hidden" name="start" value="{{ request.GET.start }}"><input type="hidden" name="workspace" value="{{ selected_workspace }}"><label>Sort<select name="sort"><option value="recent" {% if selected_sort == 'recent' %}selected{% endif %}>Recently updated</option><option value="deadline" {% if selected_sort == 'deadline' %}selected{% endif %}>Deadline</option><option value="name" {% if selected_sort == 'name' %}selected{% endif %}>Name</option></select></label><button class="px-button" type="submit">Apply</button></form>
+  <div class="px-list-caption"><strong>{{ page.paginator.count }} project{{ page.paginator.count|pluralize }}</strong><div class="px-list-actions">{% if selected_view == "table" %}<details class="px-column-picker"><summary class="px-button">Columns ▾</summary><div class="px-column-options"><strong>Show columns</strong><p class="px-column-help">Use arrows or drag a row to rearrange.</p><label draggable="true" data-column-item="workspace"><input type="checkbox" data-column="workspace" checked> Workspace <button type="button" data-move-column="workspace" data-direction="up" aria-label="Move Workspace left">←</button><button type="button" data-move-column="workspace" data-direction="down" aria-label="Move Workspace right">→</button></label><label draggable="true" data-column-item="client"><input type="checkbox" data-column="client" checked> Client <button type="button" data-move-column="client" data-direction="up" aria-label="Move Client left">←</button><button type="button" data-move-column="client" data-direction="down" aria-label="Move Client right">→</button></label><label draggable="true" data-column-item="owner"><input type="checkbox" data-column="owner" checked> Handler <button type="button" data-move-column="owner" data-direction="up" aria-label="Move Handler left">←</button><button type="button" data-move-column="owner" data-direction="down" aria-label="Move Handler right">→</button></label><label draggable="true" data-column-item="progress"><input type="checkbox" data-column="progress" checked> Task progress <button type="button" data-move-column="progress" data-direction="up" aria-label="Move Task progress left">←</button><button type="button" data-move-column="progress" data-direction="down" aria-label="Move Task progress right">→</button></label><label draggable="true" data-column-item="start"><input type="checkbox" data-column="start" checked> Start date <button type="button" data-move-column="start" data-direction="up" aria-label="Move Start date left">←</button><button type="button" data-move-column="start" data-direction="down" aria-label="Move Start date right">→</button></label><label draggable="true" data-column-item="deadline"><input type="checkbox" data-column="deadline" checked> Deadline <button type="button" data-move-column="deadline" data-direction="up" aria-label="Move Deadline left">←</button><button type="button" data-move-column="deadline" data-direction="down" aria-label="Move Deadline right">→</button></label><label draggable="true" data-column-item="status"><input type="checkbox" data-column="status" checked> Status <button type="button" data-move-column="status" data-direction="up" aria-label="Move Status left">←</button><button type="button" data-move-column="status" data-direction="down" aria-label="Move Status right">→</button></label><label draggable="true" data-column-item="actions"><input type="checkbox" data-column="actions" checked> Actions <button type="button" data-move-column="actions" data-direction="up" aria-label="Move Actions left">←</button><button type="button" data-move-column="actions" data-direction="down" aria-label="Move Actions right">→</button></label></div></details>{% endif %}</div></div>
+  {% if selected_view == 'kanban' %}{% include 'projects/partials/kanban.html' %}
+  {% elif selected_view == 'gantt' %}{% include 'projects/partials/gantt.html' %}
+  {% else %}
+  <div class="px-projects"><table class="px-project-table" aria-label="Projects"><thead><tr class="px-project-header"><th scope="col" class="px-fixed-project">Project</th><th scope="col" class="px-col-workspace">Workspace</th><th scope="col" class="px-col-client">Client</th><th scope="col" class="px-col-owner">Handler</th><th scope="col" class="px-col-progress">Task progress</th><th scope="col" class="px-col-hours">Logged hours</th><th scope="col" class="px-col-start">Start date</th><th scope="col" class="px-col-deadline">End date</th><th scope="col" class="px-col-status">Status</th><th scope="col" class="px-col-actions">Actions</th></tr></thead>
+  {% for project in page %}
+    <tbody class="px-project" data-project="{{ project.pk }}">
+      <tr class="px-project-row">
+        <td class="px-project-name px-fixed-project"><a href="{% url 'projects:detail' project.pk %}" data-open-project="{{ project.pk }}">{{ project.name }}</a></td>
+        <td class="px-workspace-cell px-col-workspace">{{ project.workspace.name|default:'No workspace' }}</td>
+        <td class="px-client px-col-client">{{ project.client_name|default:'—' }}</td>
+        <td class="px-owner px-col-owner">{{ project.summary_owner.full_name|default:'Unassigned' }}<div class="px-contributors" title="{{ project.contributor_names }}" aria-label="Contributors: {{ project.contributor_names }}">{% for contributor in project.contributors|slice:':3' %}<span class="px-contributor">{{ contributor.initials }}</span>{% endfor %}{% if project.contributors|length > 3 %}<span>+</span>{% endif %}</div></td>
+        <td class="px-progress px-col-progress"><span class="px-label">{{ project.summary_done }}/{{ project.summary_total }} tasks</span><progress value="{{ project.summary_done }}" max="{{ project.summary_total|default:1 }}" aria-label="Tasks completed"></progress></td>
+        <td class="px-col-hours">{{ project.logged_hours|work_duration }}</td>
+        <td class="px-col-start">{{ project.start_date|date:'d M Y'|default:'Not set' }}</td>
+        <td class="px-deadline px-col-deadline {% if project.overdue %}px-overdue{% endif %}"><span class="px-label">{% if project.overdue %}Overdue{% else %}Deadline{% endif %}</span>{{ project.end_date|date:'d M Y'|default:'Not set' }}</td>
+        <td class="px-col-status"><span class="px-status" data-status="{{ project.status }}">{{ project.get_status_display }}</span></td>
+        <td class="px-col-actions"><details class="px-menu"><summary aria-label="Project actions">⋯</summary><div><a href="{% url 'projects:detail' project.pk %}">Open full page ↗</a>{% if perms.projects.edit %}<a href="{% url 'projects:edit' project.pk %}">Edit project</a>{% endif %}{% if perms.projects.archive %}<button class="px-button" data-px-action="archive" data-project-id="{{ project.pk }}">Archive</button>{% endif %}{% if perms.projects.delete %}<button class="px-button" data-px-action="delete-project" data-project-id="{{ project.pk }}">Delete project</button>{% endif %}</div></details></td>
+      </tr>
+    </tbody>
+  {% empty %}<tbody><tr><td colspan="10"><div class="px-empty"><h2>No projects here yet</h2><p>Try another filter{% if can_create %}, or create a project to get started{% endif %}.</p><a href="{% url 'projects:index' %}">Clear filters</a></div></td></tr></tbody>{% endfor %}
+  </table></div>
+{% endif %}
+  {% if page.has_other_pages %}<nav class="px-pagination" aria-label="Pagination" hx-boost="true" hx-target="#px-list-region" hx-select="#px-list-region" hx-swap="outerHTML" hx-push-url="true">{% if page.has_previous %}<a class="px-button" href="?{{ page_query }}&amp;page={{ page.previous_page_number }}">← Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a class="px-button" href="?{{ page_query }}&amp;page={{ page.next_page_number }}">Next →</a>{% endif %}</nav>{% endif %}
+  </div>
+  <form hidden id="px-csrf">{% csrf_token %}</form>
+</section>
+<dialog id="px-dialog" class="px-dialog" aria-labelledby="px-title">
+  <header class="px-dialog-top"><div class="px-dialog-heading"><h2 id="px-title">Loading project…</h2><span id="px-org" class="px-eyebrow">Project</span><span id="px-project-meta" class="px-header-meta"></span></div><div><span id="px-copy" hidden></span><a id="px-full" class="px-button" href="{% url 'projects:index' %}">Open full page ↗</a><button type="button" id="px-close" class="px-icon" aria-label="Close project">×</button></div></header>
+  <div id="px-content"></div>
+  <p id="px-feedback" role="status" aria-live="polite"></p>
+</dialog>
+<dialog id="px-create-dialog" class="px-dialog px-create-dialog" aria-labelledby="px-create-title"><header class="px-dialog-top"><h2 id="px-create-title">New project</h2><button type="button" class="px-icon" id="px-create-close" aria-label="Close new project">×</button></header><div id="px-create-content"></div><p id="px-create-feedback" role="status" aria-live="polite"></p></dialog>
+<dialog id="px-editor" class="px-dialog px-editor"><header class="px-dialog-top"><strong>Project editor</strong><button type="button" class="px-icon" id="px-editor-close" aria-label="Close editor">×</button></header><div id="px-editor-body"></div></dialog>
+<style>
+  /* Keep nested work compact without changing its horizontal columns. */
+  #px-dialog .px-task > details { margin-top: -8px !important; padding-bottom: 4px !important; }
+  #px-dialog .px-task > details > summary { padding: 0 0 2px !important; line-height: 1.25; }
+  #px-dialog .px-subtasks { margin-top: 0 !important; margin-left: 10px !important; padding-left: 8px !important; }
+  #px-dialog .px-subtask { margin: 0 !important; padding: 0 !important; }
+  #px-dialog .px-subtask .px-task-main { min-height: 40px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+  #px-dialog .px-subtask .px-task-main .px-label { margin-bottom: 0 !important; line-height: .9; font-size: 10px; }
+  #px-dialog .px-subtask .px-task-main select { padding-top: 3px !important; padding-bottom: 3px !important; line-height: 1; font-size: 11px; }
+  #px-dialog .px-subtask .px-task-main .px-muted { line-height: 1; }
+  #px-dialog .px-subtask .px-task-main { grid-template-columns: minmax(220px, 340px) 150px 145px 90px; justify-content: start; }
+  #px-dialog .px-assignee-picker { position: relative; min-width: 0; }
+  #px-dialog .px-assignee-picker summary { cursor: pointer; list-style: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--px-line); border-radius: 7px; padding: 5px 8px; background: var(--px-bg); }
+  #px-dialog .px-assignee-picker summary::-webkit-details-marker { display: none; }
+  #px-dialog .px-assignee-options { position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; width: 220px; max-height: 210px; overflow-y: auto; padding: 7px; border: 1px solid var(--px-line); border-radius: 8px; background: var(--px-bg); box-shadow: 0 10px 24px #0003; }
+  #px-dialog .px-assignee-options label { display: flex; gap: 7px; align-items: center; padding: 6px; font-size: 12px; white-space: nowrap; }
+  #px-dialog .px-task-main input[type="date"] { width: 100%; min-width: 88px; border: 1px solid var(--px-line); border-radius: 7px; padding: 5px 6px; background: var(--px-bg); color: var(--px-ink); font-size: 11px; }
+  #px-dialog .px-assignee-picker summary { min-width: 34px; text-align: center; color: var(--px-ink); }
+  #px-dialog .px-assignee-trigger { display: inline-block; max-width: 125px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+  #px-dialog .px-assignee-options { width: 305px; padding: 14px 0 0; }
+  #px-dialog .px-assignee-options > input[type="search"] { display: block; width: calc(100% - 28px); margin: 0 14px 10px; box-sizing: border-box; border: 1px solid var(--px-line); border-radius: 8px; padding: 9px 11px; background: var(--px-bg); color: var(--px-ink); font-size: 12px; }
+  #px-dialog .px-assignee-list { max-height: 220px; overflow-y: auto; padding: 0 7px; }
+  #px-dialog .px-assignee-options label { display: flex; align-items: center; gap: 9px; padding: 8px 7px; border-radius: 6px; cursor: pointer; }
+  #px-dialog .px-assignee-options label:hover { background: var(--px-soft); }
+  #px-dialog .px-assignee-options label input { flex: 0 0 auto; }
+  #px-dialog .px-assignee-avatar { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--px-accent); color: white; font-size: 10px; font-weight: 700; }
+  #px-dialog .px-assignee-options footer { margin-top: 4px; padding: 10px 14px; background: var(--px-soft); font-size: 11px; color: var(--px-muted); }
+</style>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/projects/create-popup.js' %}" defer></script><script src="{% static 'js/projects/explorer.js' %}" defer></script><script src="{% static 'js/projects/visual-views.js' %}" defer></script>{% endblock %}
+

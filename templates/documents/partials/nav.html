@@ -1,0 +1,52 @@
+{% comment %}Documents tab-bar nav — rendered as a SECOND-LEVEL (sub) tab row
+beneath the HR Hub tab bar on Documents pages.{% endcomment %}
+{% if role == 'super_admin' or role == 'hr' or user.profile.role == 'super_admin' or user.profile.role == 'hr' or user.profile.role == 'admin' %}
+<div class="mb-6 flex items-center gap-1 rounded-lg bg-surface-2 p-1 w-fit">
+
+  <a href="{% url 'documents:hr_letters' %}"
+     class="inline-flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors
+            {% if request.resolver_match.url_name == 'hr_letters' %}
+              bg-accent text-accent-fg shadow-sm
+            {% else %}
+              text-muted hover:text-content
+            {% endif %}">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+    HR Letters
+  </a>
+
+  <a href="{% url 'documents:idcards' %}"
+     class="inline-flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors
+            {% if 'idcard' in request.resolver_match.url_name %}
+              bg-accent text-accent-fg shadow-sm
+            {% else %}
+              text-muted hover:text-content
+            {% endif %}">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <rect x="2" y="5" width="20" height="14" rx="2"/>
+      <circle cx="8" cy="12" r="2"/>
+      <path d="M14 9h4M14 12h4M14 15h2"/>
+    </svg>
+    ID Cards
+  </a>
+
+  <a href="{% url 'documents:letter_templates' %}"
+     class="inline-flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors
+            {% if 'template' in request.resolver_match.url_name %}
+              bg-accent text-accent-fg shadow-sm
+            {% else %}
+              text-muted hover:text-content
+            {% endif %}">
+    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <path d="M3 9h18M9 21V9"/>
+    </svg>
+    Templates
+  </a>
+
+</div>
+{% endif %}

@@ -1,0 +1,97 @@
+{% comment %}
+  Workspace filter pills + per-project client-name search dropdown.
+  (Tailwind CSS Refactor)
+
+  Replaces _client_filter.html (May 2026). The renaming was part of
+  the workspace migration — "Client" used to be the top-level grouping
+  for projects; it's now called "Workspace" since teams group projects
+  by workstream/account/category, not necessarily by external client.
+
+  The end-client (when relevant) is recorded in per-project text
+  fields (client_name + client_*) and surfaced via the search
+  dropdown on the right.
+
+  Inputs:
+    workspace_projects    — dict keyed by workspace_id with
+                            {workspace, projects} entries
+    no_workspace_projects — projects with no workspace assigned
+    archived_projects     — archived projects
+    can_create            — gate for "+ Add workspace" button
+    client_names          — sorted unique list of distinct
+                            Project.client_name values (powers the
+                            search dropdown)
+{% endcomment %}
+<div class="mb-3.5 flex flex-wrap items-center justify-between gap-2.5">
+  {# ── Workspace pills (left side) ─────────────────────────────── #}
+  <div class="flex flex-wrap items-center gap-2" id="co-bar">
+    <button class="co-btn active group inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-offset-gray-900 [&.active]:border-indigo-200 [&.active]:bg-indigo-50 [&.active]:text-indigo-700 dark:[&.active]:border-indigo-500/30 dark:[&.active]:bg-indigo-500/10 dark:[&.active]:text-indigo-400" data-client="all" onclick="filterClient(this,'all')">
+      All Workspaces
+    </button>
+    
+    {% for wk, wd in workspace_projects.items %}
+    <button class="co-btn group inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-offset-gray-900 [&.active]:border-indigo-200 [&.active]:bg-indigo-50 [&.active]:text-indigo-700 dark:[&.active]:border-indigo-500/30 dark:[&.active]:bg-indigo-500/10 dark:[&.active]:text-indigo-400" data-client="{{ wd.workspace.pk }}" onclick="filterClient(this,'{{ wd.workspace.pk }}')">
+      <span class="h-2 w-2 shrink-0 rounded-full" style="background:{{ wd.workspace.display_color }};"></span>
+      {{ wd.workspace.name }}
+      <span class="ml-1 inline-flex items-center justify-center rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-600 transition-colors group-[.active]:bg-indigo-100 group-[.active]:text-indigo-700 dark:bg-gray-700 dark:text-gray-300 dark:group-[.active]:bg-indigo-900/50 dark:group-[.active]:text-indigo-300">{{ wd.projects|length }}</span>
+    </button>
+    {% endfor %}
+    
+    {% if no_workspace_projects %}
+    <button class="co-btn group inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-offset-gray-900 [&.active]:border-indigo-200 [&.active]:bg-indigo-50 [&.active]:text-indigo-700 dark:[&.active]:border-indigo-500/30 dark:[&.active]:bg-indigo-500/10 dark:[&.active]:text-indigo-400" data-client="none" onclick="filterClient(this,'none')">
+      <span class="h-2 w-2 shrink-0 rounded-full bg-gray-400 dark:bg-gray-500"></span>
+      No Workspace
+      <span class="ml-1 inline-flex items-center justify-center rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-600 transition-colors group-[.active]:bg-indigo-100 group-[.active]:text-indigo-700 dark:bg-gray-700 dark:text-gray-300 dark:group-[.active]:bg-indigo-900/50 dark:group-[.active]:text-indigo-300">{{ no_workspace_projects|length }}</span>
+    </button>
+    {% endif %}
+    
+    {% if archived_projects %}
+    <button class="co-btn group inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-offset-gray-900 [&.active]:border-indigo-200 [&.active]:bg-indigo-50 [&.active]:text-indigo-700 dark:[&.active]:border-indigo-500/30 dark:[&.active]:bg-indigo-500/10 dark:[&.active]:text-indigo-400" data-client="archived" onclick="filterClient(this,'archived')">
+      <span class="h-2 w-2 shrink-0 rounded-full bg-gray-400 dark:bg-gray-500"></span>
+      Archived
+      <span class="ml-1 inline-flex items-center justify-center rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-600 transition-colors group-[.active]:bg-indigo-100 group-[.active]:text-indigo-700 dark:bg-gray-700 dark:text-gray-300 dark:group-[.active]:bg-indigo-900/50 dark:group-[.active]:text-indigo-300">{{ archived_projects|length }}</span>
+    </button>
+    {% endif %}
+    
+    {% if can_create %}
+    <button class="ml-1 inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white" onclick="openModal('modal-add-co')">
+      ＋ Add
+    </button>
+    {% endif %}
+    
+    <a href="{% url 'projects:workspaces_index' %}" class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white">
+      Manage
+    </a>
+  </div>
+
+  {% comment %}
+    Client search dropdown (right side). Searches the per-project
+    client_name text. Renders only if any project has a client_name
+    value — keeps the toolbar uncluttered for installs that don't
+    use the client-tracking feature.
+  {% endcomment %}
+  {% if client_names %}
+  <div class="flex items-center gap-2">
+    <label for="client-filter-input" class="text-sm font-medium text-gray-500 dark:text-gray-400">
+      Filter by client:
+    </label>
+    <div class="relative flex items-center">
+      <input
+        list="client-filter-options"
+        id="client-filter-input"
+        name="client_filter"
+        placeholder="Type to search…"
+        class="block w-full max-w-[220px] rounded-md border-gray-300 py-1.5 pl-3 pr-8 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+        autocomplete="off"
+        oninput="filterByClient(this.value)">
+      <datalist id="client-filter-options">
+        {% for c in client_names %}
+        <option value="{{ c }}"></option>
+        {% endfor %}
+      </datalist>
+      <button class="absolute right-1.5 inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus:outline-none dark:hover:bg-gray-700 dark:hover:text-gray-300" onclick="document.getElementById('client-filter-input').value=''; filterByClient('');" title="Clear">
+        ×
+      </button>
+    </div>
+  </div>
+  {% endif %}
+</div>

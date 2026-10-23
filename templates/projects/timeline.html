@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Timeline — Projects — {{ site_name }}{% endblock %}
+{% block page_title %}Timeline{% endblock %}
+
+{% block breadcrumb %}
+  <div class="text-sm font-medium text-gray-500">
+    <a href="{% url 'projects:index' %}" class="hover:text-blue-600 transition-colors">Projects</a> 
+    <span class="mx-1 text-gray-400">/</span> 
+    <span class="text-gray-900">Timeline</span>
+  </div>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'projects:index' %}" class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+    ← Projects
+  </a>
+{% endblock %}
+
+{% block content %}
+{% include "projects/partials/_design_tokens.html" %}
+
+<div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+    <div>
+      <h2 class="font-serif text-2xl font-light text-gray-900">Gantt Timeline</h2>
+      <p class="text-xs text-gray-500 mt-1">Projects and tasks across the calendar</p>
+    </div>
+    <div class="flex gap-2">
+      <button class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-full hover:border-blue-500 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-colors" onclick="ganttExpandAll()">
+        Expand All
+      </button>
+      <button class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-full hover:border-blue-500 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-colors" onclick="ganttCollapseAll()">
+        Collapse All
+      </button>
+    </div>
+  </div>
+  
+  <div id="gantt-wrap" class="overflow-x-auto w-full"></div>
+  
+  {% if not gantt_rows %}
+  <div class="flex flex-col items-center justify-center py-12 px-6 text-center">
+    <div class="text-4xl opacity-60 mb-3">📅</div>
+    <div class="text-sm font-semibold text-gray-800">No timeline data</div>
+    <div class="text-[12.5px] text-gray-500 mt-1">Add start and end dates to projects to see the Gantt timeline.</div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
+
+var GANTT_DATA = [
+  {% for row in gantt_rows %}
+  { 
+    name: '{{ row.name|escapejs }}', 
+    {% if row.dept %}co: '{{ row.dept|slugify|escapejs }}',{% endif %} 
+    level: {{ row.level }}, 
+    start: '{{ row.start_iso }}', 
+    end: '{{ row.end_iso }}', 
+    color: '{% if row.level == 0 %}#3b82f6{% elif row.status == "done" %}#22c55e{% elif row.status == "in_progress" %}#3b82f6{% elif row.status == "review" %}#8b5cf6{% else %}#9ca3af{% endif %}', 
+    pct: {{ row.pct }}
+    {% if row.parent_pk %}, parentPk: {{ row.parent_pk }}{% endif %}, 
+    pk: {{ row.pk }} 
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+];
+
+var ganttCollapsed = {};
+
+function renderGantt() {
+  var wrap = document.getElementById('gantt-wrap'); 
+  if (!wrap) return;
+  if (!GANTT_DATA.length) { wrap.innerHTML = ''; return; }
+  
+  var minDate = null, maxDate = null;
+  GANTT_DATA.forEach(function(r){
+    var s = new Date(r.start + 'T00:00:00'), e = new Date(r.end + 'T00:00:00');
+    if (!minDate || s < minDate) minDate = s;
+    if (!maxDate || e > maxDate) maxDate = e;
+  });
+  
+  if (!minDate || !maxDate) { wrap.innerHTML = ''; return; }
+  
+  var GSTART = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  var GEND = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
+  var GTOTAL = Math.max(1, (GEND - GSTART) / 86400000);
+  var GMONTHS = []; 
+  var cur = new Date(GSTART);
+  
+  while (cur <= GEND){
+    var mS = new Date(cur), mE = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
+    GMONTHS.push({ name: cur.toLocaleDateString('en', {month: 'short', year: '2-digit'}), d: (mE - mS) / 86400000 + 1 });
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+  
+  var todayPct = Math.min(100, ((new Date() - GSTART) / 86400000 / GTOTAL * 100));
+  var cum = 0;
+  var metas = GMONTHS.map(function(m){ var l = cum / GTOTAL * 100; cum += m.d; return { name: m.name, d: m.d, l: l, w: m.d / GTOTAL * 100 }; });
+  
+  function pos(d, e){
+    var s = Math.max(0, (new Date(d + 'T00:00:00') - GSTART) / 86400000);
+    var en = Math.min(GTOTAL, (new Date(e + 'T00:00:00') - GSTART) / 86400000);
+    return { l: s / GTOTAL * 100, w: Math.max(0.5, en - s) / GTOTAL * 100 };
+  }
+  
+  function fmt(d){ return new Date(d + 'T00:00:00').toLocaleDateString('en', {day: '2-digit', month: 'short'}); }
+  
+  var colorPalette = ['#2d5be3','#1a9e5c','#c97c10','#8b5cf6','#06b6d4','#f43f5e'];
+  var DEPT_COLORS_MAP = {}; 
+  var deptIdx = 0;
+  
+  GANTT_DATA.forEach(function(r){ 
+    if(r.co && !DEPT_COLORS_MAP[r.co]) { DEPT_COLORS_MAP[r.co] = colorPalette[deptIdx % colorPalette.length]; deptIdx++; } 
+  });
+  
+  var rows = ''; 
+  var prevCo = '';
+  
+  GANTT_DATA.forEach(function(row, idx){
+    if(row.co && row.co !== prevCo && row.level === 0){
+      rows += `<tr><td colspan="10" class="px-3 py-2.5 text-[10px] font-extrabold uppercase tracking-widest bg-gray-50 border-b border-gray-200" style="color: ${DEPT_COLORS_MAP[row.co] || '#6b7280'};">🏢 ${escHtml(row.co.replace(/-/g, ' '))}</td></tr>`;
+      prevCo = row.co;
+    }
+    if(row.level === 1 && row.parentPk && ganttCollapsed[row.parentPk]) return;
+    
+    var p2 = pos(row.start, row.end);
+    var isp = row.level === 0;
+    var bgClass = isp ? 'bg-white-50/50' : '';
+    var textClass = isp ? 'font-bold text-[13px] text-gray-900' : 'text-xs text-gray-600 pl-8';
+    var isOpen = !ganttCollapsed[row.pk];
+    
+    var subCount = 0; 
+    if(isp) { for(var j = idx + 1; j < GANTT_DATA.length && GANTT_DATA[j].level === 1; j++) subCount++; }
+    
+    var safeName = escHtml(row.name);
+    var nameCell = isp
+      ? `<span class="cursor-pointer select-none inline-flex items-center gap-1.5 hover:text-blue-600 transition-colors" onclick="ganttToggle(${row.pk})">
+           <span class="text-[10px] text-gray-400 inline-block transition-transform duration-150" style="transform:${isOpen ? 'rotate(90deg)' : 'none'};">▸</span>
+           📁 ${safeName} ${subCount ? `<span class="text-[10px] text-gray-400 font-normal">(${subCount})</span>` : ''}
+         </span>`
+      : `<span class="text-gray-300 mr-1.5">└</span>${safeName}`;
+      
+    var monthCells = metas.map(function(m){
+      var os = Math.max(p2.l, m.l), oe = Math.min(p2.l + p2.w, m.l + m.w);
+      var hasBar = oe > os;
+      var cl = ((os - m.l) / m.w * 100).toFixed(2), cw = ((oe - os) / m.w * 100).toFixed(2);
+      var tid = todayPct >= m.l && todayPct < m.l + m.w;
+      var tp = ((todayPct - m.l) / m.w * 100).toFixed(2);
+      var barColor = row.color || '#3b82f6';
+      
+      return `<td class="${bgClass} py-1 border-l border-gray-100">
+                <div class="relative mx-0.5 ${isp ? 'h-[22px]' : 'h-4'}">
+                  ${hasBar ? `<div class="absolute h-full rounded-sm z-10" style="left:${cl}%;width:${cw}%;background:${barColor};opacity:${isp ? 1 : 0.78};"></div>` : ''}
+                  ${tid ? `<div class="absolute -top-px -bottom-px w-[2px] bg-red-500 opacity-80 z-20 rounded-full" style="left:${tp}%;"></div>` : ''}
+                </div>
+              </td>`;
+    }).join('');
+    
+    rows += `<tr class="hover:bg-gray-50 transition-colors group">
+               <td class="${bgClass} ${textClass} py-1.5 px-3 min-w-[200px] border-b border-gray-100">${nameCell}</td>
+               <td class="${bgClass} text-xs text-gray-500 text-center px-2 border-b border-gray-100 whitespace-nowrap">${fmt(row.start)}</td>
+               <td class="${bgClass} text-xs text-gray-500 text-center px-2 border-b border-gray-100 whitespace-nowrap">${fmt(row.end)}</td>
+               <td class="${bgClass} text-xs font-bold text-center px-2 border-b border-gray-100" style="color: ${row.color || '#3b82f6'};">${row.pct}%</td>
+               ${monthCells}
+             </tr>`;
+  });
+  
+  var thead = `<tr>
+                 <th class="min-w-[200px] px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 border-b border-gray-200">Project / Task</th>
+                 <th class="w-[76px] px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 border-b border-gray-200">Start</th>
+                 <th class="w-[76px] px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 border-b border-gray-200">End</th>
+                 <th class="w-[44px] px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 border-b border-gray-200">%</th>
+                 ${metas.map(function(m){ return `<th class="px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 border-b border-gray-200">${m.name}</th>`; }).join('')}
+               </tr>`;
+               
+  wrap.innerHTML = `<table class="w-full min-w-[900px] border-collapse bg-white">
+                      <thead>${thead}</thead>
+                      <tbody>${rows}</tbody>
+                    </table>`;
+}
+
+function ganttToggle(pk) { ganttCollapsed[pk] = !ganttCollapsed[pk]; renderGantt(); }
+function ganttExpandAll() { ganttCollapsed = {}; renderGantt(); }
+function ganttCollapseAll() {
+  GANTT_DATA.forEach(function(r){ if(r.level === 0) ganttCollapsed[r.pk] = true; });
+  renderGantt();
+}
+
+renderGantt();
+</script>
+{% endblock %}

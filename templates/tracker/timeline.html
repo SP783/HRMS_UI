@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+{% load tracker_extras %}
+{% block title %}Timeline — {{ site_name }}{% endblock %}
+{% block page_title %}Activity Timeline{% endblock %}
+
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+{% include "tracker/partials/nav.html" %}
+
+<style>
+  /* Keep only the bare minimum for complex SVG hover state transitions */
+  .timeline-row svg rect.seg { transition: filter 0.1s ease; cursor: pointer; }
+  .timeline-row svg rect.seg:hover { filter: brightness(0.85); }
+  .timeline-row svg circle.shot-marker { transition: all 0.1s ease; }
+  .timeline-row svg circle.shot-marker:not(.shot-marker--locked):hover { r: 5; fill: #6366f1; }
+</style>
+
+{% if not configured %}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg">
+  <div class="p-8 text-center flex flex-col items-center justify-center">
+    <div class="text-5xl mb-4">📡</div>
+    <div class="text-lg font-semibold text-gray-900 mb-2">Activity Tracker not configured</div>
+    <p class="text-gray-500 mb-6">Set up the tracker first.</p>
+    {% if request.user.profile.role == 'super_admin' %}
+    <a href="{% url 'tracker:settings' %}" class="inline-flex justify-center items-center px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors shadow-sm focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+      Open Settings
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+{% elif connection_error %}
+<div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-md">
+  <div class="flex">
+    <div class="flex-shrink-0">
+      <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+      </svg>
+    </div>
+    <div class="ml-3">
+      <p class="text-sm text-red-700">Could not connect to the tracker DB: {{ connection_error }}</p>
+    </div>
+  </div>
+</div>
+
+{% else %}
+
+{# ── Filter bar ────────────────────────────────────────────────────── #}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg mb-4">
+  <div class="p-5">
+    <form data-ui-filter method="get" id="timelineFilterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Period</label>
+        <select name="period" id="periodSelect" class="block w-full border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm">
+          <option value="daily"   {% if period == 'daily' %}selected{% endif %}>Daily</option>
+          <option value="weekly"  {% if period == 'weekly' %}selected{% endif %}>Weekly</option>
+          <option value="monthly" {% if period == 'monthly' %}selected{% endif %}>Monthly</option>
+          <option value="custom"  {% if period == 'custom' %}selected{% endif %}>Custom range</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+          <span id="startLabel">{% if period == 'weekly' %}Week of{% elif period == 'monthly' %}Month{% else %}Date{% endif %}</span>
+        </label>
+        <input type="date" name="start" id="startDate" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ start_date_str }}" required>
+      </div>
+
+      <div id="endDateGroup" {% if period != 'custom' %}style="display:none;"{% endif %}>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">To</label>
+        <input type="date" name="end" id="endDate" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ end_date_str }}">
+      </div>
+
+      <div class="sm:col-span-2 lg:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Employee / Hostname</label>
+        <select name="employee" class="block w-full border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" required>
+          <option value="">— Select an employee —</option>
+          {% for p in eligible %}
+          <option value="{{ p.pk }}" {% if selected_employee_id == p.pk|stringformat:"s" %}selected{% endif %}>
+            {{ p.user.get_full_name|default:p.user.username }}
+            {% if p.employee.department %}· {{ p.employee.department.name }}{% endif %}
+            · {{ p.hostname }}
+          </option>
+          {% endfor %}
+          {% if unassigned_hosts %}
+          <optgroup label="Unassigned systems">
+            {% for u in unassigned_hosts %}
+            <option value="host:{{ u.hostname }}" {% if selected_employee_id == "host:"|add:u.hostname %}selected{% endif %}>
+              {{ u.hostname }} · unassigned
+            </option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+        </select>
+      </div>
+
+      {# The flag that tells the view "actually go fetch and render" #}
+      <input type="hidden" name="view" value="1">
+
+      <div class="sm:col-span-2 lg:col-span-1">
+        <button type="submit" class="w-full inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 shadow-sm transition-colors focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+          View timeline
+        </button>
+      </div>
+    </form>
+
+    {% if not show_results %}
+    <div class="text-gray-500 text-sm mt-4">
+      Pick an employee and a period above, then click <strong class="font-semibold text-gray-700">View timeline</strong>.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if show_results %}
+
+{# ── Header summary strip ──────────────────────────────────────────── #}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg mb-4">
+  <div class="p-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+      <div>
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-1.5">{% if selected_profile %}Employee{% else %}System{% endif %}</div>
+        <div class="text-lg font-semibold text-gray-900 leading-snug">
+          {{ selected_label }}
+        </div>
+        <div class="text-sm text-gray-500 mt-1">{{ selected_hostname }}{% if not selected_profile %} · unassigned{% endif %}</div>
+      </div>
+      
+      <div>
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-1.5">Range</div>
+        <div class="text-base font-semibold text-gray-900 leading-snug">{{ start_date|date:"d M Y" }} → {{ end_date|date:"d M Y" }}</div>
+        <div class="text-sm text-gray-500 mt-1">{{ day_rows|length }} day{{ day_rows|length|pluralize }}</div>
+      </div>
+      
+      <div>
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-1.5">Captured</div>
+        <div class="text-base font-semibold text-gray-900 leading-snug">{{ segment_count }} session{{ segment_count|pluralize }}</div>
+        <div class="text-sm text-gray-500 mt-1">{{ shot_count }} screenshot{{ shot_count|pluralize }}</div>
+      </div>
+      
+      <div>
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-2">Legend</div>
+        <div class="flex flex-wrap gap-3 text-sm items-center text-gray-700">
+          <span class="inline-flex items-center gap-1.5"><span class="block w-3 h-3 rounded-[3px] bg-emerald-500"></span> Active</span>
+          <span class="inline-flex items-center gap-1.5"><span class="block w-3 h-3 rounded-[3px] bg-indigo-500"></span> Rendering</span>
+          <span class="inline-flex items-center gap-1.5"><span class="block w-3 h-3 rounded-[3px] bg-amber-500"></span> Idle</span>
+          <span class="inline-flex items-center gap-1.5"><span class="block w-3 h-3 rounded-[3px] bg-gray-200"></span> No data</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Grid Header ───────────────────────────────────────────────────── #}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg mb-1 overflow-hidden">
+  <div class="grid grid-cols-[116px_1fr_110px] md:grid-cols-[148px_1fr_132px] items-stretch">
+
+    {# Left header label #}
+    <div class="py-3 px-3 flex flex-col justify-center border-r border-gray-100">
+      <div class="text-[11px] uppercase tracking-widest font-bold text-gray-500">Date</div>
+    </div>
+
+    {# Centre — scrollable hour axis (synced via shared parent) #}
+    <div class="tl-scroll-header overflow-x-auto overflow-y-hidden bg-white">
+      <svg width="2880" height="28" viewBox="0 0 2880 28" class="block text-gray-500" role="presentation" aria-hidden="true">
+        {% for hour in "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23"|split_csv %}
+          {% with pos=hour|to_int|mul:120 %}
+            <line x1="{{ pos }}" y1="18" x2="{{ pos }}" y2="28"
+                  stroke="rgba(0,0,0,0.18)"
+                  stroke-width="{% if hour|to_int|mod:6 == 0 %}1.25{% else %}0.5{% endif %}"/>
+            <text x="{{ pos }}" y="13" text-anchor="{% if hour == '0' %}start{% else %}middle{% endif %}"
+                  font-size="12" font-weight="500" fill="currentColor">{{ hour }}:00</text>
+          {% endwith %}
+        {% endfor %}
+        <line x1="2880" y1="18" x2="2880" y2="28" stroke="rgba(0,0,0,0.18)" stroke-width="1.25"/>
+        <text x="2880" y="13" text-anchor="end" font-size="12" font-weight="500" fill="currentColor">24:00</text>
+      </svg>
+    </div>
+
+    {# Right header label #}
+    <div class="py-3 px-3 flex flex-col justify-center border-l border-gray-100 text-right">
+      <div class="text-[11px] uppercase tracking-widest font-bold text-gray-500">Totals</div>
+    </div>
+
+  </div>
+</div>
+
+{# ── One row per day ───────────────────────────────────────────────── #}
+{% for row in day_rows %}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg mt-1 overflow-hidden timeline-row {% if row.is_weekend %}bg-gray-50/70{% endif %}">
+  <div class="grid grid-cols-[116px_1fr_110px] md:grid-cols-[148px_1fr_132px] items-stretch">
+
+    {# ── Day label (sticky left) ── #}
+    <div class="py-3 px-3 flex flex-col justify-center border-r border-gray-100 {% if not row.is_weekend %}bg-white{% endif %}">
+      <div class="font-semibold text-sm leading-tight text-gray-900">{{ row.date|date:"D, d M" }}</div>
+      <div class="text-xs text-gray-500 mt-0.5">{{ row.date|date:"Y" }}</div>
+    </div>
+
+    {# ── 24h SVG timeline — scrollable ── #}
+    <div class="relative bg-gray-50 border-y border-gray-100 overflow-x-auto overflow-y-hidden tl-scroll-body">
+      <svg width="2880" height="56" viewBox="0 0 2880 56" class="block cursor-default" role="img" aria-label="Timeline for {{ row.date|date:'D d M Y' }}">
+
+        {# Faint hour gridlines for visual alignment #}
+        {% for hour in "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23"|split_csv %}
+          {% with pos=hour|to_int|mul:120 %}
+            <line x1="{{ pos }}" y1="0" x2="{{ pos }}" y2="56"
+                  stroke="rgba(0,0,0,{% if hour|to_int|mod:6 == 0 %}0.10{% else %}0.05{% endif %})"
+                  stroke-width="1"/>
+          {% endwith %}
+        {% endfor %}
+
+        {# ── Activity segments ── #}
+        {% for seg in row.segments %}
+          {% with sx=seg.start_min|mul:2 sw=seg.end_min|sub:seg.start_min|mul:2 %}
+          <rect class="seg"
+                x="{{ sx }}" y="14"
+                width="{{ sw }}" height="38"
+                rx="3" ry="3"
+                fill="{{ seg.colour }}"
+                data-title="{{ seg.window_title }}"
+                data-process="{{ seg.process_name }}"
+                data-activity="{{ seg.activity_type }}"
+                data-start="{{ seg.start_iso }}"
+                data-end="{{ seg.end_iso }}"
+                data-duration="{{ seg.duration_seconds }}">
+            <title>{{ seg.activity_type }} — {{ seg.start_iso|slice:"11:" }} to {{ seg.end_iso|slice:"11:" }} · {{ seg.window_title }} ({{ seg.process_name }})</title>
+          </rect>
+          {% endwith %}
+        {% endfor %}
+
+        {# ── Screenshot markers ── #}
+        {% for shot in row.shots %}
+          {% if shot.is_marker %}
+        <circle class="shot-marker shot-marker--locked"
+                cx="{{ shot.pos_min|mul:2 }}" cy="7"
+                r="3.5" fill="#9ca3af" stroke="#fff" stroke-width="1.5"
+                fill-opacity="0.7"
+                data-is-marker="1"
+                data-marker-reason="{{ shot.marker_reason }}"
+                data-time="{{ shot.time_label }}"
+                style="cursor:help;">
+          <title>🔒 {{ shot.marker_reason|default:"locked" }} — {{ shot.time_label }} (no screenshot captured)</title>
+        </circle>
+          {% else %}
+        <circle class="shot-marker"
+                cx="{{ shot.pos_min|mul:2 }}" cy="7"
+                r="4" fill="#1f2937" stroke="#fff" stroke-width="1.5"
+                data-shot-id="{{ shot.id }}"
+                data-time="{{ shot.time_label }}"
+                style="cursor:pointer;">
+          <title>Screenshot at {{ shot.time_label }} — click to view</title>
+        </circle>
+          {% endif %}
+        {% endfor %}
+
+      </svg>
+    </div>
+
+    {# ── Per-day totals (sticky right) ── #}
+    <div class="py-3 px-3 flex flex-col justify-center border-l border-gray-100 text-right {% if not row.is_weekend %}bg-white{% endif %}">
+      <div class="text-[13px] tabular-nums leading-relaxed flex items-center justify-end gap-1.5 text-gray-700">
+        <span>{{ row.totals.active|secs_to_hm }}</span><span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+      </div>
+      <div class="text-[13px] tabular-nums leading-relaxed flex items-center justify-end gap-1.5 text-gray-700">
+        <span>{{ row.totals.render|secs_to_hm }}</span><span class="inline-block w-2 h-2 rounded-full bg-indigo-500"></span>
+      </div>
+      <div class="text-[13px] tabular-nums leading-relaxed flex items-center justify-end gap-1.5 text-gray-700">
+        <span>{{ row.totals.idle|secs_to_hm }}</span><span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% empty %}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg mt-4">
+  <div class="p-8 text-center text-gray-500">No data in this range.</div>
+</div>
+{% endfor %}
+
+{# ── Tooltip (positioned by JS) ────────────────────────────────────── #}
+<div id="tlTooltip" class="absolute hidden pointer-events-none z-[1000] bg-gray-900 text-white py-2 px-3 rounded-lg text-xs leading-relaxed shadow-xl max-w-[340px]">
+</div>
+
+{# ── Screenshot lightbox ──────────────────────────────────────────── #}
+<div id="tlLightbox" role="dialog" aria-label="Screenshot preview" class="fixed inset-0 hidden bg-black/85 z-[1100] items-center justify-center p-6 cursor-zoom-out">
+  <div class="relative max-w-[96vw] max-h-[92vh] flex flex-col cursor-default" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between text-white text-sm mb-2.5">
+      <div id="tlLightboxCaption">Screenshot</div>
+      <div class="flex items-center gap-3">
+        <span class="hidden sm:inline text-white/50 text-xs">Use ← → to navigate</span>
+        <button type="button" id="tlLightboxPrev" aria-label="Previous screenshot" class="bg-transparent border-none text-white text-2xl cursor-pointer px-2 leading-none hover:text-gray-300 transition-colors">&#8249;</button>
+        <button type="button" id="tlLightboxNext" aria-label="Next screenshot" class="bg-transparent border-none text-white text-2xl cursor-pointer px-2 leading-none hover:text-gray-300 transition-colors">&#8250;</button>
+        <button type="button" id="tlLightboxClose" class="bg-transparent border-none text-white text-3xl cursor-pointer px-2 leading-none hover:text-gray-300 transition-colors">&times;</button>
+      </div>
+    </div>
+    <img id="tlLightboxImg" src="" alt="Screenshot" class="max-w-full max-h-[80vh] rounded-md shadow-2xl bg-black">
+    <div id="tlLightboxLoading" class="hidden text-white text-center py-16 px-5">Loading…</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  if (window.timelineCleanup) window.timelineCleanup.abort();
+  var lifecycle = window.timelineCleanup = new AbortController();
+  // ── Scroll sync ────────────────────────────────────────────────────
+  var scrollEls = Array.prototype.concat.call(
+    Array.from(document.querySelectorAll('.tl-scroll-header')),
+    Array.from(document.querySelectorAll('.tl-scroll-body'))
+  );
+  var syncing = false;
+  scrollEls.forEach(function(el) {
+    el.addEventListener('scroll', function() {
+      if (syncing) return;
+      syncing = true;
+      var x = el.scrollLeft;
+      scrollEls.forEach(function(other) {
+        if (other !== el) other.scrollLeft = x;
+      });
+      syncing = false;
+    });
+  });
+
+  // ── Auto-scroll to first activity ──────────────────────────────────
+  (function() {
+    var firstX = Infinity;
+    document.querySelectorAll('.tl-scroll-body rect.seg').forEach(function(r) {
+      var x = parseFloat(r.getAttribute('x'));
+      if (!isNaN(x) && x < firstX) firstX = x;
+    });
+    if (firstX === Infinity) return;
+    var target = Math.max(0, firstX - 80);
+    syncing = true;
+    scrollEls.forEach(function(el) { el.scrollLeft = target; });
+    syncing = false;
+  })();
+
+  // ── Period toggle: hide/show end-date for non-custom ───────────────
+  var periodSel = document.getElementById('periodSelect');
+  var endGroup = document.getElementById('endDateGroup');
+  var startLabel = document.getElementById('startLabel');
+
+  function updateRangeUI() {
+    var p = periodSel.value;
+    endGroup.style.display = (p === 'custom') ? '' : 'none';
+    startLabel.textContent = ({
+      'weekly':  'Week of',
+      'monthly': 'Month',
+      'custom':  'From',
+      'daily':   'Date',
+    })[p] || 'Date';
+  }
+  if (periodSel) {
+    periodSel.addEventListener('change', updateRangeUI);
+    updateRangeUI();
+  }
+
+  // ── Tooltip on segment hover ───────────────────────────────────────
+  var tooltip = document.getElementById('tlTooltip');
+  if (tooltip) {
+    function formatDuration(seconds) {
+      var s = parseInt(seconds, 10) || 0;
+      var h = Math.floor(s / 3600);
+      var m = Math.floor((s % 3600) / 60);
+      var rs = s % 60;
+      if (h > 0) return h + 'h ' + (m < 10 ? '0' + m : m) + 'm';
+      if (m > 0) return m + 'm ' + (rs < 10 ? '0' + rs : rs) + 's';
+      return rs + 's';
+    }
+    function timeOnly(iso) {
+      return (iso || '').substring(11, 19);
+    }
+
+    document.querySelectorAll('rect.seg').forEach(function(rect) {
+      rect.addEventListener('mouseenter', function(ev) {
+        var d = rect.dataset;
+        tooltip.innerHTML =
+          '<div class="font-semibold mb-1 text-[13px]">' + escapeHtml(d.activity) + '</div>' +
+          '<div class="mb-0.5">' + escapeHtml(d.title) + '</div>' +
+          '<div class="text-gray-400">' + escapeHtml(d.process) + '</div>' +
+          '<div class="mt-1 text-gray-300">' + timeOnly(d.start) + ' → ' + timeOnly(d.end) +
+          ' &middot; ' + formatDuration(d.duration) + '</div>';
+        tooltip.style.display = 'block';
+      });
+      rect.addEventListener('mousemove', function(ev) {
+        var x = ev.pageX + 14, y = ev.pageY + 14;
+        var vw = document.documentElement.clientWidth;
+        if (x + 360 > window.pageXOffset + vw) x = ev.pageX - 374;
+        tooltip.style.left = x + 'px';
+        tooltip.style.top = y + 'px';
+      });
+      rect.addEventListener('mouseleave', function() {
+        tooltip.style.display = 'none';
+      });
+    });
+  }
+
+  // ── Screenshot lightbox ────────────────────────────────────────────
+  var lb       = document.getElementById('tlLightbox');
+  var lbImg    = document.getElementById('tlLightboxImg');
+  var lbCap    = document.getElementById('tlLightboxCaption');
+  var lbLoad   = document.getElementById('tlLightboxLoading');
+  var lbClose  = document.getElementById('tlLightboxClose');
+
+  // Ordered list of all real (non-marker) screenshots, left-to-right
+  // across the whole timeline, so ← / → step between them. Built from
+  // the shot markers in DOM order, then sorted by their x position so
+  // navigation follows chronological order even across day rows.
+  var shotList = [];      // [{id, time, x}]
+  var shotIdx  = -1;      // index into shotList of the open screenshot
+
+  function openLightbox(shotId, timeLabel) {
+    // Sync the current index to whatever we're opening.
+    shotIdx = shotList.findIndex(function(s) { return s.id === String(shotId); });
+    lbCap.textContent = 'Screenshot · ' + timeLabel
+      + (shotList.length > 1 && shotIdx >= 0
+          ? '  (' + (shotIdx + 1) + ' of ' + shotList.length + ')' : '');
+    lbImg.style.display = 'none';
+    lbImg.removeAttribute('src');
+    lbLoad.textContent = 'Loading…';
+    lbLoad.style.display = 'block';
+    lb.style.display = 'flex';
+    var url = '/tracker/timeline/screenshot/' + encodeURIComponent(shotId) + '/';
+    var tmp = new Image();
+    tmp.onload = function() {
+      lbImg.src = url;
+      lbImg.style.display = '';
+      lbLoad.style.display = 'none';
+    };
+    tmp.onerror = function() {
+      lbLoad.textContent = 'Could not load screenshot.';
+    };
+    tmp.src = url;
+  }
+
+  function stepLightbox(delta) {
+    if (shotIdx < 0 || !shotList.length) return;
+    var next = shotIdx + delta;
+    if (next < 0 || next >= shotList.length) return;  // stop at ends
+    var s = shotList[next];
+    openLightbox(s.id, s.time);
+  }
+
+  function closeLightbox() {
+    lb.style.display = 'none';
+    lbImg.removeAttribute('src');
+    shotIdx = -1;
+  }
+
+  if (lb) {
+    document.querySelectorAll('circle.shot-marker').forEach(function(c) {
+      if (c.dataset.isMarker === '1') return;
+      shotList.push({
+        id: String(c.dataset.shotId),
+        time: c.dataset.time,
+        x: parseFloat(c.getAttribute('cx')) || 0,
+      });
+      c.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        openLightbox(c.dataset.shotId, c.dataset.time);
+      });
+    });
+    // Chronological left-to-right order for arrow navigation.
+    shotList.sort(function(a, b) { return a.x - b.x; });
+
+    lb.addEventListener('click', closeLightbox);
+    lbClose.addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      closeLightbox();
+    });
+    var lbPrev = document.getElementById('tlLightboxPrev');
+    var lbNext = document.getElementById('tlLightboxNext');
+    if (lbPrev) lbPrev.addEventListener('click', function(ev) {
+      ev.stopPropagation(); stepLightbox(-1);
+    });
+    if (lbNext) lbNext.addEventListener('click', function(ev) {
+      ev.stopPropagation(); stepLightbox(1);
+    });
+    document.addEventListener('keydown', function(ev) {
+      if (lb.style.display !== 'flex') return;
+      if (ev.key === 'Escape') { closeLightbox(); }
+      else if (ev.key === 'ArrowRight') { ev.preventDefault(); stepLightbox(1); }
+      else if (ev.key === 'ArrowLeft')  { ev.preventDefault(); stepLightbox(-1); }
+    }, {signal: lifecycle.signal});
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function(ch) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];
+    });
+  }
+})();
+</script>
+
+{% endif %}
+
+{% endif %}
+
+</section>
+{% endblock %}

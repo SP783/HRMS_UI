@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Resignation — {{ site_name }}{% endblock %}
+{% block page_title %}Resignation{% endblock %}
+
+{% block content %}
+
+{% if employee is None %}
+  {# Roles without an Employee record (super_admin etc.). #}
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted">
+        Resignation tooling is only available to active employees with
+        an employee record.
+      </p>
+    </div>
+  </div>
+{% else %}
+
+  {# ── Status panel ────────────────────────────────────────────────── #}
+  <div class="card mb-4">
+    <div class="card-header">
+      <span class="card-title">Current status</span>
+    </div>
+    <div class="card-body">
+
+      {% if employee.resignation_status == 'none' %}
+        <p class="text-muted">
+          You have no resignation request on file. Use the button below
+          if you'd like to start the resignation process.
+        </p>
+      {% elif employee.resignation_status == 'pending_acceptance' %}
+        <p>
+          <span class="badge badge--warning">Pending HR review</span>
+        </p>
+        <p class="text-muted mt-2">
+          Your resignation request was submitted on
+          <strong>{{ employee.resignation_submitted_at|date:"d M Y" }}</strong>.
+          HR will review and respond. Your notice period does not begin
+          until HR formally accepts the request.
+        </p>
+        {% if employee.resignation_reason %}
+        <p class="text-muted mt-2"><em>Reason:</em> {{ employee.resignation_reason }}</p>
+        {% endif %}
+        {% if employee.resignation_proposed_last_day %}
+        <p class="text-muted mt-1"><em>Proposed last day:</em>
+          {{ employee.resignation_proposed_last_day|date:"d M Y" }}
+        </p>
+        {% endif %}
+      {% elif employee.resignation_status == 'accepted' %}
+        <p>
+          <span class="badge badge--danger">Resignation accepted — on notice</span>
+        </p>
+        <p class="text-muted mt-2">
+          Accepted by HR on
+          <strong>{{ employee.resignation_processed_at|date:"d M Y" }}</strong>.
+          Your notice period runs
+          <strong>{{ employee.notice_start|date:"d M Y" }}</strong>
+          → <strong>{{ employee.notice_end|date:"d M Y" }}</strong>.
+        </p>
+        <p class="text-muted mt-2">
+          Need to reverse this? You can request a withdrawal — HR must
+          approve.
+        </p>
+      {% elif employee.resignation_status == 'withdrawal_pending' %}
+        <p>
+          <span class="badge badge--info">Withdrawal pending HR review</span>
+        </p>
+        <p class="text-muted mt-2">
+          Withdrawal request submitted on
+          <strong>{{ employee.withdrawal_submitted_at|date:"d M Y" }}</strong>.
+          Until HR responds, your existing notice period continues.
+        </p>
+      {% elif employee.resignation_status == 'rejected' %}
+        <p>
+          <span class="badge badge--muted">Previous request rejected</span>
+        </p>
+        <p class="text-muted mt-2">
+          A previous resignation request was rejected by HR on
+          <strong>{{ employee.resignation_processed_at|date:"d M Y" }}</strong>.
+          {% if employee.resignation_review_note %}
+          <br><em>HR note:</em> {{ employee.resignation_review_note }}
+          {% endif %}
+        </p>
+        <p class="text-muted mt-2">You can submit a new request below if needed.</p>
+      {% endif %}
+
+    </div>
+  </div>
+
+  {# ── Action buttons ──────────────────────────────────────────────── #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Actions</span>
+    </div>
+    <div class="card-body">
+
+      {% if can_apply %}
+      <a href="{% url 'employees:resignation_apply' %}" class="btn btn--primary">
+        Apply for resignation
+      </a>
+      <p class="text-muted text-sm mt-3">
+        You'll be asked to confirm by typing a phrase. After that, your
+        request goes to HR for review — your notice period only starts
+        once HR accepts.
+      </p>
+      {% elif can_withdraw %}
+      <a href="{% url 'employees:resignation_withdraw' %}" class="btn btn--primary">
+        Request to withdraw resignation
+      </a>
+      <p class="text-muted text-sm mt-3">
+        You'll be asked to confirm by typing a phrase. HR must approve
+        the withdrawal before your notice period is cleared.
+      </p>
+      {% else %}
+      <p class="text-muted">
+        No actions available at this stage — please wait for HR to
+        respond to the current request.
+      </p>
+      {% endif %}
+
+    </div>
+  </div>
+
+{% endif %}
+
+{% endblock %}

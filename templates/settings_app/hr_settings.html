@@ -1,0 +1,964 @@
+{% extends "base.html" %}
+{% block title %}HR Settings — {{ site_name }}{% endblock %}
+{% block page_title %}HR Settings{% endblock %}
+
+{% block content %}
+
+{% include "settings_app/partials/nav_hr.html" %}
+
+<div class="flex flex-col gap-8">
+
+  {# ── Company Identity ── #}
+  <section class="flex flex-col gap-1">
+    <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Company Identity</p>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      {# Branding #}
+      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
+          <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Branding</h2>
+        </div>
+        <div class="px-5 py-4 flex-1">
+          <form method="post" action="{% url 'settings_app:hr' %}" enctype="multipart/form-data" class="flex flex-col gap-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_company">
+
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Company Name</label>
+              <input type="text" name="company_name"
+                     value="{{ hr_settings.company_name }}"
+                     placeholder="e.g. Studio Design"
+                     class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                            bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                            placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10
+                            dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              <p class="text-xs text-gray-400 dark:text-gray-500">Shown on employee details &amp; print/PDF documents</p>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Company Logo</label>
+              <div class="flex items-center gap-3 px-3.5 py-3 rounded-lg border-2 border-dashed border-gray-200
+                          dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400
+                          dark:hover:border-gray-500 transition-colors">
+                {% if hr_settings.company_logo %}
+                <img src="{{ hr_settings.company_logo.url }}" alt="Logo"
+                     class="h-9 w-auto rounded border border-gray-200 dark:border-gray-700 object-contain">
+                {% else %}
+                <div class="w-9 h-9 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 17.25V21h3.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                {% endif %}
+                <div class="flex flex-col gap-1 flex-1 min-w-0">
+                  <input type="file" name="company_logo" accept="image/*"
+                         class="text-xs text-gray-600 dark:text-gray-400 file:mr-2 file:py-1 file:px-2.5
+                                file:rounded-md file:border-0 file:text-xs file:font-medium
+                                file:bg-gray-100 dark:file:bg-gray-800 file:text-gray-700
+                                dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-700
+                                cursor-pointer transition-colors">
+                  {% if hr_settings.company_logo %}
+                  <label class="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" name="clear_logo" value="1"
+                           class="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600">
+                    <span class="text-xs text-red-500 dark:text-red-400">Remove logo</span>
+                  </label>
+                  {% endif %}
+                </div>
+              </div>
+              <p class="text-xs text-gray-400 dark:text-gray-500">Recommended: 200×60px, PNG or SVG with transparent background</p>
+            </div>
+
+            <div class="flex justify-end">
+              <button type="submit"
+                class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100
+                       text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+                Save Branding
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {# Employee ID Config #}
+      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
+          <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Employee ID Configuration</h2>
+        </div>
+        <div class="px-5 py-4 flex-1">
+          <form method="post" action="{% url 'settings_app:hr' %}" id="prefixForm" class="flex flex-col gap-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_prefix">
+
+            <div class="grid grid-cols-2 gap-4 items-end">
+              <div class="flex flex-col gap-1">
+                <label for="employee_id_prefix" class="text-xs font-medium text-gray-600 dark:text-gray-400">ID Prefix</label>
+                <input type="text" name="employee_id_prefix" id="employee_id_prefix"
+                       value="{{ hr_settings.employee_id_prefix }}"
+                       maxlength="10" placeholder="e.g. NZD"
+                       class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700
+                              bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                              uppercase font-mono tracking-wider placeholder-gray-400
+                              focus:outline-none focus:ring-2 focus:ring-gray-900/10
+                              dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              </div>
+              <div class="flex flex-col gap-1 pb-0.5">
+                <p class="text-xs text-gray-400 dark:text-gray-500">Preview</p>
+                <p class="text-sm font-mono text-gray-500 dark:text-gray-400">
+                  <span id="prefixPreview">{{ hr_settings.employee_id_prefix|default:"NZD" }}</span>-001
+                  <span class="mx-1.5 text-gray-300 dark:text-gray-600">·</span>
+                  <span id="prefixPreview2">{{ hr_settings.employee_id_prefix|default:"NZD" }}</span>-002
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              {% if next_employee_id %}
+              <div class="inline-flex items-baseline gap-2 px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                <span class="text-xs text-blue-600 dark:text-blue-400">Next ID</span>
+                <span class="text-xl font-bold font-mono tracking-wide text-blue-700 dark:text-blue-300">{{ next_employee_id }}</span>
+              </div>
+              {% else %}
+              <span></span>
+              {% endif %}
+              <button type="submit"
+                class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100
+                       text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+                Save Prefix
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  {# Info banner #}
+  <div class="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-blue-200 dark:border-blue-800/50
+              bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-700 dark:text-blue-300">
+    <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    <span>Break tracking is now configured <strong>per-shift</strong> in
+      <a href="{% url 'settings_app:shifts' %}" class="font-semibold underline underline-offset-2 hover:no-underline">Shift Management</a>
+      — so different shifts can have different break policies.
+    </span>
+  </div>
+
+  {# ── Organization Structure ── #}
+  <section class="flex flex-col gap-1">
+    <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Organization Structure</p>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      {# Departments #}
+      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Departments</h2>
+          <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+            {{ departments|length }}
+          </span>
+        </div>
+        <div class="overflow-x-auto flex-1">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-100 dark:border-gray-800">
+                <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Name</th>
+                <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Headcount</th>
+                <th class="text-right px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide w-28">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+              {% for dept in departments %}
+              <tr class="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+                <td class="px-5 py-3 font-medium text-gray-800 dark:text-gray-200">{{ dept.name }}</td>
+                <td class="px-3 py-3 text-gray-400 dark:text-gray-500 text-xs">{{ dept.employees.count }}</td>
+                <td class="px-5 py-3">
+                  <div class="flex items-center justify-end gap-1">
+                    <button onclick="openDeptModal({{ dept.pk }}, '{{ dept.name|escapejs }}', '{{ dept.description|escapejs }}')"
+                      class="px-2.5 py-1.5 text-xs font-medium rounded-md text-gray-600 dark:text-gray-400
+                             hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                      Edit
+                    </button>
+                    {% if role == 'super_admin' %}
+                    <form method="post" action="{% url 'settings_app:hr' %}" class="inline"
+                          onsubmit="return confirm('Delete &quot;{{ dept.name }}&quot;? This cannot be undone.')">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_dept">
+                      <input type="hidden" name="dept_id" value="{{ dept.pk }}">
+                      <button type="submit"
+                        class="px-2.5 py-1.5 text-xs font-medium rounded-md text-red-500 dark:text-red-400
+                               hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        Delete
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="3" class="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">No departments yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+          <form method="post" action="{% url 'settings_app:hr' %}" class="flex items-center gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_dept">
+            <input type="text" name="dept_name" placeholder="Department name" required
+                   class="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                          bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10
+                          dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            <input type="text" name="dept_desc" placeholder="Description (optional)"
+                   class="flex-[1.5] min-w-0 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                          bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10
+                          dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            <button type="submit"
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700
+                     text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900
+                     hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap transition-colors">
+              Add
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {# Designations #}
+      <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Designations</h2>
+          <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+            {{ designations|length }}
+          </span>
+        </div>
+        <div class="overflow-x-auto flex-1">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-100 dark:border-gray-800">
+                <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Title</th>
+                <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Department</th>
+                <th class="text-right px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide w-28">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+              {% for desig in designations %}
+              <tr class="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+                <td class="px-5 py-3 font-medium text-gray-800 dark:text-gray-200">{{ desig.name }}</td>
+                <td class="px-3 py-3 text-gray-400 dark:text-gray-500 text-xs">{{ desig.department.name|default:"—" }}</td>
+                <td class="px-5 py-3">
+                  <div class="flex items-center justify-end gap-1">
+                    <button onclick="openDesigModal({{ desig.pk }}, '{{ desig.name|escapejs }}', {{ desig.department_id|default:'null' }})"
+                      class="px-2.5 py-1.5 text-xs font-medium rounded-md text-gray-600 dark:text-gray-400
+                             hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                      Edit
+                    </button>
+                    {% if role == 'super_admin' %}
+                    <form method="post" action="{% url 'settings_app:hr' %}" class="inline"
+                          onsubmit="return confirm('Delete &quot;{{ desig.name }}&quot;? This cannot be undone.')">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_desig">
+                      <input type="hidden" name="desig_id" value="{{ desig.pk }}">
+                      <button type="submit"
+                        class="px-2.5 py-1.5 text-xs font-medium rounded-md text-red-500 dark:text-red-400
+                               hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        Delete
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="3" class="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">No designations yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+          <form method="post" action="{% url 'settings_app:hr' %}" class="flex items-center gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_desig">
+            <input type="text" name="desig_name" placeholder="Designation title" required
+                   class="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                          bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                          placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10
+                          dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            <select name="desig_dept"
+                    class="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700
+                           bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+                           focus:outline-none focus:ring-2 focus:ring-gray-900/10
+                           dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              <option value="">— Dept (optional) —</option>
+              {% for dept in designation_departments %}
+              <option value="{{ dept.pk }}">{{ dept.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit"
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700
+                     text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900
+                     hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap transition-colors">
+              Add
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  {# ── Leave Management ── #}
+  <section class="flex flex-col gap-1">
+    <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Leave Management</p>
+
+    {# Compensatory Off expiry policy — week-of-month rule #}
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden mb-4">
+      <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
+        <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Compensatory Off — Expiry Policy</h2>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+          When an auto-earned comp-off expires, based on which week of the month it was earned in.
+        </p>
+      </div>
+      <div class="px-5 py-4">
+        <form method="post" action="{% url 'settings_app:hr' %}" class="flex flex-col gap-3 mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_attendance_rail">
+          <label class="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" name="show_attendance_rail"
+                   {% if hr_settings.show_attendance_rail %}checked{% endif %}
+                   class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-gray-900 focus:ring-gray-900/20">
+            <span class="text-sm font-medium text-gray-800 dark:text-gray-100">Show "Today's Attendance" panel on the dashboard</span>
+          </label>
+          <p class="text-xs text-gray-400 dark:text-gray-500 max-w-xl">
+            Displays a company-wide attendance status list (on leave, not checked in,
+            half day, present) below Today's Birthdays. Visible to all staff. Scrolls when more than 5 people.
+          </p>
+          <div>
+            <button type="submit" class="rounded-md bg-gray-900 dark:bg-white px-3 py-2 text-xs font-semibold text-white dark:text-gray-900 hover:opacity-90">Save</button>
+          </div>
+        </form>
+
+        <form method="post" action="{% url 'settings_app:hr' %}" class="flex flex-col gap-4">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_comp_off_policy">
+
+          <label class="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" name="comp_off_week_cutoff_enabled" id="compOffSplitToggle"
+                   onchange="toggleCompOffSplit()"
+                   {% if hr_settings.comp_off_week_cutoff_enabled %}checked{% endif %}
+                   class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-gray-900 focus:ring-gray-900/20">
+            <span class="text-sm font-medium text-gray-800 dark:text-gray-100">Vary expiry by week of month</span>
+          </label>
+          <p class="text-xs text-gray-400 dark:text-gray-500 -mt-2 max-w-xl">
+            When off, every comp-off uses the single rule below regardless of which week it was earned.
+          </p>
+
+          <div class="flex items-end gap-4 flex-wrap">
+            <div class="flex flex-col gap-1 comp-off-split-field">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Week cutoff</label>
+              <input type="number" name="comp_off_week_cutoff" min="1" max="5"
+                     value="{{ hr_settings.comp_off_week_cutoff }}"
+                     class="w-28 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              <p class="text-xs text-gray-400 dark:text-gray-500 max-w-[12rem]">Earned in this week or earlier = "within"; later = "after".</p>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400"><span class="comp-off-within-label">Within cutoff → valid for</span></label>
+              <select name="comp_off_expiry_months_within"
+                      class="w-44 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                <option value="0" {% if hr_settings.comp_off_expiry_months_within == 0 %}selected{% endif %}>End of same month</option>
+                <option value="1" {% if hr_settings.comp_off_expiry_months_within == 1 %}selected{% endif %}>End of next month</option>
+                <option value="2" {% if hr_settings.comp_off_expiry_months_within == 2 %}selected{% endif %}>End of month +2</option>
+                <option value="3" {% if hr_settings.comp_off_expiry_months_within == 3 %}selected{% endif %}>End of month +3</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1 comp-off-split-field">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">After cutoff → valid for</label>
+              <select name="comp_off_expiry_months_after"
+                      class="w-44 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                <option value="0" {% if hr_settings.comp_off_expiry_months_after == 0 %}selected{% endif %}>End of same month</option>
+                <option value="1" {% if hr_settings.comp_off_expiry_months_after == 1 %}selected{% endif %}>End of next month</option>
+                <option value="2" {% if hr_settings.comp_off_expiry_months_after == 2 %}selected{% endif %}>End of month +2</option>
+                <option value="3" {% if hr_settings.comp_off_expiry_months_after == 3 %}selected{% endif %}>End of month +3</option>
+              </select>
+            </div>
+            <div class="pb-1">
+              <button type="submit"
+                class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+                Save Policy
+              </button>
+            </div>
+          </div>
+        </form>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">
+          Default: comp-offs earned in the first 3 weeks must be used by the end of the same month; those earned in week 4+ are valid until the end of the next month.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      function toggleCompOffSplit() {
+        var on = document.getElementById('compOffSplitToggle').checked;
+        // Dim (don't disable — disabled fields aren't submitted, which would
+        // wipe the saved cutoff/after values). The values are simply ignored
+        // server-side when the split is off.
+        document.querySelectorAll('.comp-off-split-field').forEach(function (el) {
+          el.style.opacity = on ? '1' : '0.45';
+        });
+        var lbl = document.querySelector('.comp-off-within-label');
+        if (lbl) lbl.textContent = on ? 'Within cutoff → valid for' : 'All comp-offs → valid for';
+      }
+      document.addEventListener('DOMContentLoaded', toggleCompOffSplit);
+    </script>
+
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Leave Types</h2>
+        <button onclick="toggleAddLeavePanel()"
+          class="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg
+                 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900
+                 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add Leave Type
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 dark:border-gray-800">
+              <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">Name</th>
+              <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Category</th>
+              <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Allocation</th>
+              <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Rules</th>
+              <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Status</th>
+              <th class="text-right px-5 py-2.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide w-28">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+            {% for lt in leave_types %}
+            <tr class="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+              <td class="px-5 py-3.5 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">{{ lt.name }}</td>
+              <td class="px-3 py-3.5">
+                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-md
+                             bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                  {{ lt.get_category_display }}
+                </span>
+              </td>
+              <td class="px-3 py-3.5 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ lt.allocation_display }}</td>
+              <td class="px-3 py-3.5">
+                <div class="flex flex-wrap gap-1">
+                  {% if lt.is_paid %}
+                  <span class="inline-flex px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 ring-1 ring-inset ring-green-200 dark:ring-green-800/50">Paid</span>
+                  {% endif %}
+                  {% if lt.carry_forward %}
+                  <span class="inline-flex px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 ring-1 ring-inset ring-blue-200 dark:ring-blue-800/50"
+                        title="{{ lt.carry_forward_display }}">CF{% if lt.max_carry_forward_days %} ≤{{ lt.max_carry_forward_days }}{% endif %}</span>
+                  {% endif %}
+                  {% if lt.is_gender_restricted %}
+                  <span class="inline-flex px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-200 dark:ring-amber-800/50">{{ lt.get_gender_restriction_display }}</span>
+                  {% endif %}
+                  {% if lt.min_months_employed > 0 %}
+                  <span class="inline-flex px-1.5 py-0.5 text-[10px] font-semibold rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 ring-1 ring-inset ring-gray-200 dark:ring-gray-700">{{ lt.min_months_employed }}mo</span>
+                  {% endif %}
+                  {% if lt.expiry_month_day %}
+                  <span class="inline-flex px-1.5 py-0.5 text-[10px] font-semibold rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 ring-1 ring-inset ring-gray-200 dark:ring-gray-700"
+                        title="Expires {{ lt.expiry_month_day }}">Exp</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-3 py-3.5">
+                {% if lt.is_active %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md
+                             bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400"></span>Active
+                </span>
+                {% else %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md
+                             bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500"></span>Inactive
+                </span>
+                {% endif %}
+              </td>
+              <td class="px-5 py-3.5">
+                <div class="flex items-center justify-end gap-1">
+                  <button class="px-2.5 py-1.5 text-xs font-medium rounded-md text-gray-600 dark:text-gray-400
+                                 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          onclick="editLeaveType({{ lt.pk }}, '{{ lt.name|escapejs }}', '{{ lt.category }}', {{ lt.days_allowed }}, {{ lt.is_paid|yesno:'true,false' }}, {{ lt.carry_forward|yesno:'true,false' }}, {{ lt.max_carry_forward_days }}, {{ lt.accrual_enabled|yesno:'true,false' }}, '{{ lt.accrual_frequency }}', {{ lt.accrual_rate }}, {{ lt.accrual_start_after_months }}, '{{ lt.gender_restriction }}', {{ lt.min_months_employed }}, {{ lt.is_active|yesno:'true,false' }}, '{{ lt.description|escapejs }}', '{{ lt.expiry_month_day }}', {{ lt.allow_half_day|yesno:'true,false' }})">
+                    Edit
+                  </button>
+                  {% if role == 'super_admin' %}
+                  <form method="post" action="{% url 'settings_app:hr' %}" class="inline"
+                        onsubmit="return confirm('Delete &quot;{{ lt.name }}&quot;? This cannot be undone.')">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_leave_type">
+                    <input type="hidden" name="lt_id" value="{{ lt.pk }}">
+                    <button type="submit"
+                      class="px-2.5 py-1.5 text-xs font-medium rounded-md text-red-500 dark:text-red-400
+                             hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                      Delete
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400 dark:text-gray-500">No leave types configured.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# Add leave type panel #}
+      <div id="addLeaveTypePanel" class="hidden border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 px-5 py-5">
+        <form method="post" action="{% url 'settings_app:hr' %}" class="flex flex-col gap-5">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_leave_type">
+
+          <div class="flex flex-col gap-3">
+            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 border-b border-dashed border-gray-200 dark:border-gray-700 pb-2">Basic Info</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Name *</label>
+                <input type="text" name="lt_name" placeholder="e.g. Casual Leave" required
+                       class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Category</label>
+                <select name="lt_category" id="addLtCategory" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                  <option value="general">General</option>
+                  <option value="sick">Sick / Medical</option>
+                  <option value="vacation">Vacation</option>
+                  <option value="personal">Personal</option>
+                  <option value="maternity">Maternity</option>
+                  <option value="paternity">Paternity</option>
+                  <option value="comp_off">Compensatory Off</option>
+                  <option value="optional_holiday">Optional Holiday</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Days / Year</label>
+                <input type="number" name="lt_days" min="0" placeholder="0"
+                       class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Expires (MM-DD)</label>
+                <input type="text" name="lt_expiry" value="12-31" placeholder="12-31" pattern="[0-9]{2}-[0-9]{2}" title="MM-DD e.g. 03-31"
+                       class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 border-b border-dashed border-gray-200 dark:border-gray-700 pb-2">Eligibility</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl">
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Gender</label>
+                <select name="lt_gender" id="addLtGender" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                  <option value="any">Any Gender</option>
+                  <option value="male">Male Only</option>
+                  <option value="female">Female Only</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Min. Months</label>
+                <input type="number" name="lt_min_months" min="0" placeholder="0"
+                       class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Description</label>
+                <input type="text" name="lt_desc" placeholder="Optional…"
+                       class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 border-b border-dashed border-gray-200 dark:border-gray-700 pb-2">Options</p>
+            <div class="flex flex-wrap gap-x-5 gap-y-3">
+              <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" name="lt_paid" checked class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Paid
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" name="lt_carry" id="addLtCarry" onchange="toggleEl('addLtMaxCarry', this.checked)" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Carry forward
+                <span id="addLtMaxCarry" class="hidden items-center gap-1.5 ml-1">
+                  <span class="text-xs text-gray-500">Max</span>
+                  <input type="number" name="lt_max_carry" min="0" placeholder="0"
+                         class="w-14 px-2 py-1 text-xs rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-colors">
+                  <span class="text-[10px] text-gray-400">0=∞</span>
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" name="lt_accrual" id="addLtAccrual" onchange="toggleEl('addLtAccrualGroup', this.checked)" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Accrual-based
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" name="lt_allow_half_day" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Allow Half-Day
+              </label>
+            </div>
+
+            <div id="addLtAccrualGroup" class="hidden mt-1">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl p-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Frequency</label>
+                  <select name="lt_accrual_freq" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="half_yearly">Half-Yearly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Days / Period</label>
+                  <input type="number" name="lt_accrual_rate" min="0" step="0.5" placeholder="1.5"
+                         class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                  <p class="text-[10px] text-gray-400">1.5/mo = 18/yr</p>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Start After (mo)</label>
+                  <input type="number" name="lt_accrual_start" min="0" placeholder="0"
+                         class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                  <p class="text-[10px] text-gray-400">0 = from joining</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <button type="submit"
+              class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100
+                     text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+              Add Leave Type
+            </button>
+            <button type="button" onclick="toggleAddLeavePanel()"
+              class="px-4 py-2 text-xs font-medium rounded-lg text-gray-500 dark:text-gray-400
+                     hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+{# ── Shared modal helper ── #}
+{% comment %}
+  Modals use a fixed overlay. Since position:fixed collapses iframes,
+  these are standard in-DOM modals for the full browser context.
+{% endcomment %}
+
+{# Edit Department Modal #}
+<div id="editDeptModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+      <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Edit Department</h3>
+      <button onclick="closeModal('editDeptModal')"
+        class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-5 py-4">
+      <form method="post" action="{% url 'settings_app:hr' %}" id="editDeptForm" class="flex flex-col gap-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="edit_dept">
+        <input type="hidden" name="dept_id" id="editDeptId">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Name *</label>
+          <input type="text" name="dept_name" id="editDeptName" required
+                 class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Description</label>
+          <textarea name="dept_desc" id="editDeptDesc" rows="2" placeholder="Optional description…"
+                    class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 resize-none transition-colors"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+      <button type="button" onclick="closeModal('editDeptModal')"
+        class="px-3.5 py-2 text-xs font-medium rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        Cancel
+      </button>
+      <button type="submit" form="editDeptForm"
+        class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
+{# Edit Designation Modal #}
+<div id="editDesigModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+      <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Edit Designation</h3>
+      <button onclick="closeModal('editDesigModal')"
+        class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-5 py-4">
+      <form method="post" action="{% url 'settings_app:hr' %}" id="editDesigForm" class="flex flex-col gap-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="edit_desig">
+        <input type="hidden" name="desig_id" id="editDesigId">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Title *</label>
+          <input type="text" name="desig_name" id="editDesigName" required
+                 class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Department</label>
+          <select name="desig_dept" id="editDesigDept"
+                  class="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            <option value="">— None —</option>
+            {% for dept in designation_departments %}
+            <option value="{{ dept.pk }}">{{ dept.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </form>
+    </div>
+    <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+      <button type="button" onclick="closeModal('editDesigModal')"
+        class="px-3.5 py-2 text-xs font-medium rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        Cancel
+      </button>
+      <button type="submit" form="editDesigForm"
+        class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
+{# Edit Leave Type Modal #}
+<div id="editLeaveTypeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden max-h-[90vh] flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+      <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Edit Leave Type</h3>
+      <button onclick="closeModal('editLeaveTypeModal')"
+        class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-5 py-5 overflow-y-auto flex-1">
+      <form method="post" action="{% url 'settings_app:hr' %}" id="editLtForm" class="flex flex-col gap-5">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="edit_leave_type">
+        <input type="hidden" name="lt_id" id="editLtId">
+
+        <div class="flex flex-col gap-3">
+          <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 border-b border-dashed border-gray-200 dark:border-gray-700 pb-2">Basic Info</p>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Name *</label>
+              <input type="text" name="lt_name" id="editLtName" required class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Category</label>
+              <select name="lt_category" id="editLtCategory" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                <option value="general">General</option>
+                <option value="sick">Sick / Medical</option>
+                <option value="vacation">Vacation</option>
+                <option value="personal">Personal</option>
+                <option value="maternity">Maternity</option>
+                <option value="paternity">Paternity</option>
+                <option value="comp_off">Compensatory Off</option>
+                <option value="optional_holiday">Optional Holiday</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Days / Year</label>
+              <input type="number" name="lt_days" id="editLtDays" min="0" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Expires (MM-DD)</label>
+              <input type="text" name="lt_expiry" id="editLtExpiry" pattern="[0-9]{2}-[0-9]{2}" title="MM-DD" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 border-b border-dashed border-gray-200 dark:border-gray-700 pb-2">Eligibility</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Gender</label>
+              <select name="lt_gender" id="editLtGender" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                <option value="any">Any Gender</option>
+                <option value="male">Male Only</option>
+                <option value="female">Female Only</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Min. Months</label>
+              <input type="number" name="lt_min_months" id="editLtMinMonths" min="0" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Description</label>
+              <input type="text" name="lt_desc" id="editLtDesc" placeholder="Optional…" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 border-b border-dashed border-gray-200 dark:border-gray-700 pb-2">Options</p>
+          <div class="flex flex-wrap gap-x-5 gap-y-3">
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" name="lt_paid" id="editLtPaid" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Paid
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" name="lt_carry" id="editLtCarry" onchange="toggleEl('editLtMaxCarry', this.checked)" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Carry forward
+              <span id="editLtMaxCarry" class="hidden items-center gap-1.5 ml-1">
+                <span class="text-xs text-gray-500">Max</span>
+                <input type="number" name="lt_max_carry" id="editLtMaxCarryVal" min="0" placeholder="0"
+                       class="w-14 px-2 py-1 text-xs rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 transition-colors">
+                <span class="text-[10px] text-gray-400">0=∞</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" name="lt_active" id="editLtActive" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Active
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" name="lt_allow_half_day" id="editLtAllowHalfDay" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Allow Half-Day
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" name="lt_accrual" id="editLtAccrual" onchange="toggleEl('editLtAccrualGroup', this.checked)" class="w-4 h-4 rounded border-gray-300 dark:border-gray-600"> Accrual-based
+            </label>
+          </div>
+
+          <div id="editLtAccrualGroup" class="hidden mt-1">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Frequency</label>
+                <select name="lt_accrual_freq" id="editLtAccrualFreq" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="half_yearly">Half-Yearly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Days / Period</label>
+                <input type="number" name="lt_accrual_rate" id="editLtAccrualRate" min="0" step="0.5" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Start After (mo)</label>
+                <input type="number" name="lt_accrual_start" id="editLtAccrualStart" min="0" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:focus:ring-gray-100/10 focus:border-gray-400 transition-colors">
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </form>
+    </div>
+    <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex-shrink-0">
+      <button type="button" onclick="closeModal('editLeaveTypeModal')"
+        class="px-3.5 py-2 text-xs font-medium rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        Cancel
+      </button>
+      <button type="submit" form="editLtForm"
+        class="px-4 py-2 text-xs font-semibold rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleEl(id, show) {
+  const el = document.getElementById(id);
+  el.style.display = show ? 'inline-flex' : 'none';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+  document.getElementById(id).classList.remove('flex');
+}
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+  document.getElementById(id).classList.add('flex');
+}
+document.addEventListener('click', function(e) {
+  ['editDeptModal','editDesigModal','editLeaveTypeModal'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (e.target === el) closeModal(id);
+  });
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    ['editDeptModal','editDesigModal','editLeaveTypeModal'].forEach(closeModal);
+  }
+});
+const prefixInput = document.getElementById('employee_id_prefix');
+if (prefixInput) {
+  prefixInput.addEventListener('input', function() {
+    const v = this.value.toUpperCase() || 'NZD';
+    document.getElementById('prefixPreview').textContent = v;
+    document.getElementById('prefixPreview2').textContent = v;
+  });
+}
+function toggleAddLeavePanel() {
+  const p = document.getElementById('addLeaveTypePanel');
+  const isHidden = p.classList.contains('hidden');
+  p.classList.toggle('hidden');
+  if (isHidden) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function openDeptModal(id, name, desc) {
+  document.getElementById('editDeptId').value = id;
+  document.getElementById('editDeptName').value = name;
+  document.getElementById('editDeptDesc').value = desc;
+  openModal('editDeptModal');
+  setTimeout(function(){ document.getElementById('editDeptName').focus(); }, 50);
+}
+function openDesigModal(id, name, deptId) {
+  document.getElementById('editDesigId').value = id;
+  document.getElementById('editDesigName').value = name;
+  document.getElementById('editDesigDept').value = deptId || '';
+  openModal('editDesigModal');
+  setTimeout(function(){ document.getElementById('editDesigName').focus(); }, 50);
+}
+function editLeaveType(pk, name, category, days, isPaid, carry, maxCarry,
+                        accrual, accrualFreq, accrualRate, accrualStart,
+                        gender, minMonths, isActive, description, expiry, allowHalfDay) {
+  document.getElementById('editLtId').value = pk;
+  document.getElementById('editLtName').value = name;
+  document.getElementById('editLtCategory').value = category;
+  document.getElementById('editLtDays').value = days;
+  document.getElementById('editLtPaid').checked = isPaid;
+  document.getElementById('editLtCarry').checked = carry;
+  document.getElementById('editLtMaxCarryVal').value = maxCarry;
+  document.getElementById('editLtAccrual').checked = accrual;
+  document.getElementById('editLtAccrualFreq').value = accrualFreq;
+  document.getElementById('editLtAccrualRate').value = accrualRate;
+  document.getElementById('editLtAccrualStart').value = accrualStart;
+  document.getElementById('editLtGender').value = gender;
+  document.getElementById('editLtMinMonths').value = minMonths;
+  document.getElementById('editLtActive').checked = isActive;
+  document.getElementById('editLtDesc').value = description;
+  document.getElementById('editLtExpiry').value = expiry || '12-31';
+  document.getElementById('editLtAllowHalfDay').checked = allowHalfDay;
+  toggleEl('editLtMaxCarry', carry);
+  toggleEl('editLtAccrualGroup', accrual);
+  openModal('editLeaveTypeModal');
+}
+const catGenderMap = { maternity: 'female', paternity: 'male' };
+document.addEventListener('change', function(e) {
+  if (e.target.name === 'lt_category' && catGenderMap[e.target.value]) {
+    const form = e.target.closest('form');
+    const gender = form.querySelector('select[name="lt_gender"]');
+    if (gender) gender.value = catGenderMap[e.target.value];
+  }
+});
+</script>
+{% endblock %}

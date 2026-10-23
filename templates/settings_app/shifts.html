@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+{% block title %}Shift Management — {{ site_name }}{% endblock %}
+{% block page_title %}Shift Management{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-8 w-full max-w-none pb-12">
+
+  {% include "settings_app/partials/nav_hr.html" %}
+
+  <div class="flex-1 min-w-0">
+
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm mb-8 overflow-hidden transition-all">
+      <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white">
+        <h3 class="font-bold text-lg flex items-center gap-3 text-slate-800">
+          <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+          Add New Shift
+        </h3>
+      </div>
+      
+      <div class="p-6 sm:p-8 bg-slate-50/50">
+        <form method="post" id="addShiftForm">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_shift">
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-semibold text-slate-700 after:content-['*'] after:text-red-500 after:ml-0.5">Shift Name</label>
+              <input type="text" name="shift_name" class="px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm" placeholder="e.g. General, Morning, Night" required>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-semibold text-slate-700 after:content-['*'] after:text-red-500 after:ml-0.5">Start Time</label>
+              <input type="time" name="start_time" class="px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm" value="09:00" required>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-semibold text-slate-700 after:content-['*'] after:text-red-500 after:ml-0.5">End Time</label>
+              <input type="time" name="end_time" class="px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm" value="18:00" required>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-semibold text-slate-700">Grace Period <span class="font-normal text-slate-400">(min)</span></label>
+              <input type="number" name="grace_period" class="px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm" value="5" min="0" max="60">
+              <span class="text-xs text-slate-500 mt-1">Allowed late check-in time</span>
+            </div>
+          </div>
+
+          <div class="bg-white border border-slate-200 rounded-xl p-5 my-8 shadow-sm">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-lg">☕</span>
+              <h4 class="text-sm font-bold text-slate-800 tracking-wide">LUNCH & BREAKS</h4>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-4">
+              <div class="flex items-center gap-2.5">
+                <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Duration</label>
+                <div class="relative">
+                  <input type="number" name="lunch_duration" class="pl-3.5 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg w-[100px] focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all" value="60" min="0" max="180">
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">min</span>
+                </div>
+              </div>
+              
+              <div class="hidden sm:block w-px h-8 bg-slate-200"></div>
+              
+              <div class="flex items-center gap-3">
+                <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Window</label>
+                <div class="flex items-center gap-2">
+                  <input type="time" name="lunch_start" class="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg w-[110px] focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" value="12:00">
+                  <span class="text-sm font-medium text-slate-400">to</span>
+                  <input type="time" name="lunch_end" class="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg w-[110px] focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" value="14:30">
+                </div>
+              </div>
+
+              <div class="hidden md:block w-px h-8 bg-slate-200 ml-auto"></div>
+
+              <div class="flex items-center gap-4 ml-auto md:ml-0">
+                <div class="flex items-center gap-2.5">
+                   <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Mode</label>
+                  <select name="break_mode" class="px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all min-w-[100px]">
+                    <option value="off">Disabled</option>
+                    <option value="single" selected>Single</option>
+                    <option value="multiple">Multi</option>
+                  </select>
+                </div>
+                
+                <div class="flex items-center gap-2.5">
+                   <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Limit</label>
+                   <div class="relative">
+                     <input type="number" name="max_break_minutes_per_day" class="pl-3.5 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg w-[90px] focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" value="60" min="0" max="240">
+                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">min</span>
+                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-200 pt-6 mt-2">
+            <h4 class="text-sm font-bold text-slate-800 tracking-wide mb-5">ADVANCED RULES</h4>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-semibold text-slate-700">Overtime Threshold <span class="font-normal text-slate-400">(min)</span></label>
+                <input type="number" name="overtime_threshold" class="px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm" value="540" min="0" max="1440">
+              </div>
+              
+              <div class="flex flex-col gap-3 lg:pt-8">
+                <label class="flex items-center gap-3 cursor-pointer group">
+                  <div class="relative flex items-center justify-center">
+                    <input type="checkbox" name="is_night_shift" id="isNightShift" class="peer sr-only">
+                    <div class="w-5 h-5 bg-white border-2 border-slate-300 rounded flex items-center justify-center peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-all">
+                      <svg class="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                  </div>
+                  <span class="text-sm font-medium text-slate-700 group-hover:text-slate-900">Night Shift <span class="font-normal text-slate-400">(crosses midnight)</span></span>
+                </label>
+                
+                <label class="flex items-center gap-3 cursor-pointer group">
+                  <div class="relative flex items-center justify-center">
+                    <input type="checkbox" name="is_flexible" id="isFlexible" onchange="toggleFlexibleOptions(this)" class="peer sr-only">
+                    <div class="w-5 h-5 bg-white border-2 border-slate-300 rounded flex items-center justify-center peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-all">
+                      <svg class="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                  </div>
+                  <span class="text-sm font-medium text-slate-700 group-hover:text-slate-900">Flexible Shift <span class="font-normal text-slate-400">(any check-in)</span></span>
+                </label>
+              </div>
+              
+              <div class="flex flex-col gap-1.5 transition-opacity duration-300" id="minWorkingGroup" style="opacity:0.4;pointer-events:none">
+                <label class="text-sm font-semibold text-slate-700">Min. Working Hours <span class="font-normal text-slate-400">(min)</span></label>
+                <input type="number" name="minimum_working" class="px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm" value="540" min="0" max="1440">
+                <span class="text-xs text-slate-500 mt-1">Required working time (540 = 9h)</span>
+              </div>
+              
+              <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-1.5 transition-opacity duration-300" id="addHalfDayCutoff">
+                  <label class="text-sm font-semibold text-slate-700">Half-Day Cutoff</label>
+                  <input type="time" name="half_day_cutoff" class="px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm">
+                  <span class="text-xs text-slate-500 mt-1">Arrivals after this = half-day</span>
+                </div>
+                
+                <div class="flex flex-col gap-1.5 transition-opacity duration-300" id="addHalfDayGrace">
+                  <label class="text-sm font-semibold text-slate-700">Half-Day Grace <span class="font-normal text-slate-400">(min)</span></label>
+                  <input type="number" name="half_day_grace" class="px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm" value="0" min="0" max="120">
+                </div>
+              </div>
+              
+              <div class="col-span-full" id="addHalfDayNote" style="display:none;">
+                <div class="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 text-xs font-medium rounded-lg border border-amber-200/50">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  Half-day rules do not apply to flexible shifts.
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-8 flex flex-col sm:flex-row gap-4 items-center border-t border-slate-200 pt-6">
+            <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all text-sm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Create Shift
+            </button>
+            <span class="text-slate-500 text-sm flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              Working days default to Mon–Fri; configure after creation.
+            </span>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      {% for shift in shifts %}
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md" id="shift-{{ shift.pk }}">
+        
+        <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/30">
+          <div class="flex items-center flex-wrap gap-3">
+            <h4 class="font-bold text-lg text-slate-800 m-0">{{ shift.name }}</h4>
+            <span class="font-medium text-slate-500 text-sm px-2 border-l border-slate-300">
+              {{ shift.start_time|time:"H:i" }} – {{ shift.end_time|time:"H:i" }}
+            </span>
+            <div class="flex items-center gap-2 ml-1">
+              {% if not shift.is_active %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-slate-200 text-slate-600">Inactive</span>
+              {% endif %}
+              {% if shift.is_night_shift %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">🌙 Night</span>
+              {% endif %}
+              {% if shift.is_flexible %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">🔄 Flexible</span>
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              {{ shift.employee_count }} employee{{ shift.employee_count|pluralize }}
+            </span>
+            <button type="button" class="inline-flex items-center justify-center gap-2 px-4 py-1.5 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm ml-auto sm:ml-0" onclick="toggleShiftEdit({{ shift.pk }})">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+          </div>
+        </div>
+
+        <div class="p-6">
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-8">
+            <div class="flex flex-col gap-1">
+              <span class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Duration</span>
+              <span class="text-base font-semibold text-slate-800">{{ shift.shift_duration_display }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Working Hours</span>
+              <span class="text-base font-semibold text-slate-800">{{ shift.working_duration_display }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Lunch</span>
+              <span class="text-sm font-semibold text-slate-800">{{ shift.lunch_duration_minutes }}m</span>
+              <span class="text-xs text-slate-500">{{ shift.lunch_start|time:"H:i" }} – {{ shift.lunch_end|time:"H:i" }}</span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Grace Period</span>
+              <span class="text-base font-semibold text-slate-800">{{ shift.grace_period_minutes }} <span class="text-sm text-slate-500 font-medium">min</span></span>
+            </div>
+            
+            {% if shift.is_flexible %}
+            <div class="flex flex-col gap-1 p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl col-span-2 md:col-span-1">
+              <span class="text-[11px] text-emerald-600 uppercase font-bold tracking-wider">Min. Working</span>
+              <span class="text-base font-semibold text-emerald-900">{{ shift.minimum_working_display }}</span>
+            </div>
+            {% endif %}
+            
+            {% if not shift.is_flexible and shift.half_day_cutoff %}
+            <div class="flex flex-col gap-1 p-3 bg-amber-50/50 border border-amber-100 rounded-xl col-span-2 md:col-span-1">
+              <span class="text-[11px] text-amber-600 uppercase font-bold tracking-wider">Half-Day Cutoff</span>
+              <span class="text-base font-semibold text-amber-900">{{ shift.half_day_cutoff|time:"H:i" }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="bg-slate-50 rounded-xl p-5 border border-slate-100">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div class="min-w-max">
+                <span class="text-[11px] text-slate-500 uppercase font-bold tracking-wider block mb-1">Working Days</span>
+                <p class="text-xs text-slate-400">Select active days for this shift</p>
+              </div>
+              
+              <form method="post" class="shift-wd-form w-full">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_working_days">
+                <input type="hidden" name="shift_id" value="{{ shift.pk }}">
+                <div class="flex gap-2.5 flex-wrap items-center">
+                  {% for wd in shift.working_days.all %}
+                  <label class="relative flex items-center justify-center h-10 px-3 rounded-lg border border-slate-200 bg-white text-slate-500 text-sm font-semibold cursor-pointer transition-all hover:border-indigo-300 has-[:checked]:bg-indigo-600 has-[:checked]:text-white has-[:checked]:border-indigo-600 shadow-sm hover:shadow">
+                    <input type="checkbox" name="working_day_{{ wd.day_of_week }}" class="peer sr-only" {% if wd.is_working %}checked{% endif %}>
+                    {{ wd.get_day_of_week_display|slice:":3" }}
+                  </label>
+                  {% endfor %}
+                  <button type="submit" class="inline-flex items-center justify-center px-4 py-2 ml-auto sm:ml-4 border border-slate-300 shadow-sm text-sm font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 h-10 transition-all">Save Days</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="mt-6 border border-slate-200 rounded-xl bg-white overflow-hidden shadow-inner" id="shiftEdit-{{ shift.pk }}" style="display:none">
+            <div class="bg-indigo-50/50 border-b border-slate-200 px-6 py-4">
+              <h4 class="text-indigo-700 font-bold flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Edit "{{ shift.name }}"
+              </h4>
+            </div>
+            
+            <div class="p-6">
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit_shift">
+                <input type="hidden" name="shift_id" value="{{ shift.pk }}">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-sm font-semibold text-slate-700">Shift Name</label>
+                    <input type="text" name="shift_name" class="px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.name }}">
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-sm font-semibold text-slate-700">Start Time</label>
+                    <input type="time" name="start_time" class="px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.start_time|time:'H:i' }}">
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-sm font-semibold text-slate-700">End Time</label>
+                    <input type="time" name="end_time" class="px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.end_time|time:'H:i' }}">
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-sm font-semibold text-slate-700">Grace Period <span class="font-normal text-slate-400">(min)</span></label>
+                    <input type="number" name="grace_period" class="px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.grace_period_minutes }}" min="0" max="60">
+                  </div>
+                  
+                  <div class="col-span-full flex flex-wrap items-center gap-6 pt-2">
+                      <label class="flex items-center gap-2.5 cursor-pointer group">
+                        <div class="relative flex items-center justify-center">
+                          <input type="checkbox" name="is_night_shift" class="peer sr-only" {% if shift.is_night_shift %}checked{% endif %}>
+                          <div class="w-5 h-5 bg-white border-2 border-slate-300 rounded flex items-center justify-center peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-all">
+                            <svg class="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                          </div>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-700 group-hover:text-slate-900">Night Shift</span>
+                      </label>
+                      
+                      <label class="flex items-center gap-2.5 cursor-pointer group">
+                        <div class="relative flex items-center justify-center">
+                          <input type="checkbox" name="is_active" class="peer sr-only" {% if shift.is_active %}checked{% endif %}>
+                          <div class="w-5 h-5 bg-white border-2 border-slate-300 rounded flex items-center justify-center peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-all">
+                            <svg class="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                          </div>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-700 group-hover:text-slate-900">Active Shift</span>
+                      </label>
+                  </div>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-8">
+                  <div class="flex items-center gap-2 mb-4">
+                    <span class="text-lg">☕</span>
+                    <h4 class="text-sm font-bold text-slate-800 tracking-wide">LUNCH & BREAKS</h4>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-6 gap-y-4">
+                    <div class="flex items-center gap-2.5">
+                        <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Duration</label>
+                        <div class="relative">
+                          <input type="number" name="lunch_duration" class="pl-3.5 pr-8 py-2 text-sm bg-white border border-slate-300 rounded-lg w-[100px] focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.lunch_duration_minutes }}" min="0">
+                          <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">min</span>
+                        </div>
+                    </div>
+                    
+                    <div class="hidden sm:block w-px h-8 bg-slate-200"></div>
+                    
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Window</label>
+                        <div class="flex items-center gap-2">
+                          <input type="time" name="lunch_start" class="px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg w-[110px] focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.lunch_start|time:'H:i' }}">
+                          <span class="text-sm font-medium text-slate-400">-</span>
+                          <input type="time" name="lunch_end" class="px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg w-[110px] focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.lunch_end|time:'H:i' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="hidden md:block w-px h-8 bg-slate-200 ml-auto"></div>
+                    
+                    <div class="flex items-center gap-4 ml-auto md:ml-0">
+                      <div class="flex items-center gap-2.5">
+                          <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Mode</label>
+                          <select name="break_mode" class="px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[100px]">
+                              <option value="off" {% if shift.break_mode == 'off' %}selected{% endif %}>Disabled</option>
+                              <option value="single" {% if shift.break_mode == 'single' %}selected{% endif %}>Single</option>
+                              <option value="multiple" {% if shift.break_mode == 'multiple' %}selected{% endif %}>Multi</option>
+                          </select>
+                      </div>
+                      <div class="flex items-center gap-2.5">
+                          <label class="text-sm font-medium text-slate-600 whitespace-nowrap">Limit</label>
+                          <div class="relative">
+                            <input type="number" name="max_break_minutes_per_day" class="pl-3.5 pr-8 py-2 text-sm bg-white border border-slate-300 rounded-lg w-[90px] focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.max_break_minutes_per_day }}" min="0" max="240">
+                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">min</span>
+                          </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pb-6 border-b border-slate-200 mb-6">
+                  <h4 class="text-sm font-bold text-slate-800 tracking-wide mb-5">ADVANCED RULES</h4>
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+                      <div class="flex flex-col gap-3 lg:pt-8">
+                          <label class="flex items-center gap-3 cursor-pointer group">
+                            <div class="relative flex items-center justify-center">
+                              <input type="checkbox" name="is_flexible" class="peer sr-only" {% if shift.is_flexible %}checked{% endif %} onchange="toggleEditFlexibleOptions(this, {{ shift.pk }})">
+                              <div class="w-5 h-5 bg-white border-2 border-slate-300 rounded flex items-center justify-center peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-all">
+                                <svg class="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                              </div>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-700 group-hover:text-slate-900">Flexible Shift</span>
+                          </label>
+                      </div>
+                      
+                      <div class="flex flex-col gap-1.5 transition-opacity duration-300" id="editMinWorking-{{ shift.pk }}" style="{% if not shift.is_flexible %}opacity:0.4;pointer-events:none{% endif %}">
+                        <label class="text-sm font-semibold text-slate-700">Min. Working <span class="font-normal text-slate-400">(min)</span></label>
+                        <input type="number" name="minimum_working" class="px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.minimum_working_minutes }}">
+                      </div>
+                      
+                      <div class="flex flex-col gap-1.5 transition-opacity duration-300" id="editHalfDayCutoff-{{ shift.pk }}" style="{% if shift.is_flexible %}opacity:0.3;pointer-events:none{% endif %}">
+                        <label class="text-sm font-semibold text-slate-700">Half-Day Cutoff</label>
+                        <input type="time" name="half_day_cutoff" class="px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{% if shift.half_day_cutoff %}{{ shift.half_day_cutoff|time:'H:i' }}{% endif %}">
+                      </div>
+                      
+                      <div class="flex flex-col gap-1.5 transition-opacity duration-300" id="editHalfDayGrace-{{ shift.pk }}" style="{% if shift.is_flexible %}opacity:0.3;pointer-events:none{% endif %}">
+                          <label class="text-sm font-semibold text-slate-700">Grace <span class="font-normal text-slate-400">(min)</span></label>
+                          <input type="number" name="half_day_grace" class="px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500" value="{{ shift.half_day_grace_minutes }}">
+                      </div>
+                      
+                      <div class="col-span-full" id="editHalfDayNote-{{ shift.pk }}" style="{% if not shift.is_flexible %}display:none{% endif %}">
+                        <div class="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-700 text-xs font-medium rounded-lg border border-amber-200/50">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                          Half-day rules disabled for flexible shifts.
+                        </div>
+                      </div>
+                  </div>
+                </div>
+
+                <div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                  <button type="button" class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none transition-colors shadow-sm" onclick="toggleShiftEdit({{ shift.pk }})">Cancel</button>
+                  <button type="submit" class="inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all">Update Shift</button>
+                </div>
+              </form>
+
+              {% if shift.employee_count == 0 and role == 'super_admin' %}
+              <div class="mt-6 pt-5 border-t border-slate-200 flex justify-center sm:justify-start">
+                <form method="post" onsubmit="return confirm('Delete shift &quot;{{ shift.name }}&quot;? This cannot be undone.')">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_shift">
+                  <input type="hidden" name="shift_id" value="{{ shift.pk }}">
+                  <button type="submit" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 hover:text-red-700 focus:outline-none transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Delete Shift
+                  </button>
+                </form>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+        </div>
+      </div>
+      {% empty %}
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+        <div class="p-12 text-center text-slate-500 flex flex-col items-center">
+          <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-3xl mb-4 border border-slate-100 shadow-sm">⏰</div>
+          <h3 class="text-xl font-bold text-slate-800 mb-2">No shifts configured</h3>
+          <p class="text-slate-500 max-w-sm">Create your first shift above to define working hours and break schedules for your employees.</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+function toggleShiftEdit(pk) {
+  const el = document.getElementById('shiftEdit-' + pk);
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function toggleFlexibleOptions(checkbox) {
+  const group = document.getElementById('minWorkingGroup');
+  const cutoffField = document.getElementById('addHalfDayCutoff');
+  const graceField = document.getElementById('addHalfDayGrace');
+  const note = document.getElementById('addHalfDayNote');
+  
+  if (checkbox.checked) {
+    group.style.opacity = '1';
+    group.style.pointerEvents = 'auto';
+    
+    // Disable Half Day
+    cutoffField.style.opacity = '0.3';
+    cutoffField.style.pointerEvents = 'none';
+    graceField.style.opacity = '0.3';
+    graceField.style.pointerEvents = 'none';
+    
+    note.style.display = 'block';
+  } else {
+    group.style.opacity = '0.4';
+    group.style.pointerEvents = 'none';
+    
+    cutoffField.style.opacity = '1';
+    cutoffField.style.pointerEvents = 'auto';
+    graceField.style.opacity = '1';
+    graceField.style.pointerEvents = 'auto';
+    
+    note.style.display = 'none';
+  }
+}
+
+function toggleEditFlexibleOptions(checkbox, pk) {
+  const group = document.getElementById('editMinWorking-' + pk);
+  const cutoffField = document.getElementById('editHalfDayCutoff-' + pk);
+  const graceField = document.getElementById('editHalfDayGrace-' + pk);
+  const note = document.getElementById('editHalfDayNote-' + pk);
+  
+  if (checkbox.checked) {
+    group.style.opacity = '1';
+    group.style.pointerEvents = 'auto';
+    
+    cutoffField.style.opacity = '0.3';
+    cutoffField.style.pointerEvents = 'none';
+    graceField.style.opacity = '0.3';
+    graceField.style.pointerEvents = 'none';
+    
+    note.style.display = 'block';
+  } else {
+    group.style.opacity = '0.4';
+    group.style.pointerEvents = 'none';
+    
+    cutoffField.style.opacity = '1';
+    cutoffField.style.pointerEvents = 'auto';
+    graceField.style.opacity = '1';
+    graceField.style.pointerEvents = 'auto';
+    
+    note.style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

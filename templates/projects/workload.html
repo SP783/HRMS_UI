@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Workload — Projects — {{ site_name }}{% endblock %}
+{% block page_title %}Workload{% endblock %}
+{% block breadcrumb %}
+  <div class="breadcrumb"><a href="{% url 'projects:index' %}">Projects</a> / Workload</div>
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'projects:index' %}" class="btn btn--ghost btn--sm">← Projects</a>
+{% endblock %}
+
+{% block content %}
+{% include "projects/partials/_design_tokens.html" %}
+<style>
+  .sec-title { font-family:'Fraunces',serif; font-size:22px; font-weight:300; }
+  .sec-sub { font-size:12.5px; color:var(--ink3); margin-top:2px; }
+  .finput { padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-family:var(--font); background:var(--surface); color:var(--ink); font-size:12.5px; }
+  .finput:focus { border-color:var(--accent); outline:none; box-shadow:0 0 0 2px var(--accent-light); }
+  .wl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+  .wl-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:var(--shadow); transition:box-shadow .15s; }
+  .wl-card:hover { box-shadow:var(--shadow-lg); }
+  .av { display:inline-flex; align-items:center; justify-content:center; border-radius:50%; color:#fff; font-weight:700; flex-shrink:0; }
+  .av.c1 { background:#6366f1; } .av.c2 { background:#06b6d4; } .av.c3 { background:#f59e0b; } .av.c4 { background:#ef4444; } .av.c5 { background:#10b981; }
+  .p-empty { padding:40px 24px; text-align:center; color:var(--ink3); }
+  .p-empty-icon { font-size:36px; margin-bottom:10px; opacity:.6; }
+  .p-empty-title { font-size:14px; font-weight:600; color:var(--ink2); }
+</style>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+  <div>
+    <div class="sec-title">Team Workload</div>
+    <div class="sec-sub">Active task assignments across all employees</div>
+  </div>
+  <select class="finput" id="wl-dept" onchange="renderWorkload()" style="min-width:160px;">
+    <option value="">All departments</option>
+    {% for dn in dept_names %}
+    <option value="{{ dn }}">{{ dn }}</option>
+    {% endfor %}
+  </select>
+</div>
+<div class="wl-grid" id="wl-grid"></div>
+
+<script>
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
+
+var WL_EMPS = [
+{% for emp in workload_data %}
+  { pk:{{ emp.pk }}, name:"{{ emp.name|escapejs }}", role:"{{ emp.role|escapejs }}", dept:"{{ emp.department|escapejs }}", active:{{ emp.active }}, done:{{ emp.done }}, total:{{ emp.total }}, pct:{{ emp.pct }}, tasks:[{% for t in emp.tasks %}{t:"{{ t.0|escapejs }}",p:"{{ t.1|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}], photo:"{{ emp.photo|escapejs }}" }{% if not forloop.last %},{% endif %}
+{% endfor %}
+];
+
+function renderWorkload() {
+  var wrap=document.getElementById('wl-grid'); if(!wrap) return;
+  var deptF=(document.getElementById('wl-dept')||{}).value||'';
+  var emps=deptF?WL_EMPS.filter(function(e){return e.dept===deptF;}):WL_EMPS;
+  if (!emps.length){wrap.innerHTML='<div class="p-empty"><div class="p-empty-icon">👥</div><div class="p-empty-title">No workload data</div></div>';return;}
+  var AVCOLS=['c1','c2','c3','c4','c5'];
+  wrap.innerHTML=emps.map(function(emp,i){
+    var barColor=emp.pct>=80?'var(--green)':emp.pct>=50?'var(--accent)':emp.pct>=25?'var(--amber)':'var(--red)';
+    var av=emp.photo?'<img src="'+escHtml(emp.photo)+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">':'<div class="av '+AVCOLS[i%5]+'" style="width:36px;height:36px;font-size:13px;">'+escHtml(emp.name.split(' ').map(function(n){return n[0];}).slice(0,2).join(''))+'</div>';
+    return '<div class="wl-card">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+      +av+'<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escHtml(emp.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--ink3);">'+escHtml(emp.role||'—')+'</div></div>'
+      +'<span style="font-size:11px;font-weight:700;color:'+barColor+';">'+emp.active+' active</span></div>'
+      +'<div style="display:flex;gap:4px;margin-bottom:8px;">'
+      +'<div style="flex:1;height:7px;background:var(--bg2);border-radius:3px;overflow:hidden;"><div style="width:'+emp.pct+'%;height:100%;background:'+barColor+';border-radius:3px;"></div></div></div>'
+      +'<div style="display:flex;gap:12px;font-size:11px;color:var(--ink3);">'
+      +'<span>✅ '+emp.done+' done</span><span>📋 '+emp.total+' total</span><span style="font-weight:700;color:'+barColor+';">'+emp.pct+'%</span></div>'
+      +(emp.tasks.length?'<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;"><div style="font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Tasks</div>'+emp.tasks.map(function(t){return'<div title="Project: '+escHtml(t.p)+'" style="font-size:11.5px;padding:2px 0;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;">▸ '+escHtml(t.t)+'<span style="color:var(--ink3);font-size:10px;font-weight:600;"> · '+escHtml(t.p)+'</span></div>';}).join('')+'</div>':'')
+      +'</div>';
+  }).join('');
+}
+renderWorkload();
+</script>
+{% endblock %}

@@ -1,0 +1,186 @@
+{% comment %}
+  Reusable leave-requests table.
+  Required context:
+    requests          — list of LeaveRequest objects with can_withdraw and
+                        withdraw_disabled_reason already annotated.
+    status_filter     — string, current ?status= filter (or '').
+    show_employee_col — bool, whether to show the Employee column. True for
+                        team views, False for personal views (every row is
+                        the same employee — no point showing it).
+    can_approve       — bool, whether the viewer may click "Review".
+    can_apply         — bool, whether the empty-state CTA points at apply.
+    is_hr_or_above    — bool, drives the withdraw permissions on display.
+{% endcomment %}
+<div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col mb-4">
+  
+  <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Leave Requests</h2>
+      {% if status_filter %}
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-500/10 dark:text-blue-400 dark:ring-blue-500/20 uppercase tracking-wide">
+        {{ status_filter|title }}
+      </span>
+      {% endif %}
+    </div>
+    
+    <nav class="flex space-x-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 p-1" aria-label="Tabs">
+      <a href="?" class="{% if not status_filter %}bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-0{% else %}text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800{% endif %} rounded-md px-3 py-1.5 text-sm font-medium transition-all">All</a>
+      <a href="?status=pending" class="{% if status_filter == 'pending' %}bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-0{% else %}text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800{% endif %} rounded-md px-3 py-1.5 text-sm font-medium transition-all">Pending</a>
+      <a href="?status=approved" class="{% if status_filter == 'approved' %}bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-0{% else %}text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800{% endif %} rounded-md px-3 py-1.5 text-sm font-medium transition-all">Approved</a>
+      <a href="?status=rejected" class="{% if status_filter == 'rejected' %}bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-0{% else %}text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800{% endif %} rounded-md px-3 py-1.5 text-sm font-medium transition-all">Rejected</a>
+    </nav>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-left border-collapse whitespace-nowrap">
+      <thead>
+        <tr class="bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          {% if show_employee_col %}<th scope="col" class="px-6 py-4">Employee</th>{% endif %}
+          <th scope="col" class="px-6 py-4">Leave Type</th>
+          <th scope="col" class="px-6 py-4">From</th>
+          <th scope="col" class="px-6 py-4">To</th>
+          <th scope="col" class="px-6 py-4">Days</th>
+          <th scope="col" class="px-6 py-4">Status</th>
+          <th scope="col" class="px-6 py-4">RM1/RM2 Approval</th>
+          <th scope="col" class="px-6 py-4">HR Approval</th>
+          <th scope="col" class="px-6 py-4">Applied</th>
+          <th scope="col" class="px-6 py-4 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
+        {% for req in requests %}
+        <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group">
+          
+          {% if show_employee_col %}
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-3">
+              {% if req.profile.profile_photo %}
+              <img src="{{ req.profile.profile_photo.url }}" alt="" class="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-slate-900 shadow-sm">
+              {% else %}
+              <div class="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-xs ring-2 ring-white dark:ring-slate-900 shadow-sm">
+                {{ req.profile.initials }}
+              </div>
+              {% endif %}
+              <div>
+                <div class="text-sm font-medium text-slate-900 dark:text-white">{{ req.profile.full_name }}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">{{ req.profile.employee_id }}</div>
+              </div>
+            </div>
+          </td>
+          {% endif %}
+          
+          <td class="px-6 py-4">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">{{ req.leave_type.name }}</span>
+          </td>
+          <td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{{ req.start_date|date:"d M Y" }}</td>
+          <td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{{ req.end_date|date:"d M Y" }}</td>
+          <td class="px-6 py-4 text-sm font-semibold text-slate-900 dark:text-white">{{ req.total_days }}</td>
+          
+          <td class="px-6 py-4">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+              {% if req.status == 'approved' %}bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20
+              {% elif req.status == 'rejected' %}bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20
+              {% elif req.status == 'pending' %}bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20
+              {% else %}bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-500/20 dark:bg-slate-800/50 dark:text-slate-400 dark:ring-slate-700{% endif %}">
+              <svg class="h-1.5 w-1.5 {% if req.status == 'approved' %}fill-emerald-500{% elif req.status == 'rejected' %}fill-rose-500{% elif req.status == 'pending' %}fill-amber-500{% else %}fill-slate-400{% endif %}" viewBox="0 0 6 6" aria-hidden="true"><circle cx="3" cy="3" r="3" /></svg>
+              {{ req.get_status_display }}
+            </span>
+          </td>
+
+          {% comment %}RM1/RM2 approval stage{% endcomment %}
+          <td class="px-6 py-4">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+              {% if req.rm_approval == 'approved' %}bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20
+              {% elif req.rm_approval == 'rejected' %}bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20
+              {% elif req.rm_approval == 'pending' %}bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20
+              {% else %}bg-slate-50 text-slate-500 ring-1 ring-inset ring-slate-500/20 dark:bg-slate-800/50 dark:text-slate-400 dark:ring-slate-700{% endif %}">
+              {% if req.rm_approval == 'na' %}—{% else %}{{ req.get_rm_approval_display }}{% endif %}
+            </span>
+          </td>
+
+          {% comment %}HR approval stage{% endcomment %}
+          <td class="px-6 py-4">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+              {% if req.hr_approval == 'approved' %}bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20
+              {% elif req.hr_approval == 'rejected' %}bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20
+              {% elif req.hr_approval == 'pending' %}bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20
+              {% else %}bg-slate-50 text-slate-500 ring-1 ring-inset ring-slate-500/20 dark:bg-slate-800/50 dark:text-slate-400 dark:ring-slate-700{% endif %}">
+              {% if req.hr_approval == 'na' %}—{% else %}{{ req.get_hr_approval_display }}{% endif %}
+            </span>
+          </td>
+          
+          <td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{{ req.created_at|date:"d M Y" }}</td>
+          
+          <td class="px-6 py-4 text-right">
+            <div class="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+              
+              {% if can_approve and req.can_review and req.status == 'pending' %}
+              <a href="{% url 'leave:review' req.pk %}" class="inline-flex items-center px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-xs font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+                Review
+              </a>
+              {% endif %}
+              
+              {% if req.status == 'pending' %}
+                {% if is_hr_or_above or req.profile == request.user.profile %}
+                  {% if req.can_withdraw %}
+                  <form method="post" action="{% url 'leave:cancel' req.pk %}" class="inline-block m-0 p-0">
+                    {% csrf_token %}
+                    <button type="submit" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900" data-confirm="Withdraw this pending leave request?">
+                      Withdraw
+                    </button>
+                  </form>
+                  {% else %}
+                  <button type="button" class="inline-flex items-center px-3 py-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-medium text-slate-400 dark:text-slate-500 cursor-not-allowed" title="{{ req.withdraw_disabled_reason|default:'Withdraw unavailable' }}">
+                    Withdraw
+                  </button>
+                  {% endif %}
+                {% endif %}
+              {% elif req.status == 'approved' %}
+                {% if is_hr_or_above or req.profile == request.user.profile %}
+                  {% if req.can_withdraw %}
+                  <form method="post" action="{% url 'leave:cancel' req.pk %}" class="inline-block m-0 p-0">
+                    {% csrf_token %}
+                    <button type="submit" class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-700/50 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-md text-xs font-medium text-amber-700 dark:text-amber-400 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900" data-confirm="Withdraw this approved leave? Your leave balance will be restored.">
+                      Withdraw
+                    </button>
+                  </form>
+                  {% else %}
+                  <button type="button" class="inline-flex items-center px-3 py-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-medium text-slate-400 dark:text-slate-500 cursor-not-allowed" title="{{ req.withdraw_disabled_reason|default:'Withdraw unavailable' }}">
+                    Withdraw
+                  </button>
+                  {% endif %}
+                {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        
+        {% empty %}
+        <tr>
+          <td colspan="{% if show_employee_col %}10{% else %}9{% endif %}" class="px-6 py-16 text-center">
+            <div class="flex flex-col items-center justify-center">
+              <div class="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 dark:text-slate-400"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-1">No leave requests found</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mb-5 max-w-sm">
+                {% if can_apply %}
+                You haven't submitted any leave requests yet. When you do, they will appear here.
+                {% else %}
+                No leave requests match your current filters. Try adjusting your search criteria.
+                {% endif %}
+              </p>
+              {% if can_apply %}
+              <a href="{% url 'leave:apply' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Apply for Leave
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

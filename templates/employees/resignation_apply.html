@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Apply for resignation — {{ site_name }}{% endblock %}
+{% block page_title %}Apply for resignation{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-4" style="max-width: 720px;">
+
+  {# Big warning banner #}
+  <div class="card" style="border:2px solid var(--color-danger);background:var(--color-danger-bg);">
+    <div class="card-body">
+      <div class="flex items-center gap-3-5 mb-3">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <div>
+          <h2 style="margin:0;color:var(--color-danger);font-size:var(--font-size-xl);font-weight:800;">
+            This action notifies HR
+          </h2>
+          <div class="text-sm text-muted">
+            Please read carefully before submitting.
+          </div>
+        </div>
+      </div>
+
+      <ul class="text-sm" style="line-height:1.7;margin:0;padding-left:22px;">
+        <li>Your resignation will be submitted to HR for review.</li>
+        <li>Your notice period of <strong>{{ employee.get_notice_months_display }}</strong> starts on the day HR accepts the request.</li>
+        <li>You can withdraw later, but withdrawal also requires HR approval.</li>
+        <li>HR and your line manager will be notified by email.</li>
+      </ul>
+    </div>
+  </div>
+
+  {# Apply form #}
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Submit resignation</span>
+    </div>
+    <div class="card-body">
+      <form method="post" action="{% url 'employees:resignation_apply' %}" id="resignForm">
+        {% csrf_token %}
+
+        <div class="form-group mb-4">
+          <label class="form-label">Reason for resigning <span class="text-danger">*</span></label>
+          <textarea name="reason" class="form-textarea form-textarea--short" required
+            placeholder="Brief, professional reason. This will be visible to HR and your manager."></textarea>
+        </div>
+
+        <div class="form-group mb-4">
+          <label class="form-label">Proposed last working day (optional)</label>
+          <input type="date" name="proposed_last_day" class="form-input">
+          <div class="form-hint">
+            If you want HR to consider an earlier last day than the standard notice end,
+            put it here. HR will decide whether to honour it.
+          </div>
+        </div>
+
+        <div class="form-group mb-4">
+          <label class="form-label" style="color:var(--color-danger);">
+            Type the following phrase exactly to confirm <span class="text-danger">*</span>
+          </label>
+          <div class="mb-2 mono-sm" style="padding:10px 14px;background:var(--color-surface-2);border-radius:var(--radius-sm);user-select:all;font-weight:700;letter-spacing:0.02em;">
+            {{ confirmation_phrase }}
+          </div>
+          <input
+            type="text"
+            name="confirm_phrase"
+            class="form-input mono-sm"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            placeholder="Type the phrase above…"
+            required
+            id="confirmPhraseInput">
+          <div class="form-hint" id="confirmHint" style="color:var(--color-text-muted);">
+            The Submit button activates once the phrase matches exactly.
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button type="submit" class="btn btn--danger" id="submitBtn" disabled
+            data-confirm="Submit your resignation? HR will be notified immediately.">
+            Submit resignation
+          </button>
+          <a href="{% url 'employees:own_profile' %}" class="btn btn--outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var expected = "{{ confirmation_phrase|escapejs }}";
+    var input    = document.getElementById('confirmPhraseInput');
+    var btn      = document.getElementById('submitBtn');
+    var hint     = document.getElementById('confirmHint');
+    if (!input || !btn) return;
+
+    function check() {
+      if (input.value === expected) {
+        btn.disabled = false;
+        hint.textContent = 'Phrase matches. Click Submit resignation to continue.';
+        hint.style.color = 'var(--color-success)';
+      } else {
+        btn.disabled = true;
+        hint.textContent = 'The Submit button activates once the phrase matches exactly.';
+        hint.style.color = 'var(--color-text-muted)';
+      }
+    }
+    input.addEventListener('input', check);
+    input.addEventListener('paste', function () { setTimeout(check, 0); });
+    check();
+  })();
+</script>
+{% endblock %}

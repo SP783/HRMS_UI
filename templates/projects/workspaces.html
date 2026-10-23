@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Workspaces — {{ site_name }}{% endblock %}
+{% block page_title %}Workspaces{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'projects:index' %}" class="btn btn--outline btn--sm">← Projects</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.cl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+.cl-card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:12px; padding:0; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.cl-card-hdr { height:6px; }
+.cl-card-body { padding:16px 18px; }
+.cl-name { font-size:15px; font-weight:700; margin-bottom:4px; }
+.cl-meta { font-size:11.5px; color:var(--color-text-secondary); margin-bottom:2px; }
+.cl-badge { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:10.5px; font-weight:600; background:var(--color-bg); color:var(--color-text-secondary); border:1px solid var(--color-border); }
+.cl-actions { display:flex; gap:6px; margin-top:14px; padding-top:12px; border-top:1px solid var(--color-border); }
+.color-preview { width:22px; height:22px; border-radius:50%; display:inline-block; flex-shrink:0; border:2px solid rgba(0,0,0,.08); }
+</style>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+  <div>
+    <div style="font-size:18px;font-weight:700;">All Workspaces</div>
+    <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px;">{{ workspaces|length }} workspace{{ clients|length|pluralize }}</div>
+  </div>
+  <button class="btn btn--primary" onclick="document.getElementById('modal-add-client').style.display='flex'">＋ Add Workspace</button>
+</div>
+
+{% if workspaces %}
+<div class="cl-grid">
+  {% for client in workspaces %}
+  <div class="cl-card">
+    <div class="cl-card-hdr" style="background:{{ client.display_color }};"></div>
+    <div class="cl-card-body">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span class="color-preview" style="background:{{ client.display_color }};"></span>
+        <div class="cl-name">{{ client.name }}</div>
+      </div>
+      {% if client.contact_person %}<div class="cl-meta">👤 {{ client.contact_person }}</div>{% endif %}
+      {% if client.email %}<div class="cl-meta">✉️ {{ client.email }}</div>{% endif %}
+      {% if client.phone %}<div class="cl-meta">📞 {{ client.phone }}</div>{% endif %}
+      <div style="margin-top:10px;">
+        <span class="cl-badge">{{ client.project_count }} project{{ client.project_count|pluralize }}</span>
+      </div>
+      <div class="cl-actions">
+        <a href="{% url 'projects:workspace_edit' client.pk %}" class="btn btn--outline btn--sm">✏️ Edit</a>
+        <form method="post" action="{% url 'projects:workspace_delete' client.pk %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--outline btn--sm" style="color:var(--color-danger);"
+            onclick="return confirm('Delete workspace {{ client.name }}? Projects linked to this workspace will lose the link.')">
+            🗑️ Delete
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div style="text-align:center;padding:60px 24px;color:var(--color-text-secondary);">
+  <div style="font-size:40px;margin-bottom:12px;opacity:.5;">🏢</div>
+  <div style="font-size:16px;font-weight:600;margin-bottom:6px;">No clients yet</div>
+  <div style="font-size:13px;margin-bottom:20px;">Create a client to start linking projects to companies.</div>
+  <button class="btn btn--primary" onclick="document.getElementById('modal-add-client').style.display='flex'">＋ Add First Client</button>
+</div>
+{% endif %}
+
+<!-- Add Workspace Modal -->
+<div id="modal-add-client" class="modal-overlay" style="display:none;">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <h3 class="modal-title">New Client</h3>
+      <button type="button" class="modal-close" onclick="document.getElementById('modal-add-client').style.display='none'">&times;</button>
+    </div>
+    <form method="post" action="{% url 'projects:workspace_create_ajax' %}" id="form-add-client">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div class="form-group mb-3">
+          <label class="form-label">Client name *</label>
+          <input type="text" name="name" class="form-input" required placeholder="e.g. Acme Corp">
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label">Contact person</label>
+          <input type="text" name="contact_person" class="form-input" placeholder="e.g. Jane Smith">
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-input" placeholder="e.g. jane@acme.com">
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-input" placeholder="e.g. +1 555 000 1234">
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label">Colour</label>
+          <select name="color" class="form-select">
+            <option value="#2d5be3">Blue</option>
+            <option value="#1a9e5c">Green</option>
+            <option value="#c97c10">Amber</option>
+            <option value="#7c3aed">Purple</option>
+            <option value="#0d7c7c">Teal</option>
+            <option value="#c9321a">Red</option>
+            <option value="#e055a1">Pink</option>
+          </select>
+        </div>
+        <p id="add-client-error" style="display:none;color:var(--color-danger);font-size:12.5px;"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn--primary" id="btn-save-new-client">Save client</button>
+        <button type="button" class="btn btn--outline" onclick="document.getElementById('modal-add-client').style.display='none'">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('btn-save-new-client').addEventListener('click', function() {
+  var form = document.getElementById('form-add-client');
+  var data = new FormData(form);
+  var err = document.getElementById('add-client-error');
+  fetch('{% url "projects:workspace_create_ajax" %}', { method:'POST', body:data })
+    .then(function(r){ return r.json(); })
+    .then(function(res) {
+      if (!res.ok) { err.textContent = res.error; err.style.display = ''; return; }
+      window.location.reload();
+    })
+    .catch(function() { err.textContent = 'An error occurred.'; err.style.display = ''; });
+});
+document.getElementById('modal-add-client').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
+</script>
+{% endblock %}

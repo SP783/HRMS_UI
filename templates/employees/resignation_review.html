@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load biometric_tags %}
+
+{% block title %}Review {{ mode }} — {{ site_name }}{% endblock %}
+{% block page_title %}Review {{ mode }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 720px;">
+  <p class="text-muted mb-4">
+    Review and process this request from
+    {% if request.shared_module_org %}<strong>{{ employee.profile.full_name }}</strong>{% else %}<a href="{% url 'employees:detail' employee.employee_id %}">{{ employee.profile.full_name }}</a>{% endif %}'s
+    profile.
+  </p>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">
+        {% if mode == 'resignation' %}Resignation request{% else %}Withdrawal request{% endif %}
+      </span>
+    </div>
+    <div class="card-body">
+
+      {% if mode == 'resignation' %}
+      <div class="a4-field-grid mb-4">
+        <div class="a4-field a4-field--full">
+          <span class="a4-field-label">Reason</span>
+          <span class="a4-field-value">{{ employee.resignation_reason|linebreaksbr }}</span>
+        </div>
+        <div class="a4-field">
+          <span class="a4-field-label">Submitted</span>
+          <span class="a4-field-value">{{ employee.resignation_submitted_at|date:"d M Y, H:i" }}</span>
+        </div>
+        <div class="a4-field">
+          <span class="a4-field-label">Notice period</span>
+          <span class="a4-field-value">{{ employee.get_notice_months_display }}</span>
+        </div>
+        {% if employee.resignation_proposed_last_day %}
+        <div class="a4-field">
+          <span class="a4-field-label">Requested last day</span>
+          <span class="a4-field-value">{{ employee.resignation_proposed_last_day|date:"d M Y" }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <form method="post" action="{% org_url 'employees:resignation_review' employee.employee_id %}">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+      {% else %}
+      <div class="a4-field-grid mb-4">
+        <div class="a4-field a4-field--full">
+          <span class="a4-field-label">Withdrawal reason</span>
+          <span class="a4-field-value">{{ employee.withdrawal_reason|linebreaksbr }}</span>
+        </div>
+        <div class="a4-field">
+          <span class="a4-field-label">Submitted</span>
+          <span class="a4-field-value">{{ employee.withdrawal_submitted_at|date:"d M Y, H:i" }}</span>
+        </div>
+        <div class="a4-field">
+          <span class="a4-field-label">Currently last day</span>
+          <span class="a4-field-value">{{ employee.notice_end|date:"d M Y" }}</span>
+        </div>
+      </div>
+
+      <form method="post" action="{% org_url 'employees:withdrawal_review' employee.employee_id %}">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+      {% endif %}
+        {% csrf_token %}
+        <div class="form-group mb-3">
+          <label class="form-label">HR note (optional, visible to employee)</label>
+          <textarea name="note" class="form-textarea form-textarea--short" rows="3"></textarea>
+        </div>
+        <div class="btn-group">
+          {% if mode == 'resignation' %}
+          <button type="submit" name="action" value="accept" class="btn btn--danger">Accept</button>
+          {% else %}
+          <button type="submit" name="action" value="accept" class="btn btn--primary">Accept withdrawal</button>
+          {% endif %}
+          <button type="submit" name="action" value="reject" class="btn btn--outline">Reject</button>
+          <a href="{% url 'employees:resignations' %}" class="btn btn--ghost">Back to list</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Activity Tracker — {{ site_name }}{% endblock %}
+{% block page_title %}Activity Tracker{% endblock %}
+
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+{% include "tracker/partials/nav.html" %}
+
+
+<style>
+  /* Live table — readable, comfortable density */
+  .live-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .live-table thead th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink3, #6b7280);
+    font-weight: 600;
+    padding: 10px 14px;
+    background: var(--color-surface-2, #f7f8fa);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    white-space: nowrap;
+  }
+  .live-table tbody td {
+    padding: 14px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    vertical-align: middle;
+    font-size: 14px;
+  }
+  .live-table tbody tr:hover { background: rgba(0,0,0,0.015); }
+  .live-table tbody tr:last-child td { border-bottom: none; }
+
+  .live-emp-name { font-weight: 600; font-size: 14px; line-height: 1.3; }
+  .live-emp-id   { font-size: 12px; color: var(--ink3, #6b7280); margin-top: 2px; }
+  .live-host     { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #374151; }
+
+  .live-time     { font-variant-numeric: tabular-nums; }
+  .live-muted    { color: var(--ink3, #6b7280); }
+
+  /* Status pills — make them legible at a glance */
+  .live-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+    line-height: 1.4;
+  }
+  .live-status .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+  .live-status--active  { background: rgba(16,185,129,0.10); color: #047857; }
+  .live-status--active  .dot { background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.18); }
+  .live-status--idle    { background: rgba(245,158,11,0.12); color: #92400e; }
+  .live-status--idle    .dot { background: #f59e0b; }
+  .live-status--offline { background: rgba(107,114,128,0.12); color: #4b5563; }
+  .live-status--offline .dot { background: #9ca3af; }
+
+  .live-updated {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ink3, #6b7280);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .live-updated::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
+  }
+</style>
+
+{% if not configured %}
+<div class="card">
+  <div class="card-body text-center p-6">
+    <div class="empty-state-icon">📡</div>
+    <div class="empty-state-title">Activity Tracker not configured</div>
+    <p class="empty-state-text">{{ message }}</p>
+    {% if role == "super_admin" %}
+    <a href="{% url 'tracker:settings' %}" class="btn btn--primary">Open Settings</a>
+    {% endif %}
+  </div>
+</div>
+{% elif connection_error %}
+<div class="message message--error mb-4">
+  Connection error: {{ connection_error }}
+</div>
+{% else %}
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Live workstation activity</span>
+    <span class="live-updated">Updated {{ last_updated|time:"H:i:s" }}</span>
+  </div>
+  <div class="table-wrap" style="overflow-x:auto;">
+    <table class="live-table">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Hostname</th>
+          <th>Status</th>
+          <th>Last seen</th>
+          <th>Active time</th>
+          <th>Idle time</th>
+          <th>Top application</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in results %}
+        <tr>
+          <td>
+            <div class="live-emp-name">{{ row.profile.full_name }}</div>
+            <div class="live-emp-id">{{ row.profile.employee_id }}</div>
+          </td>
+          <td><span class="live-host">{{ row.profile.hostname }}</span></td>
+          <td>
+            {% if row.activity %}
+              {% if row.activity.status == "active" %}
+              <span class="live-status live-status--active"><span class="dot"></span> Active</span>
+              {% elif row.activity.status == "idle" %}
+              <span class="live-status live-status--idle"><span class="dot"></span> Idle</span>
+              {% else %}
+              <span class="live-status live-status--offline"><span class="dot"></span> Offline</span>
+              {% endif %}
+            {% else %}
+            <span class="live-muted">No data</span>
+            {% endif %}
+          </td>
+          <td class="live-time live-muted">
+            {% if row.activity %}{{ row.activity.last_seen }}{% else %}—{% endif %}
+          </td>
+          <td class="live-time">
+            {% if row.activity %}{{ row.activity.active_seconds|default:0|floatformat:0 }}s{% else %}—{% endif %}
+          </td>
+          <td class="live-time live-muted">
+            {% if row.activity %}{{ row.activity.idle_seconds|default:0|floatformat:0 }}s{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if row.activity %}{{ row.activity.top_application|default:"—" }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="empty-state" style="padding:32px 14px;text-align:center;">
+            <div style="font-size:14px;margin-bottom:6px;">No active employees with hostnames assigned.</div>
+            <a href="{% url 'employees:list' %}">Assign hostnames in the Employee Directory →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% comment %} ── Unassigned hostnames ─────────────────────────────────────────────
+    Hostnames reporting activity in the last 5 minutes that AREN'T
+    mapped to any UserProfile.hostname. Added May 27 2026 so an SA can
+    spot agents running on un-enrolled machines, or notice a profile
+    that needs its hostname filled in. Empty list = hidden.
+{% endcomment %}
+{% if unassigned_hosts %}
+<div class="card mt-4">
+  <div class="card-header">
+    <span class="card-title">Unassigned hostnames</span>
+    <span class="text-muted text-sm">
+      {{ unassigned_hosts|length }} machine{{ unassigned_hosts|length|pluralize }}
+      reporting but not mapped to an employee
+    </span>
+  </div>
+  <div class="table-wrap">
+    <table class="live-table">
+      <thead>
+        <tr>
+          <th>Hostname</th>
+          <th>Status</th>
+          <th>Last seen</th>
+          <th>Active time</th>
+          <th>Idle time</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in unassigned_hosts %}
+        <tr>
+          <td><span class="live-host">{{ u.hostname }}</span></td>
+          <td>
+            {% if u.status == "active" %}
+              <span class="live-status live-status--active"><span class="dot"></span> Active</span>
+            {% elif u.status == "idle" %}
+              <span class="live-status live-status--idle"><span class="dot"></span> Idle</span>
+            {% else %}
+              <span class="live-status live-status--offline"><span class="dot"></span> Stale</span>
+            {% endif %}
+          </td>
+          <td class="live-time live-muted">{{ u.last_seen|default:"—" }}</td>
+          <td class="live-time">{{ u.active_seconds|default:0|floatformat:0 }}s</td>
+          <td class="live-time live-muted">{{ u.idle_seconds|default:0|floatformat:0 }}s</td>
+          <td>
+            {% comment %} Empty action column for now — could become a "Map to employee"
+               quick-action in a follow-up. {% endcomment %}
+            <span class="live-muted">—</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}

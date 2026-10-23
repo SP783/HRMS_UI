@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}{% if record %}Edit{% else %}Add{% endif %} onboarding — {{ site_name }}{% endblock %}
+{% block page_title %}{% if record %}Edit{% else %}Add{% endif %} onboarding{% endblock %}
+{% block content %}
+<main class="max-w-4xl p-5 space-y-4">
+  <h1 class="text-xl font-bold">{% if record %}Edit onboarding{% else %}Add onboarding{% endif %}</h1>
+  <p class="text-sm text-gray-500">{% if record %}Update joining details. Existing notifications stay unchanged.{% else %}Creating this record alerts Admin, Manager, Team Lead, Finance Executive and IT Executive users in this organization.{% endif %}</p>
+  {% if errors %}<div class="border border-red-300 rounded-lg p-3 text-red-700">{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+  <form method="post" class="border bg-white rounded-xl p-5 grid md:grid-cols-2 gap-4">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+    {% csrf_token %}
+    <label>Existing employee (optional)
+      <select class="block w-full border rounded-lg p-2" name="employee_id">
+        <option value="">Not created yet</option>
+        {% for employee in employees %}<option value="{{ employee.employee_id }}" {% if selected_employee_id == employee.employee_id %}selected{% endif %}>{{ employee.employee_id }} · {{ employee.profile.full_name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Joining date *<input class="block w-full border rounded-lg p-2" name="joining_date" type="date" required value="{{ form_values.joining_date }}"></label>
+    <label>Person name *<input class="block w-full border rounded-lg p-2" name="person_name" value="{{ form_values.person_name }}" placeholder="Filled from employee if selected"></label>
+    <label>Work email<input class="block w-full border rounded-lg p-2" name="work_email" type="email" value="{{ form_values.work_email }}"></label>
+    <label>Department
+      <select class="block w-full border rounded-lg p-2" name="department_id">
+        <option value="">Not set</option>
+        {% for department in departments %}<option value="{{ department.pk }}" {% if selected_department_id == department.pk|stringformat:'s' %}selected{% endif %}>{{ department.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Job title<input class="block w-full border rounded-lg p-2" name="job_title" value="{{ form_values.job_title }}"></label>
+    <label class="md:col-span-2">Notes<textarea class="block w-full border rounded-lg p-2" name="notes" rows="3">{{ form_values.notes }}</textarea></label>
+    <div class="md:col-span-2"><button class="bg-indigo-600 text-white rounded-lg px-5 py-2">{% if record %}Save changes{% else %}Create and notify{% endif %}</button></div>
+  </form>
+</main>
+{% endblock %}

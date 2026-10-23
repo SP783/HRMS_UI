@@ -1,0 +1,9 @@
+<nav class="ws-pagination" aria-label="Server table pagination">
+  <span>Page {{ workspace_page.number }} of {{ workspace_page.paginator.num_pages }} · {{ workspace_page.paginator.count }} matching records</span>
+  {% if workspace_page.has_previous %}<a href="?{{ workspace_query }}&amp;page={{ workspace_page.previous_page_number }}">Previous</a>{% endif %}
+  {% if workspace_page.has_next %}<a href="?{{ workspace_query }}&amp;page={{ workspace_page.next_page_number }}">Next</a>{% endif %}
+  <form method="get" data-ui-filter>
+    {% for key,value in request.GET.items %}{% if key != 'per_page' and key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+    <label>Rows <select name="per_page" aria-label="Server rows per page"><option value="25" {% if workspace.per_page == 25 %}selected{% endif %}>25</option><option value="50" {% if workspace.per_page == 50 %}selected{% endif %}>50</option><option value="100" {% if workspace.per_page == 100 %}selected{% endif %}>100</option></select></label><button>Apply page size</button>
+  </form>
+</nav>

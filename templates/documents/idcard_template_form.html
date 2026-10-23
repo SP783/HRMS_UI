@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} ID Card Template — {{ site_name }}{% endblock %}
+{% block page_title %}{{ action }} ID Card Template{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'documents:idcard_templates' %}" class="inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors">
+  <svg class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+  </svg>
+  Back
+</a>
+{% endblock %}
+
+{% block content %}
+{% include "settings_app/partials/nav_hr.html" %}
+
+<div class="max-w-3xl mx-auto flex flex-col gap-6">
+
+  {% include "documents/partials/nav.html" %}
+
+  <form method="post" enctype="multipart/form-data" class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+    {% csrf_token %}
+    
+    <div class="px-4 py-6 sm:p-8 flex flex-col gap-8">
+      
+      <!-- Basic Info -->
+      <div class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium leading-6 text-gray-900">Template Name <span class="text-red-500">*</span></label>
+          <div class="mt-2">
+            <input type="text" name="name" required
+                   value="{{ template.name|default:'Default ID Card' }}"
+                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+          </div>
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium leading-6 text-gray-900">Layout</label>
+          <div class="mt-2">
+            <select name="layout" class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+              <option value="standard" {% if not template or template.layout == 'standard' %}selected{% endif %}>Standard (Portrait)</option>
+              <option value="horizontal" {% if template.layout == 'horizontal' %}selected{% endif %}>Horizontal (Landscape)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Branding -->
+      <div>
+        <h3 class="border-b border-dashed border-gray-200 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">
+          Branding
+        </h3>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Background</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="bg-color" value="{{ template.background_color|default:'#1a1a2e' }}" 
+                     class="h-9 w-9 rounded border-0 p-0 cursor-pointer shadow-sm focus:ring-2 focus:ring-indigo-600 shrink-0 bg-transparent">
+              <input type="text" name="background_color" id="bg-color-text" value="{{ template.background_color|default:'#1a1a2e' }}" 
+                     class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono uppercase">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Accent</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="ac-color" value="{{ template.accent_color|default:'#e94560' }}" 
+                     class="h-9 w-9 rounded border-0 p-0 cursor-pointer shadow-sm focus:ring-2 focus:ring-indigo-600 shrink-0 bg-transparent">
+              <input type="text" name="accent_color" id="ac-color-text" value="{{ template.accent_color|default:'#e94560' }}" 
+                     class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono uppercase">
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900 mb-2">Text</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="tx-color" value="{{ template.text_color|default:'#ffffff' }}" 
+                     class="h-9 w-9 rounded border-0 p-0 cursor-pointer shadow-sm focus:ring-2 focus:ring-indigo-600 shrink-0 bg-transparent">
+              <input type="text" name="text_color" id="tx-color-text" value="{{ template.text_color|default:'#ffffff' }}" 
+                     class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono uppercase">
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <label class="block text-sm font-medium leading-6 text-gray-900">Company Logo</label>
+          <div class="mt-2">
+            <input type="file" name="logo" accept="image/*"
+                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors">
+          </div>
+          {% if template.logo_path %}
+          <p class="mt-2 text-xs text-gray-500">Current: <span class="font-medium text-gray-700">{{ template.logo_path }}</span></p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Card Front Fields -->
+      <div>
+        <h3 class="border-b border-dashed border-gray-200 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">
+          Card Front Fields
+        </h3>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="relative flex items-start">
+            <div class="flex h-6 items-center">
+              <input type="checkbox" name="show_photo" id="show_photo" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if not template or template.show_photo %}checked{% endif %}>
+            </div>
+            <div class="ml-3 text-sm leading-6">
+              <label for="show_photo" class="font-medium text-gray-900 cursor-pointer">Employee Photo</label>
+            </div>
+          </div>
+          
+          <div class="relative flex items-start">
+            <div class="flex h-6 items-center">
+              <input type="checkbox" name="show_employee_id" id="show_employee_id" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if not template or template.show_employee_id %}checked{% endif %}>
+            </div>
+            <div class="ml-3 text-sm leading-6">
+              <label for="show_employee_id" class="font-medium text-gray-900 cursor-pointer">Employee ID</label>
+            </div>
+          </div>
+          
+          <div class="relative flex items-start">
+            <div class="flex h-6 items-center">
+              <input type="checkbox" name="show_designation" id="show_designation" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if not template or template.show_designation %}checked{% endif %}>
+            </div>
+            <div class="ml-3 text-sm leading-6">
+              <label for="show_designation" class="font-medium text-gray-900 cursor-pointer">Designation</label>
+            </div>
+          </div>
+          
+          <div class="relative flex items-start">
+            <div class="flex h-6 items-center">
+              <input type="checkbox" name="show_department" id="show_department" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if not template or template.show_department %}checked{% endif %}>
+            </div>
+            <div class="ml-3 text-sm leading-6">
+              <label for="show_department" class="font-medium text-gray-900 cursor-pointer">Department</label>
+            </div>
+          </div>
+          
+          <div class="relative flex items-start">
+            <div class="flex h-6 items-center">
+              <input type="checkbox" name="show_qr_code" id="show_qr_code" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if not template or template.show_qr_code %}checked{% endif %}>
+            </div>
+            <div class="ml-3 text-sm leading-6">
+              <label for="show_qr_code" class="font-medium text-gray-900 cursor-pointer">QR Code</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Back Fields -->
+      <div>
+        <h3 class="border-b border-dashed border-gray-200 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">
+          Card Back Fields
+        </h3>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div class="relative flex items-start">
+            <div class="flex h-6 items-center">
+              <input type="checkbox" name="show_blood_group" id="show_blood_group" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if not template or template.show_blood_group %}checked{% endif %}>
+            </div>
+            <div class="ml-3 text-sm leading-6">
+              <label for="show_blood_group" class="font-medium text-gray-900 cursor-pointer">Blood Group</label>
+            </div>
+          </div>
+          
+          <div class="relative flex items-start">
+            <div class="flex h-6 items-center">
+              <input type="checkbox" name="show_emergency_contact" id="show_emergency_contact" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if template.show_emergency_contact %}checked{% endif %}>
+            </div>
+            <div class="ml-3 text-sm leading-6">
+              <label for="show_emergency_contact" class="font-medium text-gray-900 cursor-pointer">Emergency Contact</label>
+            </div>
+          </div>
+          
+          <div class="relative flex items-start">
+            <div class="flex h-6 items-center">
+              <input type="checkbox" name="show_validity" id="show_validity" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if not template or template.show_validity %}checked{% endif %}>
+            </div>
+            <div class="ml-3 text-sm leading-6">
+              <label for="show_validity" class="font-medium text-gray-900 cursor-pointer">Validity Year</label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium leading-6 text-gray-900">Back Text <span class="text-gray-400 font-normal">(optional)</span></label>
+          <div class="mt-2">
+            <textarea name="back_text" rows="3"
+                      placeholder="Company address, contact, terms..."
+                      class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">{{ template.back_text|default:'' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="border-t border-gray-200 pt-6">
+        <div class="relative flex items-start">
+          <div class="flex h-6 items-center">
+            <input type="checkbox" name="is_active" id="is_active" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if not template or template.is_active %}checked{% endif %}>
+          </div>
+          <div class="ml-3 text-sm leading-6">
+            <label for="is_active" class="font-medium text-gray-900 cursor-pointer">Active Template</label>
+            <p class="text-gray-500">Makes this template available for generating ID cards.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Form Footer -->
+    <div class="flex items-center justify-end gap-x-4 border-t border-gray-900/10 bg-gray-50 px-4 py-4 sm:px-8">
+      <a href="{% url 'documents:idcard_templates' %}" class="text-sm font-semibold leading-6 text-gray-900 hover:text-gray-700 transition-colors">Cancel</a>
+      <button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-colors">
+        {{ action }} Template
+      </button>
+    </div>
+    
+  </form>
+</div>
+
+<script>
+  // Sync color inputs with text inputs
+  document.getElementById('bg-color').addEventListener('input', function() { 
+    document.getElementById('bg-color-text').value = this.value; 
+  });
+  document.getElementById('ac-color').addEventListener('input', function() { 
+    document.getElementById('ac-color-text').value = this.value; 
+  });
+  document.getElementById('tx-color').addEventListener('input', function() { 
+    document.getElementById('tx-color-text').value = this.value; 
+  });
+  
+  // Sync text inputs with color inputs on blur/change
+  document.getElementById('bg-color-text').addEventListener('change', function() {
+    if(/^#[0-9A-F]{6}$/i.test(this.value)) document.getElementById('bg-color').value = this.value;
+  });
+  document.getElementById('ac-color-text').addEventListener('change', function() {
+    if(/^#[0-9A-F]{6}$/i.test(this.value)) document.getElementById('ac-color').value = this.value;
+  });
+  document.getElementById('tx-color-text').addEventListener('change', function() {
+    if(/^#[0-9A-F]{6}$/i.test(this.value)) document.getElementById('tx-color').value = this.value;
+  });
+</script>
+{% endblock %}

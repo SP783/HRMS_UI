@@ -1,0 +1,31 @@
+{% comment %}
+═══════════════════════════════════════════════════════════════════════
+  _task_status_cell.html (Tailwind CSS Refactor)
+
+  Rendered both:
+    - inline inside projects/index.html (initial page load)
+    - by projects:task_status_cell view (polled every 30s per row)
+
+  Output is a single <span id="status-cell-{pk}" hx-...> wrapping the
+  status <select>. On each poll, the entire <span> is replaced via
+  hx-swap="outerHTML" — so the htmx attributes MUST be re-emitted here
+  or polling stops after the first swap.
+
+  Required context:
+    task                — Task instance (with STATUS_CHOICES, status, pk)
+    role                — current user's role slug
+    my_task_ids         — set[int] of task pks the current user is assigned to
+═══════════════════════════════════════════════════════════════════════
+{% endcomment %}
+<span id="status-cell-{{ task.pk }}"
+      hx-get="{% url 'projects:task_status_cell' task.pk %}"
+      hx-trigger="every 30s [!document.hidden]"
+      hx-swap="outerHTML">
+<select class="block w-full rounded border-gray-300 py-1 pl-2 pr-8 text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 {{ task.status }}" 
+        onchange="updateTaskStatus({{ task.pk }},this)"
+        {% if role == 'user' and task.pk not in my_task_ids %}disabled{% endif %}>
+  {% for val, label in task.STATUS_CHOICES %}
+  <option value="{{ val }}" {% if task.status == val %}selected{% endif %}>{{ label }}</option>
+  {% endfor %}
+</select>
+</span>

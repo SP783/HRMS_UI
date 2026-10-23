@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Permissions — {{ site_name }}{% endblock %}
+{% block page_title %}Role Permissions{% endblock %}
+
+{% block content %}
+{% include "settings_app/partials/nav_system.html" %}
+
+<div class="w-full max-w-none mt-6">
+  <div class="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200 p-6">
+    
+    <div class="flex items-center text-xl font-semibold text-gray-900 mb-2">
+      <svg class="mr-2 h-6 w-6 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Role Permissions
+    </div>
+
+    <div class="text-sm text-gray-600 mb-8 leading-relaxed max-w-4xl">
+      Control which roles can perform sensitive actions across the app.
+      Tick a box to grant the role that permission. Unchecked = denied.
+      <br>
+      <strong class="text-gray-900 font-semibold">Super Admin always has every permission</strong> (locked column) and only Super Admin can edit this matrix.
+      Some actions — editing this page, changing user roles, and deleting users — are floor-level
+      Super Admin powers and cannot be granted to other roles.
+    </div>
+
+    <!-- Horizontal group tab bar — jump to a permission group -->
+    <style>
+      .perm-tab { border-color: transparent; color: #6b7280; }
+      .perm-tab:hover { color: #374151; }
+      .perm-tab-active { border-color: #4f46e5 !important; color: #111827 !important; }
+      .permission-grid { max-height: 68vh; overflow: auto; scrollbar-gutter: stable; }
+      .permission-grid table { min-width: 1080px; border-collapse: separate; border-spacing: 0; }
+      .permission-grid thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; box-shadow: 0 1px 0 #d1d5db; }
+      .permission-grid thead th:first-child { z-index: 5; }
+      .permission-grid thead th:nth-child(2) { background: #dcfce7; }
+      .permission-grid tbody td:first-child,
+      .permission-grid thead th:first-child { position: sticky; left: 0; min-width: 260px; max-width: 420px; }
+      .permission-grid tbody td:first-child { z-index: 2; background: #fff; box-shadow: 1px 0 0 #e5e7eb; }
+      .permission-grid tbody tr:hover td:first-child { background: #f9fafb; }
+    </style>
+    <div class="border-b border-gray-200 mb-8 overflow-x-auto">
+      <nav class="flex gap-1 -mb-px" id="perm-group-tabs" aria-label="Permission groups">
+        <button type="button" data-group-tab="all" onclick="showPermGroup('all', this)"
+                class="perm-tab perm-tab-active px-3.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2">
+          All
+        </button>
+        {% for group_name, group_rows in matrix %}
+        <button type="button" data-group-tab="{{ group_name|slugify }}" onclick="showPermGroup('{{ group_name|slugify }}', this)"
+                class="perm-tab px-3.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2">
+          {{ group_name }}
+        </button>
+        {% endfor %}
+      </nav>
+    </div>
+
+    <form method="post" class="space-y-10">
+      {% csrf_token %}
+
+      {% for group_name, group_rows in matrix %}
+      <div data-group-panel="{{ group_name|slugify }}">
+        <h3 class="text-lg font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
+          {{ group_name }}
+        </h3>
+        
+        <div class="permission-grid shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg" role="region" aria-label="{{ group_name }} permissions" tabindex="0">
+          <table class="min-w-full divide-y divide-gray-300">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6 min-w-[240px]">
+                  Permission
+                </th>
+                <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-green-800 bg-green-100 border-b-2 border-green-200">
+                  Super Admin
+                </th>
+                {% for role_code, role_label in configurable_roles %}
+                <th scope="col" class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900">
+                  {{ role_label }}
+                </th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white">
+              {% for perm, cells in group_rows %}
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
+                  <div class="font-medium text-gray-900">{{ perm.label }}</div>
+                  <div class="text-xs text-gray-500 mt-1 leading-relaxed">
+                    {{ perm.description }}
+                  </div>
+                  <div class="font-mono text-xs text-gray-400 mt-1.5">
+                    {{ perm.code }}
+                  </div>
+                </td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-center font-bold text-green-600 bg-green-50/50">
+                  ✓
+                </td>
+                {% for role_code, role_label, is_granted in cells %}
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-center">
+                  <input type="checkbox"
+                         name="grants_{{ role_code }}"
+                         value="{{ perm.code }}"
+                         {% if is_granted %}checked{% endif %}
+                         class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer transition-colors">
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="pt-6 border-t border-gray-200 flex items-center space-x-3">
+        <button type="submit" class="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+          Save Permissions
+        </button>
+        <a href="{% url 'settings_app:permissions' %}" class="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+          Cancel
+        </a>
+      </div>
+    </form>
+    
+  </div>
+</div>
+
+<script>
+function showPermGroup(slug, btn) {
+  document.querySelectorAll('[data-group-panel]').forEach(function (p) {
+    p.style.display = (slug === 'all' || p.getAttribute('data-group-panel') === slug) ? '' : 'none';
+  });
+  document.querySelectorAll('[data-group-tab]').forEach(function (t) {
+    t.classList.toggle('perm-tab-active', t === btn);
+  });
+}
+</script>
+{% endblock %}

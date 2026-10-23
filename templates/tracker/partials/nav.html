@@ -1,0 +1,77 @@
+{% comment %}Tracker tab-bar nav.
+  - Live/Dashboard/Timeline/Uptime → anyone with tracker.view
+  - Settings → super_admin only
+{% endcomment %}
+<div class="border-b border-gray-200 bg-white">
+  <nav class="-mb-px flex space-x-8 overflow-x-auto px-4" aria-label="Tabs">
+    
+    <a href="{% url 'tracker:index' %}"
+       class="flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors
+              {% if request.resolver_match.url_name == 'index' and request.resolver_match.app_name == 'tracker' %}
+                border-indigo-500 text-indigo-600
+              {% else %}
+                border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+              {% endif %}">
+      <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+      Live
+    </a>
+
+    <a href="{% url 'tracker:dashboard' %}"
+       class="flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors
+              {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'tracker' %}
+                border-indigo-500 text-indigo-600
+              {% else %}
+                border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+              {% endif %}">
+      <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Stats
+    </a>
+
+    <a href="{% url 'tracker:fleet' %}"
+       class="flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors
+              {% if request.resolver_match.url_name == 'fleet' and request.resolver_match.app_name == 'tracker' %}
+                border-indigo-500 text-indigo-600
+              {% else %}
+                border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+              {% endif %}">
+      <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Fleet
+    </a>
+
+    <a href="{% url 'tracker:timeline' %}"
+       class="flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors
+              {% if request.resolver_match.url_name == 'timeline' and request.resolver_match.app_name == 'tracker' %}
+                border-indigo-500 text-indigo-600
+              {% else %}
+                border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+              {% endif %}">
+      <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="17" y1="12" x2="3" y2="12"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="18" x2="3" y2="18"/></svg>
+      Timeline
+    </a>
+
+    <a href="{% url 'tracker:uptime' %}"
+       class="flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors
+              {% if request.resolver_match.url_name == 'uptime' and request.resolver_match.app_name == 'tracker' %}
+                border-indigo-500 text-indigo-600
+              {% else %}
+                border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+              {% endif %}">
+      <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Uptime
+    </a>
+
+    {% if role == "super_admin" or request.user.profile.role == "super_admin" %}
+    <a href="{% url 'tracker:settings' %}"
+       class="flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors
+              {% if request.resolver_match.url_name == 'settings' and request.resolver_match.app_name == 'tracker' %}
+                border-indigo-500 text-indigo-600
+              {% else %}
+                border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+              {% endif %}">
+      <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </a>
+    {% endif %}
+
+  </nav>
+</div>

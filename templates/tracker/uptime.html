@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% load tracker_extras %}
+{% block title %}System Uptime — {{ site_name }}{% endblock %}
+{% block page_title %}System Uptime{% endblock %}
+
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+{% include "tracker/partials/nav.html" %}
+
+{% if not configured %}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg">
+  <div class="p-8 text-center flex flex-col items-center justify-center">
+    <div class="text-5xl mb-4">📡</div>
+    <div class="text-lg font-semibold text-gray-900 mb-2">Activity Tracker not configured</div>
+    {% if request.user.profile.role == 'super_admin' %}
+    <a href="{% url 'tracker:settings' %}" class="inline-flex justify-center items-center px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors shadow-sm focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 mt-4">
+      Open Settings
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+{% elif connection_error %}
+<div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-md">
+  <div class="flex">
+    <div class="flex-shrink-0">
+      <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+      </svg>
+    </div>
+    <div class="ml-3">
+      <p class="text-sm text-red-700">Could not connect to the tracker DB: {{ connection_error }}</p>
+    </div>
+  </div>
+</div>
+
+{% else %}
+
+{# ── Filter bar ────────────────────────────────────────────────────── #}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg mb-4">
+  <div class="p-5">
+    <form data-ui-filter method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Period</label>
+        <select name="period" id="periodSelect" class="block w-full border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm">
+          <option value="daily"   {% if period == 'daily' %}selected{% endif %}>Daily</option>
+          <option value="weekly"  {% if period == 'weekly' %}selected{% endif %}>Weekly</option>
+          <option value="monthly" {% if period == 'monthly' %}selected{% endif %}>Monthly</option>
+          <option value="custom"  {% if period == 'custom' %}selected{% endif %}>Custom range</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+          <span id="startLabel">{% if period == 'weekly' %}Week of{% elif period == 'monthly' %}Month{% else %}Date{% endif %}</span>
+        </label>
+        <input type="date" name="start" id="startDate" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ start_date_str }}" required>
+      </div>
+
+      <div id="endDateGroup" {% if period != 'custom' %}style="display:none;"{% endif %}>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">To</label>
+        <input type="date" name="end" id="endDate" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ end_date_str }}">
+      </div>
+
+      <div class="sm:col-span-2 lg:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Employee / Hostname</label>
+        <select name="employee" class="block w-full border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" required>
+          <option value="">— Select an employee —</option>
+          {% for p in eligible %}
+          <option value="{{ p.pk }}" {% if selected_employee_id == p.pk|stringformat:"s" %}selected{% endif %}>
+            {{ p.user.get_full_name|default:p.user.username }}
+            {% if p.employee.department %}· {{ p.employee.department.name }}{% endif %}
+            · {{ p.hostname }}
+          </option>
+          {% endfor %}
+          {% if unassigned_hosts %}
+          <optgroup label="Unassigned systems">
+            {% for u in unassigned_hosts %}
+            <option value="host:{{ u.hostname }}" {% if selected_employee_id == "host:"|add:u.hostname %}selected{% endif %}>
+              {{ u.hostname }} · unassigned
+            </option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+        </select>
+      </div>
+
+      <input type="hidden" name="view" value="1">
+
+      <div class="sm:col-span-2 lg:col-span-1">
+        <button type="submit" class="w-full inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 shadow-sm transition-colors focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+          View uptime
+        </button>
+      </div>
+    </form>
+
+    {% if not show_results %}
+    <div class="text-gray-500 text-sm mt-4">
+      Pick an employee and a period above, then click <strong class="font-semibold text-gray-700">View uptime</strong>.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if show_results %}
+
+{# ── Summary strip ─────────────────────────────────────────────────── #}
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg mb-4">
+  <div class="p-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 items-start">
+      <div>
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-1.5">{% if selected_profile %}Employee{% else %}System{% endif %}</div>
+        <div class="text-lg font-semibold text-gray-900 leading-snug">
+          {{ selected_label }}
+        </div>
+        <div class="text-sm text-gray-500 mt-1">
+          {{ selected_hostname }}{% if not selected_profile %} · unassigned{% endif %}
+          {% if currently_up %}
+            · <span class="text-emerald-500 font-semibold">● Currently up</span>
+          {% else %}
+            · <span class="text-gray-400">○ Not reporting now</span>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-1.5">Range</div>
+        <div class="text-base font-semibold text-gray-900 leading-snug">{{ start_date|date:"d M Y" }} → {{ end_date|date:"d M Y" }}</div>
+        <div class="text-sm text-gray-500 mt-1">{{ day_rows|length }} day{{ day_rows|length|pluralize }}</div>
+      </div>
+      <div>
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-1.5">Total uptime</div>
+        <div class="text-base font-semibold text-gray-900 leading-snug tabular-nums">{{ total_up_seconds|secs_to_hm }}</div>
+        <div class="text-sm text-gray-500 mt-1">of {{ range_seconds|secs_to_hm }} in range</div>
+      </div>
+      <div>
+        {# May 27 2026 — uptime attributed to the assigned shift. #}
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-1.5">Outside shift</div>
+        <div class="text-base font-semibold text-gray-900 leading-snug tabular-nums">{{ total_non_working_seconds|secs_to_hm }}</div>
+        <div class="text-sm text-gray-500 mt-1">
+          {% if shift_name %}vs {{ total_during_shift_seconds|secs_to_hm }} during “{{ shift_name }}”
+          {% else %}vs {{ total_during_shift_seconds|secs_to_hm }} during default 10-19 window{% endif %}
+        </div>
+      </div>
+      <div>
+        <div class="text-xs uppercase tracking-widest font-semibold text-gray-500 mb-1.5">Health events</div>
+        {% if hard_count %}
+        <div class="text-base font-semibold text-red-600 leading-snug">⚠ {{ hard_count }} hard power loss{{ hard_count|pluralize }}</div>
+        {% else %}
+        <div class="text-base font-semibold text-emerald-500 leading-snug">✓ No hard power loss</div>
+        {% endif %}
+        {% if silent_count %}
+        <div class="text-sm text-amber-500 mt-1">{{ silent_count }} silent gap{{ silent_count|pluralize }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-4 py-3 text-left text-[11px] uppercase tracking-widest font-bold text-gray-500 whitespace-nowrap">Date</th>
+          <th scope="col" class="px-4 py-3 text-left text-[11px] uppercase tracking-widest font-bold text-gray-500 whitespace-nowrap">Boot up</th>
+          <th scope="col" class="px-4 py-3 text-left text-[11px] uppercase tracking-widest font-bold text-gray-500 whitespace-nowrap">Shutdown</th>
+          <th scope="col" class="px-4 py-3 text-right text-[11px] uppercase tracking-widest font-bold text-gray-500 whitespace-nowrap">Sessions</th>
+          <th scope="col" class="px-4 py-3 text-right text-[11px] uppercase tracking-widest font-bold text-gray-500 whitespace-nowrap">Total uptime</th>
+          <th scope="col" class="px-4 py-3 text-right text-[11px] uppercase tracking-widest font-bold text-gray-500 whitespace-nowrap">Outside shift</th>
+          <th scope="col" class="px-4 py-3 text-left text-[11px] uppercase tracking-widest font-bold text-gray-500 whitespace-nowrap hidden md:table-cell">Events</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 bg-white">
+        {% for row in day_rows %}
+          {% with first_seg=row.segments|first last_seg=row.segments|last sess_count=row.segments|length %}
+          <tr class="transition-colors hover:bg-gray-50/50 {% if row.is_weekend %}bg-gray-50/70 hover:bg-gray-100/50{% endif %}">
+            
+            {# Date #}
+            <td class="px-4 py-3.5 whitespace-nowrap align-middle">
+              <div class="font-semibold text-sm text-gray-900">{{ row.date|date:"D, d M Y" }}</div>
+              {% if row.is_weekend %}<div class="text-xs text-gray-500 mt-0.5">Weekend</div>{% endif %}
+            </td>
+
+            {# Boot up = start of FIRST session of the day #}
+            <td class="px-4 py-3.5 whitespace-nowrap align-middle">
+              {% if first_seg %}
+                <div class="tabular-nums text-sm text-gray-900">{{ first_seg.start_iso|slice:"11:16" }}</div>
+                {% if sess_count > 1 %}
+                <div class="text-xs text-gray-500 mt-0.5 tabular-nums">first of {{ sess_count }}</div>
+                {% endif %}
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+
+            {# Shutdown #}
+            <td class="px-4 py-3.5 whitespace-nowrap align-middle">
+              {% if last_seg %}
+                {% if last_seg.state == 'open' %}
+                  <span class="text-blue-600 font-semibold text-sm tabular-nums">Still up</span>
+                  <div class="text-xs text-gray-500 mt-0.5 tabular-nums">since {{ last_seg.start_iso|slice:"11:16" }}</div>
+                {% else %}
+                  <div class="tabular-nums text-sm text-gray-900">{{ last_seg.end_iso|slice:"11:16" }}</div>
+                  {% if sess_count > 1 %}
+                  <div class="text-xs text-gray-500 mt-0.5 tabular-nums">last of {{ sess_count }}</div>
+                  {% endif %}
+                {% endif %}
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+
+            {# Sessions count #}
+            <td class="px-4 py-3.5 whitespace-nowrap align-middle text-right">
+              {% if sess_count %}
+                <span class="inline-block min-w-[22px] px-2 py-0.5 text-xs font-semibold bg-gray-100 rounded-full text-center text-gray-700">{{ sess_count }}</span>
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+
+            {# Total uptime #}
+            <td class="px-4 py-3.5 whitespace-nowrap align-middle text-right">
+              {% if row.total_up_seconds %}
+                <span class="text-[15px] font-semibold text-gray-900 tabular-nums">{{ row.total_up_seconds|secs_to_hm }}</span>
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+
+            {# Outside shift #}
+            <td class="px-4 py-3.5 whitespace-nowrap align-middle text-right">
+              {% if row.non_working_seconds %}
+                <span class="text-[15px] font-semibold text-amber-500 tabular-nums" title="Time the system was up outside the assigned shift">
+                  {{ row.non_working_seconds|secs_to_hm }}
+                </span>
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+
+            {# Status pill #}
+            <td class="px-4 py-3.5 whitespace-nowrap align-middle hidden md:table-cell">
+              <div class="flex flex-col gap-1 items-start">
+                {% if row.hard_seconds %}
+                  <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                    <span class="block w-1.5 h-1.5 rounded-full bg-red-600"></span> Hard power loss &middot; {{ row.hard_seconds|secs_to_hm }}
+                  </span>
+                {% endif %}
+                {% if last_seg.state == 'open' %}
+                  <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                    <span class="block w-1.5 h-1.5 rounded-full bg-blue-600 ring-2 ring-blue-200/50"></span> Currently up
+                  </span>
+                {% endif %}
+                {% if not row.hard_seconds and not last_seg.state == 'open' and row.total_up_seconds %}
+                  <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                    <span class="block w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Clean
+                  </span>
+                {% endif %}
+                {% if not first_seg %}
+                  <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                    <span class="block w-1.5 h-1.5 rounded-full bg-gray-400"></span> No data
+                  </span>
+                {% endif %}
+              </div>
+            </td>
+
+          </tr>
+          {% endwith %}
+        {% empty %}
+        <tr>
+          <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500">
+            No events for this employee in this range. The agent may not have
+            started reporting uptime yet — check that it's running v7+.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+
+      {# ── Range totals footer ────────────────────────────────────── #}
+      {% if day_rows %}
+      <tfoot class="bg-gray-50 border-t border-gray-200">
+        <tr>
+          <td class="px-4 py-3.5 font-semibold text-[13px] text-gray-900">Totals</td>
+          <td></td>
+          <td></td>
+          <td class="px-4 py-3.5 text-right text-[13px] text-gray-500 tabular-nums">
+            {{ day_rows|length }} day{{ day_rows|length|pluralize }}
+          </td>
+          <td class="px-4 py-3.5 text-right font-bold text-[15px] tabular-nums text-gray-900">
+            {{ total_up_seconds|secs_to_hm }}
+          </td>
+          <td class="hidden md:table-cell"></td>
+          <td class="hidden md:table-cell"></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+{% endif %}
+{% endif %}
+
+<script>
+(function() {
+  // Period UI
+  var periodSel = document.getElementById('periodSelect');
+  var endGroup = document.getElementById('endDateGroup');
+  var startLabel = document.getElementById('startLabel');
+  function updateRangeUI() {
+    if (!periodSel) return;
+    var p = periodSel.value;
+    endGroup.style.display = (p === 'custom') ? '' : 'none';
+    startLabel.textContent = ({
+      'weekly':'Week of','monthly':'Month','custom':'From','daily':'Date',
+    })[p] || 'Date';
+  }
+  if (periodSel) {
+    periodSel.addEventListener('change', updateRangeUI);
+    updateRangeUI();
+  }
+})();
+</script>
+
+
+</section>
+{% endblock %}

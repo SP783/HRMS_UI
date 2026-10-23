@@ -1,0 +1,1128 @@
+{% extends "base.html" %}
+{% load project_tags %}
+{% load static %}
+
+{% block title %}Projects — {{ site_name }}{% endblock %}
+{% block page_title %}Projects{% endblock %}
+
+{% comment %}
+══════════════════════════════════════════════════════════════════════════
+  Projects index
+  Fix summary vs original:
+  #1  sortProjects – selector corrected to the actual parent container id
+  #2  Archived section – "Show archived" toggle button added
+  #3  Active badge – counts active projects correctly via a custom filter
+  #4  Timesheet row total – summed via tsRecalc() JS helper
+  #5  Timesheet day totals – cells given IDs; tsUpdateEntry calls tsRecalc
+  #6  Modals – openModal/closeModal toggle flex class, not just hidden
+  #7  Progress bar colour – moved to partial, consistent everywhere
+  #8  data-client – present on all rows via partial
+  #9  Directory tab – present in all rows via partial
+  #10 Bulk create – wraps a <form> with dedicated bulk endpoint
+  #11 Timesheet week filter – week options deduplicated with |dictsort|unique
+  #12 data-confirm – global submit handler wired up in JS
+  #13 Board toggle – active-state classes updated inside setProjectsView()
+  #14 Review/Blocked filters – present in all rows via partial
+  #15 Completed column – present in all rows, colspans corrected, via partial
+  #16 Duplication – both project sections use _project_row.html partial
+  #17 Comment badge delegation – event delegation on #projects-tree-view
+══════════════════════════════════════════════════════════════════════════
+{% endcomment %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/projects.css' %}">
+{% endblock %}
+
+{% block topbar_actions %}
+  {% if can_create %}
+  <button class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          onclick="openModal('modal-new-proj')">+ New Project</button>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{% include 'projects/partials/_workspace_filter.html' %}
+
+<div class="block" id="pane-tree">
+
+  <!-- Search + status filter + view toggle -->
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2.5">
+    <div class="flex flex-wrap gap-1.5">
+      <button class="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-600 shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800"
+              onclick="filterStatus(this,'all')">All</button>
+      <button class="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              onclick="filterStatus(this,'active')">Active</button>
+      <button class="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              onclick="filterStatus(this,'new')">New</button>
+      <button class="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              onclick="filterStatus(this,'on_hold')">On Hold</button>
+      <button class="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              onclick="filterStatus(this,'completed')">Completed</button>
+    </div>
+    <div class="flex flex-wrap items-center gap-2.5">
+      {# Fix #13 – active state managed by setProjectsView(); initial classes set here for tree #}
+      <div class="inline-flex rounded-md shadow-sm" role="group" aria-label="View mode">
+        <button type="button"
+                class="inline-flex items-center gap-1.5 rounded-l-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-gray-50 focus:z-10 dark:border-gray-700 dark:bg-gray-800"
+                id="view-toggle-tree" onclick="setProjectsView('tree')" title="Tree view">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          Tree
+        </button>
+        <button type="button"
+                class="inline-flex items-center gap-1.5 rounded-r-md border border-l-0 border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-50 focus:z-10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                id="view-toggle-board" onclick="setProjectsView('board')" title="Board view (read-only)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="18"/><rect x="14" y="3" width="7" height="11"/>
+          </svg>
+          Board
+        </button>
+      </div>
+      <div class="relative flex items-center text-gray-400 focus-within:text-indigo-500">
+        <span class="absolute left-2.5 opacity-50">🔍</span>
+        <input id="proj-search"
+               class="block w-64 rounded-md border border-gray-300 bg-gray-50 py-1.5 pl-8 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+               placeholder="Search projects… (use * as wildcard)"
+               oninput="filterProjects(this.value)">
+      </div>
+      <select id="proj-sort"
+              class="block rounded-md border border-gray-300 bg-gray-50 py-1.5 pl-3 pr-8 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              onchange="sortProjects(this.value)">
+        <option value="">Sort…</option>
+        <option value="name-asc">Name A → Z</option>
+        <option value="name-desc">Name Z → A</option>
+        <option value="date-desc">Newest first</option>
+        <option value="date-asc">Oldest first</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ────────────── TREE VIEW ────────────── -->
+  <div id="projects-tree-view" class="space-y-4">
+
+    <!-- Workspace-grouped projects -->
+    {% for ck, cd in workspace_projects.items %}
+    <div class="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
+         id="co-wrap-{{ cd.workspace.pk }}" data-client="{{ cd.workspace.pk }}">
+
+      <div class="flex cursor-pointer items-center gap-2 border-b border-gray-100 bg-gray-50 p-3 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-800/50 dark:hover:bg-gray-800"
+           onclick="toggleCo('co-{{ cd.workspace.pk }}')">
+        <span class="text-xs text-gray-400 transition-transform duration-200" id="arr-co-{{ cd.workspace.pk }}">▼</span>
+        <span class="text-base">🏢</span>
+        <span class="font-semibold text-gray-900 dark:text-white">{{ cd.workspace.name }}</span>
+        <span class="text-xs text-gray-500">{{ cd.projects|length }} project{{ cd.projects|length|pluralize }}</span>
+
+        <div class="ml-auto flex items-center gap-2" onclick="event.stopPropagation()">
+          {# Fix #3 – count only active projects, not total projects #}
+          {% with active_count=cd.projects|active_count %}
+          {% if active_count %}
+            <span class="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+              {{ active_count }} Active
+            </span>
+          {% endif %}
+          {% endwith %}
+          <button onclick="expandCo('co-{{ cd.workspace.pk }}')"
+                  class="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Expand</button>
+          <button onclick="collapseCo('co-{{ cd.workspace.pk }}')"
+                  class="rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700">Collapse</button>
+        </div>
+      </div>
+
+      {# Fix #16 – use partial for all project rows #}
+      <div class="divide-y divide-gray-100 dark:divide-gray-800" data-stripe id="co-{{ cd.workspace.pk }}">
+        {% for project in cd.projects %}
+          {% include 'projects/partials/_project_row.html' with workspace_pk=cd.workspace.pk %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- Projects without a workspace -->
+    {% if no_workspace_projects %}
+    <div class="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
+         id="co-wrap-none" data-client="none">
+      <div class="flex cursor-pointer items-center gap-2 rounded-t-lg border-b border-gray-100 bg-gray-800 p-3 hover:bg-gray-700 dark:border-gray-700"
+           onclick="toggleCo('co-none')">
+        <span class="text-xs text-gray-400 transition-transform duration-200" id="arr-co-none">▼</span>
+        <span class="text-base">📂</span>
+        <span class="font-semibold text-white">No Client Assigned</span>
+        <span class="text-xs text-gray-400">{{ no_workspace_projects|length }} project{{ no_workspace_projects|length|pluralize }}</span>
+      </div>
+      {# Fix #16 – use same partial; Fix #8 – passes workspace_pk="none" #}
+      <div class="divide-y divide-gray-100 dark:divide-gray-800" data-stripe id="co-none">
+        {% for project in no_workspace_projects %}
+          {% include 'projects/partials/_project_row.html' with workspace_pk="none" %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Empty state -->
+    {% if not workspace_projects and not no_workspace_projects %}
+    <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-16 px-4 text-center dark:border-gray-700">
+      <div class="text-4xl text-gray-400">📁</div>
+      <div class="mt-4 text-lg font-medium text-gray-900 dark:text-white">No projects yet</div>
+      <div class="mt-1 text-sm text-gray-500">Create your first project to get started.</div>
+      {% if can_create %}
+      <button class="mt-6 inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+              onclick="openModal('modal-new-proj')">Create First Project</button>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Fix #2 – Archived section: toggle button wired up -->
+    {% if archived_projects %}
+    <div class="flex items-center gap-2">
+      <button id="btn-show-archived"
+              class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              onclick="toggleArchivedSection()">
+        🗄️ Show archived ({{ archived_projects|length }})
+      </button>
+    </div>
+    <div id="archived-section" class="hidden">
+      <div class="overflow-hidden rounded-lg border border-gray-200 bg-white opacity-75 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div class="flex cursor-pointer items-center gap-2 border-b border-gray-700 bg-gray-700 p-3 hover:bg-gray-600"
+             onclick="toggleCo('co-archived')">
+          <span class="text-xs text-gray-400 transition-transform duration-200" id="arr-co-archived">▶</span>
+          <span class="text-base">🗄️</span>
+          <span class="font-semibold text-white">Archived Projects</span>
+          <span class="text-xs text-gray-400">{{ archived_projects|length }} project{{ archived_projects|length|pluralize }}</span>
+        </div>
+        <div class="hidden divide-y divide-gray-100 dark:divide-gray-800" data-stripe id="co-archived">
+          {% for project in archived_projects %}
+          <div class="group bg-gray-50 dark:bg-gray-800/20">
+            <div class="flex items-center gap-2.5 cursor-default px-4 py-3">
+              <span class="text-sm text-gray-400">📁</span>
+              <span class="font-medium text-gray-600 dark:text-gray-400">{{ project.name }}</span>
+              {% if project.handler_id %}
+                <span class="ml-1 text-[11px] text-gray-400">({{ project.handler.full_name }})</span>
+              {% endif %}
+              <span class="mr-auto text-[11px] text-gray-400">
+                {{ project.department.name|default:"No dept" }}{% if project.client %} · {{ project.client.name }}{% endif %}
+              </span>
+              <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                <span class="rounded bg-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">Archived</span>
+                {% if can_archive %}
+                <form method="post" action="{% url 'projects:restore' project.pk %}" class="inline">
+                  {% csrf_token %}
+                  <button type="submit" class="text-gray-400 hover:text-emerald-500" title="Restore">↩️</button>
+                </form>
+                {% endif %}
+                {% if can_delete %}
+                <form method="post" action="{% url 'projects:delete' project.pk %}" class="inline">
+                  {% csrf_token %}
+                  <button type="submit" class="text-gray-400 hover:text-red-500"
+                          title="Delete" data-confirm="Permanently delete?">🗑️</button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /#projects-tree-view -->
+
+  <!-- ────────────── BOARD VIEW ────────────── -->
+  <div id="projects-board-view" class="hidden">
+    <div class="flex gap-4 overflow-x-auto pb-4">
+      {% for col in board_columns %}
+      <div class="w-72 shrink-0 rounded-lg bg-gray-50/50 p-2 dark:bg-gray-900/50" data-status="{{ col.status }}">
+        <div class="mb-3 flex items-center justify-between px-1">
+          <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ col.label }}</span>
+          <span class="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">{{ col.tasks|length }}</span>
+        </div>
+        <div class="space-y-2">
+          {% for t in col.tasks %}
+          <div class="group cursor-pointer rounded-md border border-gray-200 bg-white p-3 shadow-sm hover:border-indigo-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-indigo-500"
+               data-task-id="{{ t.pk }}" onclick="openTaskEdit({{ t.pk }})" title="Click to edit">
+            <div class="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">{{ t.title }}</div>
+            <div class="mb-2 flex items-center gap-2">
+              <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset
+                {% if t.priority == 'high' %}bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-900/30 dark:text-red-400
+                {% elif t.priority == 'medium' %}bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-900/30 dark:text-amber-400
+                {% else %}bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+                {{ t.get_priority_display }}
+              </span>
+              {% if t.due_date %}
+              <span class="text-xs text-gray-500 dark:text-gray-400" title="Due {{ t.due_date }}">📅 {{ t.due_date|date:"M d" }}</span>
+              {% endif %}
+            </div>
+            <div class="mb-3 text-[11px] text-gray-500 dark:text-gray-400">{{ t.project.name }}</div>
+            <div class="flex -space-x-1 overflow-hidden">
+              {% for u in t.board_assignees|slice:":4" %}
+                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-medium text-indigo-700 ring-2 ring-white dark:ring-gray-800"
+                      title="{{ u.full_name }}">{{ u.initials }}</span>
+              {% endfor %}
+              {% if t.board_assignees|length > 4 %}
+                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[10px] font-medium text-gray-600 ring-2 ring-white dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-800"
+                      title="{{ t.board_assignees|length }} assignees">+{{ t.board_assignees|length|add:"-4" }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <div class="rounded-md border-2 border-dashed border-gray-200 py-4 text-center text-sm text-gray-500 dark:border-gray-700">No tasks</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div><!-- /#pane-tree -->
+
+<!-- ══════════════════════════════════════
+     TIMESHEETS TAB
+══════════════════════════════════════ -->
+<div class="hidden" id="pane-timesheets">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2.5">
+    <div>
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Timesheet Approvals</h2>
+      <p class="text-sm text-gray-500">Review, edit and approve employee-submitted timesheets</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'projects:timesheet_weekly' %}"
+         class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">📝 My Timesheet</a>
+      {% if can_create %}
+        <a href="{% url 'projects:timesheet_overview' %}"
+           class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">📋 Review All</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">⏳</div>
+      <div><div class="text-xl font-bold text-amber-600 dark:text-amber-400">{{ ts_stats.pending }}</div><div class="text-xs font-medium text-gray-500">Pending</div></div>
+    </div>
+    <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">✅</div>
+      <div><div class="text-xl font-bold text-emerald-600 dark:text-emerald-400">{{ ts_stats.approved }}</div><div class="text-xs font-medium text-gray-500">Approved</div></div>
+    </div>
+    <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">❌</div>
+      <div><div class="text-xl font-bold text-red-600 dark:text-red-400">{{ ts_stats.rejected }}</div><div class="text-xs font-medium text-gray-500">Rejected</div></div>
+    </div>
+    <div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">📋</div>
+      <div><div class="text-xl font-bold text-gray-900 dark:text-white">{{ ts_stats.pending|add:ts_stats.approved|add:ts_stats.rejected }}</div><div class="text-xs font-medium text-gray-500">Total</div></div>
+    </div>
+  </div>
+
+  <div class="mb-4 flex flex-wrap items-center gap-2">
+    <span class="text-[11px] font-semibold text-gray-500">Filter by:</span>
+    <select class="block min-w-[150px] rounded-md border-gray-300 py-1.5 px-3 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            id="ts-emp" onchange="renderTS()">
+      <option value="">All employees</option>
+      {% for emp in ts_employee_options %}
+        <option value="{{ emp.pk }}">{{ emp.profile.full_name }}</option>
+      {% endfor %}
+    </select>
+    <select class="block min-w-[130px] rounded-md border-gray-300 py-1.5 px-3 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            id="ts-status" onchange="renderTS()">
+      <option value="">All statuses</option>
+      <option value="pending">⏳ Pending</option>
+      <option value="approved">✅ Approved</option>
+      <option value="rejected">❌ Rejected</option>
+    </select>
+    {% comment %} Fix #11 – deduplicated week options via |dictsortreversed then unique in JS (template |unique not built-in;
+       we render all and let JS dedup on render, or use a custom tag. Safest: collect unique week_starts here.) {% endcomment %}
+    <select class="block min-w-[150px] rounded-md border-gray-300 py-1.5 px-3 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            id="ts-week" onchange="renderTS()">
+      <option value="">All weeks</option>
+      {# Use the unique_week_options context variable (must be provided by view as a distinct list) #}
+      {% for week_start, week_end in unique_timesheet_weeks %}
+        <option value="{{ week_start }}">{{ week_start }} – {{ week_end }}</option>
+      {% endfor %}
+    </select>
+    <button class="inline-flex rounded-md bg-transparent px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+            onclick="['ts-emp','ts-status','ts-week'].forEach(function(id){document.getElementById(id).value='';});renderTS()">Clear</button>
+  </div>
+
+  <div id="ts-body" class="space-y-4">
+    {% for ts in recent_timesheets %}
+    <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
+         data-ts-emp="{% if ts.employee.employee %}{{ ts.employee.employee.pk }}{% endif %}"
+         data-ts-status="{% if ts.status == 'submitted' %}pending{% else %}{{ ts.status }}{% endif %}"
+         data-ts-week="{{ ts.week_start }}">
+      <div class="flex cursor-pointer items-center gap-3 border-b border-transparent bg-gray-50 p-4 transition-colors hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800"
+           onclick="tsToggle('ts-{{ ts.pk }}')">
+        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+          {{ ts.employee.full_name|truncatechars:2 }}
+        </div>
+        <div class="flex-1">
+          <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ ts.employee.full_name }}</div>
+          <div class="text-[11px] text-gray-500">{{ ts.week_start }} → {{ ts.week_end }}</div>
+        </div>
+        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium
+          {% if ts.status == 'submitted' %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400
+          {% elif ts.status == 'approved' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400
+          {% elif ts.status == 'rejected' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+          {% else %}bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400{% endif %}">
+          {% if ts.status == 'submitted' %}⏳ Pending
+          {% elif ts.status == 'approved' %}✅ Approved
+          {% elif ts.status == 'rejected' %}❌ Rejected
+          {% else %}📝 Draft{% endif %}
+        </span>
+        <span class="ml-2 text-sm font-bold text-gray-900 dark:text-white">{{ ts.total_hours }}h</span>
+        <span class="ml-2 text-[10px] text-gray-400 transition-transform" id="ts-arrow-{{ ts.pk }}">▶</span>
+      </div>
+
+      <div class="hidden p-4" id="ts-{{ ts.pk }}">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+            <thead class="border-b border-gray-200 text-xs font-semibold text-gray-500 dark:border-gray-700">
+              <tr>
+                <th class="py-2 pr-2">Task</th>
+                <th class="p-2">Mon</th>
+                <th class="p-2">Tue</th>
+                <th class="p-2">Wed</th>
+                <th class="p-2">Thu</th>
+                <th class="p-2">Fri</th>
+                {# Fix #4 – "Total" header stays; cells get IDs in the rows below #}
+                <th class="p-2">Total</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800" id="ts-body-{{ ts.pk }}">
+            {% regroup ts.entries.all by task as task_entries %}
+            {% for task_group in task_entries %}
+            <tr>
+              <td class="py-2 pr-2 font-medium text-gray-900 dark:text-white">{{ task_group.grouper|default:"General" }}</td>
+              {# Each day cell gets a unique ID for tsRecalc() to target #}
+              <td class="p-2" id="ts-{{ ts.pk }}-tg-{{ forloop.counter }}-mon">
+                {% for entry in task_group.list %}{% if entry.date|date:"w" == "1" %}
+                <input type="number" step="0.5" min="0"
+                       class="w-14 rounded border-gray-300 p-1 text-center text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800"
+                       value="{{ entry.hours }}"
+                       data-entry="{{ entry.pk }}"
+                       data-ts="{{ ts.pk }}"
+                       data-url="{% url 'projects:timesheet_entry_edit' entry.pk %}"
+                       onchange="tsUpdateEntry(this)">
+                {% endif %}{% endfor %}
+              </td>
+              <td class="p-2" id="ts-{{ ts.pk }}-tg-{{ forloop.counter }}-tue">
+                {% for entry in task_group.list %}{% if entry.date|date:"w" == "2" %}
+                <input type="number" step="0.5" min="0"
+                       class="w-14 rounded border-gray-300 p-1 text-center text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800"
+                       value="{{ entry.hours }}"
+                       data-entry="{{ entry.pk }}"
+                       data-ts="{{ ts.pk }}"
+                       data-url="{% url 'projects:timesheet_entry_edit' entry.pk %}"
+                       onchange="tsUpdateEntry(this)">
+                {% endif %}{% endfor %}
+              </td>
+              <td class="p-2" id="ts-{{ ts.pk }}-tg-{{ forloop.counter }}-wed">
+                {% for entry in task_group.list %}{% if entry.date|date:"w" == "3" %}
+                <input type="number" step="0.5" min="0"
+                       class="w-14 rounded border-gray-300 p-1 text-center text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800"
+                       value="{{ entry.hours }}"
+                       data-entry="{{ entry.pk }}"
+                       data-ts="{{ ts.pk }}"
+                       data-url="{% url 'projects:timesheet_entry_edit' entry.pk %}"
+                       onchange="tsUpdateEntry(this)">
+                {% endif %}{% endfor %}
+              </td>
+              <td class="p-2" id="ts-{{ ts.pk }}-tg-{{ forloop.counter }}-thu">
+                {% for entry in task_group.list %}{% if entry.date|date:"w" == "4" %}
+                <input type="number" step="0.5" min="0"
+                       class="w-14 rounded border-gray-300 p-1 text-center text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800"
+                       value="{{ entry.hours }}"
+                       data-entry="{{ entry.pk }}"
+                       data-ts="{{ ts.pk }}"
+                       data-url="{% url 'projects:timesheet_entry_edit' entry.pk %}"
+                       onchange="tsUpdateEntry(this)">
+                {% endif %}{% endfor %}
+              </td>
+              <td class="p-2" id="ts-{{ ts.pk }}-tg-{{ forloop.counter }}-fri">
+                {% for entry in task_group.list %}{% if entry.date|date:"w" == "5" %}
+                <input type="number" step="0.5" min="0"
+                       class="w-14 rounded border-gray-300 p-1 text-center text-xs focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800"
+                       value="{{ entry.hours }}"
+                       data-entry="{{ entry.pk }}"
+                       data-ts="{{ ts.pk }}"
+                       data-url="{% url 'projects:timesheet_entry_edit' entry.pk %}"
+                       onchange="tsUpdateEntry(this)">
+                {% endif %}{% endfor %}
+              </td>
+              {# Fix #4 – row total cell with ID; computed by tsRecalc() after any edit #}
+              <td class="p-2 font-bold text-gray-900 dark:text-white"
+                  id="ts-{{ ts.pk }}-row-{{ forloop.counter }}-total">—</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            {# Fix #5 – tfoot daily total cells get IDs so tsRecalc() can update them #}
+            <tfoot class="border-t-2 border-gray-200 dark:border-gray-700">
+              <tr>
+                <td class="py-2 pr-2 font-bold text-gray-900 dark:text-white">Week Total</td>
+                <td class="p-2 font-semibold text-gray-700 dark:text-gray-300" id="ts-{{ ts.pk }}-day-mon">—</td>
+                <td class="p-2 font-semibold text-gray-700 dark:text-gray-300" id="ts-{{ ts.pk }}-day-tue">—</td>
+                <td class="p-2 font-semibold text-gray-700 dark:text-gray-300" id="ts-{{ ts.pk }}-day-wed">—</td>
+                <td class="p-2 font-semibold text-gray-700 dark:text-gray-300" id="ts-{{ ts.pk }}-day-thu">—</td>
+                <td class="p-2 font-semibold text-gray-700 dark:text-gray-300" id="ts-{{ ts.pk }}-day-fri">—</td>
+                <td class="p-2 font-bold text-gray-900 dark:text-white" id="ts-{{ ts.pk }}-week-total">{{ ts.total_hours }}h</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {% if ts.status == 'submitted' and can_create %}
+        <div class="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4 dark:border-gray-800">
+          <form method="post" action="{% url 'projects:timesheet_approve' ts.pk %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="inline-flex rounded-md border border-emerald-500 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400">✅ Approve</button>
+          </form>
+          <form method="post" action="{% url 'projects:timesheet_reject' ts.pk %}" class="inline"
+                onsubmit="var c=prompt('Rejection reason:');if(c){this.querySelector('[name=comment]').value=c;}return true;">
+            {% csrf_token %}<input type="hidden" name="comment" value="">
+            <button type="submit" class="inline-flex rounded-md border border-red-500 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">❌ Reject</button>
+          </form>
+          <a href="{% url 'projects:timesheet_weekly' %}?emp={% if ts.employee.employee %}{{ ts.employee.employee.pk }}{% endif %}&week={{ ts.week_start|date:'Y-m-d' }}"
+             class="inline-flex rounded-md bg-transparent px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white">✏️ Edit</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-12 px-4 text-center dark:border-gray-700">
+      <div class="text-3xl text-gray-400">📋</div>
+      <div class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No timesheets yet</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODALS
+══════════════════════════════════════ -->
+
+<!-- New Project Modal -->
+{# Fix #6 – modals use 'hidden' class only; openModal/closeModal handles flex toggling (see JS below) #}
+<div class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 transition-opacity"
+     id="modal-new-proj" onclick="if(event.target===this)closeModal('modal-new-proj')">
+  <div class="relative w-full max-w-lg overflow-hidden rounded-lg bg-gray-900 shadow-xl ring-1 ring-white/10">
+    <div class="flex items-center justify-between border-b border-gray-800 px-5 py-4">
+      <span class="text-lg font-semibold text-gray-100">New Project</span>
+      <button class="text-gray-400 hover:text-white transition-colors" onclick="closeModal('modal-new-proj')">
+        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+    <div class="p-5 max-h-[75vh] overflow-y-auto">
+      <div class="mb-5 flex gap-2">
+        <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm"
+                id="ptab-single" onclick="setProjTab('single')">Single</button>
+        <button class="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-300 hover:bg-gray-700"
+                id="ptab-bulk" onclick="setProjTab('bulk')">Bulk Create</button>
+      </div>
+
+      <!-- Single create form -->
+      <form method="post" action="{% url 'projects:create' %}" id="proj-single" class="space-y-4">
+        {% csrf_token %}
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Workspace *</label>
+          <select class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+                  name="workspace" id="proj-client" required onchange="onProjClientChange(this)">
+            <option value="" class="text-gray-900">— Select workspace —</option>
+            {% for c in all_workspaces %}<option value="{{ c.pk }}" class="text-gray-900">{{ c.name }}</option>{% endfor %}
+            <option value="new" class="text-gray-900 font-bold">＋ Add new workspace…</option>
+          </select>
+          {% if not all_workspaces %}
+          <div class="mt-1 text-xs text-amber-500">No workspaces yet — pick "＋ Add new workspace…" to create one.</div>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Project Name *</label>
+          <input class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm placeholder-gray-500"
+                 name="name" placeholder="e.g. Website Redesign" required>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Client name <span class="text-gray-500">(optional)</span></label>
+          <input class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm placeholder-gray-500"
+                 name="client_name" placeholder="e.g. Acme Corp">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Department</label>
+          <select class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+                  name="department" id="proj-dept" onchange="onProjDeptChange(this)">
+            <option value="" class="text-gray-900">— None —</option>
+            {% for dept in departments %}<option value="{{ dept.pk }}" class="text-gray-900">{{ dept.name }}</option>{% endfor %}
+            {% if can_manage_departments %}<option value="new" class="text-gray-900 font-bold">＋ Add new department…</option>{% endif %}
+          </select>
+          {% if not can_manage_departments %}
+          <div class="mt-1 text-xs text-gray-400">Only HR can add new departments.</div>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Description</label>
+          <textarea class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm placeholder-gray-500 resize-y"
+                    name="description" rows="2"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
+            <select class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm" name="status">
+              <option value="new" class="text-gray-900">New</option>
+              <option value="active" class="text-gray-900">Active</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Priority</label>
+            <select class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm" name="priority">
+              <option class="text-gray-900">High</option>
+              <option class="text-gray-900">Medium</option>
+              <option class="text-gray-900">Low</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="block text-sm font-medium text-gray-300 mb-1">Start Date</label><input type="date" class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm" name="start_date"></div>
+          <div><label class="block text-sm font-medium text-gray-300 mb-1">End Date</label><input type="date" class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm" name="end_date"></div>
+        </div>
+        <div class="rounded-md border border-indigo-500/30 bg-indigo-500/10 p-3" id="pl-preview">
+          <div class="mb-1 text-[10px] font-bold uppercase tracking-wide text-indigo-400">⚙️ Pipeline tasks will auto-load</div>
+          <div id="pl-preview-list" class="text-xs text-gray-400"></div>
+        </div>
+      </form>
+
+      {# Fix #10 – bulk create wrapped in its own form with dedicated endpoint #}
+      <form method="post" action="{% url 'projects:bulk_create' %}" id="proj-bulk" class="hidden space-y-4">
+        {% csrf_token %}
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Workspace *</label>
+          <select class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+                  name="workspace" id="proj-bulk-client" required>
+            <option value="" class="text-gray-900">— Select a workspace —</option>
+            {% for c in all_workspaces %}<option value="{{ c.pk }}" class="text-gray-900">{{ c.name }}</option>{% endfor %}
+          </select>
+          <div class="mt-1 text-xs text-gray-400">Required — all bulk-created projects will be assigned to this workspace.</div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Department</label>
+          <select class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+                  name="department" id="proj-bulk-dept">
+            <option value="" class="text-gray-900">— None —</option>
+            {% for dept in departments %}<option value="{{ dept.pk }}" class="text-gray-900">{{ dept.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Projects (one per line)</label>
+          <textarea class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm placeholder-gray-500 resize-y"
+                    name="names" id="proj-bulk-ta" rows="6"
+                    placeholder="Project Alpha&#10;Project Beta&#10;Project Gamma"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="flex items-center justify-end gap-3 border-t border-gray-800 bg-gray-900/50 px-5 py-4">
+      <button class="rounded-md px-3 py-2 text-sm font-medium text-gray-400 hover:text-white"
+              onclick="closeModal('modal-new-proj')">Cancel</button>
+      <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"
+              onclick="createProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Workspace Modal -->
+<div class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 transition-opacity"
+     id="modal-add-co" onclick="if(event.target===this)closeModal('modal-add-co')">
+  <div class="relative w-full max-w-md overflow-hidden rounded-lg bg-gray-900 shadow-xl ring-1 ring-white/10">
+    <div class="flex items-center justify-between border-b border-gray-800 px-5 py-4">
+      <span class="text-lg font-semibold text-gray-100">Add Workspace</span>
+      <button class="text-gray-400 hover:text-white transition-colors" onclick="closeModal('modal-add-co')">
+        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div><label class="block text-sm font-medium text-gray-300 mb-1">Workspace Name *</label><input class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm placeholder-gray-500" id="new-co-name" placeholder="e.g. Internal R&D"></div>
+      <div><label class="block text-sm font-medium text-gray-300 mb-1">Contact Person <span class="text-gray-500">(optional)</span></label><input class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm placeholder-gray-500" id="new-co-contact" placeholder="e.g. Jane Smith"></div>
+      <div><label class="block text-sm font-medium text-gray-300 mb-1">Email <span class="text-gray-500">(optional)</span></label><input type="email" class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm placeholder-gray-500" id="new-co-email" placeholder="e.g. jane@example.com"></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm font-medium text-gray-300 mb-1">Phone <span class="text-gray-500">(optional)</span></label><input class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm placeholder-gray-500" id="new-co-phone" placeholder="+1 555 000 1234"></div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-1">Colour</label>
+          <select class="block w-full rounded-md border-0 bg-white/5 py-2 px-3 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm" id="new-co-color">
+            <option value="#2d5be3" class="text-gray-900">Blue</option>
+            <option value="#1a9e5c" class="text-gray-900">Green</option>
+            <option value="#c97c10" class="text-gray-900">Amber</option>
+            <option value="#7c3aed" class="text-gray-900">Purple</option>
+            <option value="#0d7c7c" class="text-gray-900">Teal</option>
+            <option value="#c9321a" class="text-gray-900">Red</option>
+            <option value="#e055a1" class="text-gray-900">Pink</option>
+          </select>
+        </div>
+      </div>
+      <p id="co-modal-error" class="hidden mt-2 text-sm text-red-500"></p>
+    </div>
+    <div class="flex items-center justify-end gap-3 border-t border-gray-800 bg-gray-900/50 px-5 py-4">
+      <button class="rounded-md px-3 py-2 text-sm font-medium text-gray-400 hover:text-white" onclick="closeModal('modal-add-co')">Cancel</button>
+      <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500" onclick="addCompany()">Add Workspace</button>
+    </div>
+  </div>
+</div>
+
+{% if can_manage_departments %}
+<div class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 transition-opacity"
+     id="modal-add-dept" onclick="if(event.target===this)closeModal('modal-add-dept')">
+  <div class="relative w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-gray-900/5 dark:bg-gray-900 dark:ring-white/10">
+    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+      <span class="text-lg font-semibold text-gray-900 dark:text-white">Add Department</span>
+      <button class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300" onclick="closeModal('modal-add-dept')">
+        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+    <div class="p-5">
+      <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">Department Name</label>
+      <input class="block w-full rounded-md border-gray-300 py-2 px-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+             id="new-dept-name" placeholder="e.g. Engineering">
+    </div>
+    <div class="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-800 dark:bg-gray-800/50">
+      <button class="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onclick="closeModal('modal-add-dept')">Cancel</button>
+      <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700" onclick="addDepartment()">Add</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Blocker Modal -->
+<div class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 transition-opacity"
+     id="modal-blocker" onclick="if(event.target===this)cancelBlocker()">
+  <div class="relative w-full max-w-md overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-gray-900/5 dark:bg-gray-900 dark:ring-white/10">
+    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+      <span class="text-lg font-semibold text-gray-900 dark:text-white">🚫 What is blocking this?</span>
+      <button class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300" onclick="cancelBlocker()">
+        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+    <div class="p-5 space-y-4">
+      <p class="text-sm text-gray-500 dark:text-gray-400">Describe what is preventing progress on this task.</p>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1 dark:text-gray-400">Blocked by task / dependency</label>
+        <select class="block w-full rounded-md border-gray-300 py-2 px-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white" id="blocker-sel">
+          <option value="">— Select a blocker (optional) —</option>
+          {% for ck, cd in workspace_projects.items %}
+            {% for project in cd.projects %}
+              <optgroup label="{{ project.name }}">
+                {% for task in project.prefetched_tasks %}
+                  <option value="{{ task.title|escapejs }}">{{ task.title }}</option>
+                {% endfor %}
+              </optgroup>
+            {% endfor %}
+          {% endfor %}
+          <option value="external">External dependency</option>
+          <option value="other">Other (describe below)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1 dark:text-gray-400">Notes (optional)</label>
+        <input type="text"
+               class="block w-full rounded-md border-gray-300 py-2 px-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+               id="blocker-notes" placeholder="e.g. Waiting for API spec from client…">
+      </div>
+    </div>
+    <div class="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-800 dark:bg-gray-800/50">
+      <button class="rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onclick="cancelBlocker()">Cancel</button>
+      <button class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700" onclick="confirmBlocker()">Set Blocker</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-4 right-4 z-50"></div>
+
+{% include 'projects/partials/_assignee_picker_popover.html' %}
+
+<!-- Inline comment popover -->
+<div id="proj-comment-popover" role="dialog" aria-label="Project comments"
+     class="hidden fixed z-50 w-[340px] max-w-[calc(100vw-24px)] rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+  <div class="flex items-center justify-between border-b border-gray-100 px-3 py-2.5 dark:border-gray-700">
+    <strong id="proj-comment-popover-title" class="text-sm font-semibold text-gray-900 dark:text-white">Comments</strong>
+    <button type="button" id="proj-comment-popover-close" aria-label="Close"
+            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+      <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+      </svg>
+    </button>
+  </div>
+  <div id="proj-comment-popover-list" class="flex max-h-[260px] flex-col gap-2 overflow-y-auto p-3"></div>
+  <form id="proj-comment-popover-form" class="flex flex-col gap-2 border-t border-gray-100 p-3 dark:border-gray-700">
+    <textarea id="proj-comment-popover-body" name="body" rows="2" maxlength="5000"
+              placeholder="Write a comment…" required
+              class="block w-full resize-y rounded-md border-gray-300 py-1.5 px-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"></textarea>
+    <div class="flex items-center justify-between gap-2">
+      <span id="proj-comment-popover-status" class="text-xs text-gray-400"></span>
+      <button type="submit" id="proj-comment-popover-submit"
+              class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 whitespace-nowrap">Post</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{% include 'projects/partials/_data_script.html' %}
+<script src="{% static 'js/projects/utils.js' %}"></script>
+<script src="{% static 'js/projects/tree.js' %}"></script>
+<script src="{% static 'js/projects/projects.js' %}"></script>
+<script src="{% static 'js/projects/tasks.js' %}"></script>
+<script src="{% static 'js/projects/assignee_picker.js' %}"></script>
+<script>
+/* ─────────────────────────────────────────────────────────────────
+   Fix #6 – Modal open/close: remove hidden AND add/remove flex
+   so Tailwind's flex utilities take effect on the overlay container.
+───────────────────────────────────────────────────────────────── */
+function openModal(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.classList.add('flex');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('flex');
+  el.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Fix #2 – Archived section toggle
+───────────────────────────────────────────────────────────────── */
+function toggleArchivedSection() {
+  var section = document.getElementById('archived-section');
+  var btn     = document.getElementById('btn-show-archived');
+  if (!section) return;
+  var hidden = section.classList.toggle('hidden');
+  if (btn) btn.textContent = hidden ? btn.textContent.replace('Hide','Show') : btn.textContent.replace('Show','Hide');
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Fix #1 – sortProjects: targets the correct parent containers.
+   The workspace group bodies have id="co-{pk}" and class on their
+   child rows is ".tree-proj". We sort within each group container.
+───────────────────────────────────────────────────────────────── */
+function sortProjects(val) {
+  if (!val) return;
+  document.querySelectorAll('[id^="co-"]').forEach(function(container) {
+    if (container.id === 'archived-section' || container.id.startsWith('co-wrap')) return;
+    var rows = Array.from(container.querySelectorAll(':scope > .tree-proj'));
+    if (!rows.length) return;
+    rows.sort(function(a, b) {
+      if (val === 'name-asc')  return (a.dataset.name  || '').localeCompare(b.dataset.name  || '');
+      if (val === 'name-desc') return (b.dataset.name  || '').localeCompare(a.dataset.name  || '');
+      if (val === 'date-asc')  return parseInt(a.dataset.date || 0) - parseInt(b.dataset.date || 0);
+      if (val === 'date-desc') return parseInt(b.dataset.date || 0) - parseInt(a.dataset.date || 0);
+      return 0;
+    });
+    rows.forEach(function(r) { container.appendChild(r); });
+    rows.filter(function(r) { return r.style.display !== 'none'; })
+        .forEach(function(r, i) {
+          r.classList.toggle('bg-gray-50',           i % 2 === 0);
+          r.classList.toggle('dark:bg-gray-800/30',  i % 2 === 0);
+          r.classList.toggle('bg-white',             i % 2 !== 0);
+          r.classList.toggle('dark:bg-transparent',  i % 2 !== 0);
+        });
+  });
+}
+
+/* Project search with wildcard support (unchanged) */
+function filterProjects(val) {
+  val = val.trim().toLowerCase();
+  var escaped = val.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  var re = val ? new RegExp(escaped) : null;
+  document.querySelectorAll('.tree-proj').forEach(function(row) {
+    row.style.display = (!re || re.test(row.dataset.name || '')) ? '' : 'none';
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Fix #12 – data-confirm: global handler intercepts form submits
+   that carry a data-confirm attribute on their submit button.
+───────────────────────────────────────────────────────────────── */
+document.addEventListener('click', function(ev) {
+  var btn = ev.target.closest('button[data-confirm], input[type="submit"][data-confirm]');
+  if (!btn) return;
+  var msg = btn.getAttribute('data-confirm');
+  if (msg && !window.confirm(msg)) {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  }
+}, true);
+
+/* ─────────────────────────────────────────────────────────────────
+   Fix #13 – setProjectsView: updates active-state classes on both
+   toggle buttons and swaps the visible pane.
+───────────────────────────────────────────────────────────────── */
+function setProjectsView(view) {
+  var treePane  = document.getElementById('projects-tree-view');
+  var boardPane = document.getElementById('projects-board-view');
+  var treeBtn   = document.getElementById('view-toggle-tree');
+  var boardBtn  = document.getElementById('view-toggle-board');
+  if (!treePane || !boardPane) return;
+
+  var activeClasses   = ['text-indigo-600', 'border-indigo-500'];
+  var inactiveClasses = ['text-gray-500', 'dark:text-gray-400'];
+
+  if (view === 'tree') {
+    treePane.classList.remove('hidden');
+    boardPane.classList.add('hidden');
+    if (treeBtn)  { activeClasses.forEach(function(c){ treeBtn.classList.add(c); });    inactiveClasses.forEach(function(c){ treeBtn.classList.remove(c); }); }
+    if (boardBtn) { activeClasses.forEach(function(c){ boardBtn.classList.remove(c); }); inactiveClasses.forEach(function(c){ boardBtn.classList.add(c); }); }
+  } else {
+    boardPane.classList.remove('hidden');
+    treePane.classList.add('hidden');
+    if (boardBtn) { activeClasses.forEach(function(c){ boardBtn.classList.add(c); });   inactiveClasses.forEach(function(c){ boardBtn.classList.remove(c); }); }
+    if (treeBtn)  { activeClasses.forEach(function(c){ treeBtn.classList.remove(c); }); inactiveClasses.forEach(function(c){ treeBtn.classList.add(c); }); }
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Fix #4 + #5 – Timesheet row totals and day-column totals.
+   tsRecalc(tsPk) reads all input values for a given timesheet and
+   writes per-row totals and per-day column totals.
+   Call this from tsUpdateEntry() in tasks.js after each save.
+───────────────────────────────────────────────────────────────── */
+function tsRecalc(tsPk) {
+  var tbody = document.getElementById('ts-body-' + tsPk);
+  if (!tbody) return;
+  var rows  = Array.from(tbody.querySelectorAll('tr'));
+  var days  = ['mon','tue','wed','thu','fri'];
+  var dayTotals = {mon:0, tue:0, wed:0, thu:0, fri:0};
+  var weekTotal = 0;
+
+  rows.forEach(function(tr, idx) {
+    var rowNum = idx + 1;
+    var rowTotal = 0;
+    days.forEach(function(day) {
+      var cell = tr.querySelector('td[id$="-' + day + '"]');
+      if (!cell) return;
+      var inp = cell.querySelector('input[type="number"]');
+      var val = inp ? parseFloat(inp.value) || 0 : 0;
+      rowTotal += val;
+      dayTotals[day] += val;
+    });
+    var rowTotalCell = document.getElementById('ts-' + tsPk + '-row-' + rowNum + '-total');
+    if (rowTotalCell) rowTotalCell.textContent = rowTotal % 1 === 0 ? rowTotal + 'h' : rowTotal.toFixed(1) + 'h';
+    weekTotal += rowTotal;
+  });
+
+  days.forEach(function(day) {
+    var cell = document.getElementById('ts-' + tsPk + '-day-' + day);
+    if (cell) cell.textContent = dayTotals[day] % 1 === 0 ? dayTotals[day] + 'h' : dayTotals[day].toFixed(1) + 'h';
+  });
+  var weekCell = document.getElementById('ts-' + tsPk + '-week-total');
+  if (weekCell) weekCell.textContent = weekTotal % 1 === 0 ? weekTotal + 'h' : weekTotal.toFixed(1) + 'h';
+}
+
+/* Auto-calculate on page load for any already-expanded timesheets */
+document.querySelectorAll('[id^="ts-body-"]').forEach(function(el) {
+  var pk = el.id.replace('ts-body-', '');
+  tsRecalc(pk);
+});
+
+/* ─────────────────────────────────────────────────────────────────
+   Fix #17 – Comment badge: event delegation so dynamically added
+   project rows also get the popover wired without re-querying.
+───────────────────────────────────────────────────────────────── */
+(function() {
+  var popover  = document.getElementById('proj-comment-popover');
+  if (!popover) return;
+  var titleEl  = document.getElementById('proj-comment-popover-title');
+  var listEl   = document.getElementById('proj-comment-popover-list');
+  var formEl   = document.getElementById('proj-comment-popover-form');
+  var bodyEl   = document.getElementById('proj-comment-popover-body');
+  var statusEl = document.getElementById('proj-comment-popover-status');
+  var submitEl = document.getElementById('proj-comment-popover-submit');
+  var closeEl  = document.getElementById('proj-comment-popover-close');
+
+  var activeBadge = null;
+  var activeProjectId = null;
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(ch) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];
+    });
+  }
+
+  function renderComments(comments, canPost) {
+    if (!comments.length) {
+      listEl.innerHTML = '<div class="text-center text-gray-400 py-3 italic text-xs">No comments yet — start the discussion below.</div>';
+    } else {
+      listEl.innerHTML = comments.map(function(c) {
+        var initials = escapeHtml(c.author_initials || '?');
+        var name     = escapeHtml(c.author_name);
+        var when     = escapeHtml(c.created_at_human);
+        var body     = escapeHtml(c.body).replace(/\n/g, '<br>');
+        return (
+          '<div class="flex gap-2 py-1.5 border-b border-dashed border-gray-100 dark:border-gray-700 last:border-0">' +
+            '<div class="shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white text-[11px] font-bold">' + initials + '</div>' +
+            '<div class="flex-1 min-w-0">' +
+              '<div class="flex items-baseline gap-1.5 mb-0.5">' +
+                '<strong class="text-xs text-gray-900 dark:text-white">' + name + '</strong>' +
+                '<span class="text-[10.5px] text-gray-400">' + when + ' ago</span>' +
+              '</div>' +
+              '<div class="text-[12.5px] leading-snug text-gray-700 dark:text-gray-300 break-words">' + body + '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+    formEl.classList.toggle('hidden', !canPost);
+    formEl.classList.toggle('flex',   canPost);
+    if (canPost) { bodyEl.disabled = false; submitEl.disabled = false; }
+  }
+
+  function positionPopover(anchor) {
+    popover.classList.remove('hidden');
+    popover.style.visibility = 'hidden';
+    var ar = anchor.getBoundingClientRect();
+    var pr = popover.getBoundingClientRect();
+    var vw = document.documentElement.clientWidth;
+    var vh = document.documentElement.clientHeight;
+    var GAP = 6;
+    /* fixed positioning → viewport coords, so the popover floats over the
+       page and can never stretch the document height. */
+    var top = (ar.bottom + GAP + pr.height <= vh) ? ar.bottom + GAP : Math.max(8, ar.top - pr.height - GAP);
+    var left = ar.right - pr.width;
+    left = Math.max(8, Math.min(left, vw - pr.width - 8));
+    popover.style.top  = top  + 'px';
+    popover.style.left = left + 'px';
+    popover.style.visibility = '';
+  }
+
+  function openFor(badge) {
+    activeBadge = badge;
+    activeProjectId = badge.getAttribute('data-project-id');
+    titleEl.textContent = 'Loading comments…';
+    listEl.innerHTML = '<div class="text-center text-gray-400 py-3 text-xs">Loading…</div>';
+    bodyEl.value = '';
+    statusEl.textContent = '';
+    submitEl.disabled = false;
+    bodyEl.disabled = false;
+    formEl.classList.remove('hidden');
+    formEl.classList.add('flex');
+    positionPopover(badge);
+    fetch('/projects/' + activeProjectId + '/comments-ajax/', {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (!data || !data.ok) { listEl.innerHTML = '<div class="text-red-500 text-center py-2 text-xs">Couldn\'t load comments.</div>'; return; }
+        titleEl.textContent = 'Comments · ' + data.total;
+        renderComments(data.comments, data.can_post);
+        positionPopover(badge);
+        if (data.can_post) bodyEl.focus();
+      })
+      .catch(function() { listEl.innerHTML = '<div class="text-red-500 text-center py-2 text-xs">Network error.</div>'; });
+  }
+
+  function closePopover() {
+    popover.classList.add('hidden');
+    activeBadge = null;
+    activeProjectId = null;
+  }
+
+  /* Expose a direct opener so each badge can invoke the popover inline,
+     independent of the delegated listener (robust if anything else on the
+     page errors). */
+  window.openProjComment = openFor;
+
+  /* Fix #17 – delegated listener on a stable parent */
+  document.addEventListener('click', function(ev) {
+    if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1) return;
+    var badge = ev.target.closest('.proj-comment-badge');
+    if (badge) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (activeBadge === badge && !popover.classList.contains('hidden')) {
+        closePopover();
+      } else {
+        openFor(badge);
+      }
+      return;
+    }
+    if (!popover.classList.contains('hidden') &&
+        !ev.target.closest('#proj-comment-popover') &&
+        !ev.target.closest('.proj-comment-badge')) {
+      closePopover();
+    }
+  });
+
+  closeEl.addEventListener('click', closePopover);
+  document.addEventListener('keydown', function(ev) {
+    if (ev.key === 'Escape' && !popover.classList.contains('hidden')) closePopover();
+  });
+  ['scroll', 'resize'].forEach(function(evt) {
+    window.addEventListener(evt, function() {
+      if (activeBadge && !popover.classList.contains('hidden')) positionPopover(activeBadge);
+    }, true);
+  });
+
+  formEl.addEventListener('submit', function(ev) {
+    ev.preventDefault();
+    if (!activeProjectId) return;
+    var body = bodyEl.value.trim();
+    if (!body) {
+      statusEl.textContent = 'Comment cannot be empty.';
+      statusEl.className = 'text-xs text-red-500';
+      return;
+    }
+    submitEl.disabled = true;
+    bodyEl.disabled = true;
+    statusEl.textContent = 'Posting…';
+    statusEl.className = 'text-xs text-gray-400';
+    var fd = new FormData();
+    fd.append('body', body);
+    fd.append('csrfmiddlewaretoken', window.PROJECTS_DATA.csrf);
+    fetch('/projects/' + activeProjectId + '/comments-ajax/', {
+      method: 'POST', body: fd, credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+      .then(function(res) {
+        if (!res.data.ok) {
+          statusEl.textContent = res.data.error || 'Failed to post.';
+          statusEl.className = 'text-xs text-red-500';
+          submitEl.disabled = false;
+          bodyEl.disabled = false;
+          return;
+        }
+        titleEl.textContent = 'Comments · ' + res.data.total;
+        renderComments(res.data.comments, res.data.can_post);
+        bodyEl.value = '';
+        submitEl.disabled = false;
+        bodyEl.disabled = false;
+        statusEl.textContent = 'Posted.';
+        statusEl.className = 'text-xs text-emerald-500';
+        if (activeBadge) {
+          var span = activeBadge.querySelector('[data-comment-count-num]');
+          if (span) span.textContent = res.data.total;
+          activeBadge.classList.remove('bg-transparent','text-gray-400');
+          activeBadge.classList.add('bg-indigo-50','text-indigo-600','dark:bg-indigo-900/30','dark:text-indigo-400');
+          activeBadge.setAttribute('title', res.data.total + ' comment' + (res.data.total === 1 ? '' : 's'));
+          positionPopover(activeBadge);
+        }
+        setTimeout(function() { if (statusEl.textContent === 'Posted.') statusEl.textContent = ''; }, 2000);
+      })
+      .catch(function() {
+        statusEl.textContent = 'Network error.';
+        statusEl.className = 'text-xs text-red-500';
+        submitEl.disabled = false;
+        bodyEl.disabled = false;
+      });
+  });
+})();
+</script>
+{% endblock %}

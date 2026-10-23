@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Activity Tracker — Settings{% endblock %}
+{% block page_title %}Activity Tracker Settings{% endblock %}
+
+{% block topbar_actions %}{% endblock %}
+
+{% block content %}
+{% include "tracker/partials/nav.html" %}
+
+<div class="max-w-[880px] mx-auto">
+  <div class="bg-white shadow-sm border border-gray-200 rounded-lg">
+    <div class="px-7 py-5 border-b border-gray-200 flex items-center justify-between">
+      <span class="text-lg font-semibold text-gray-900">Activity tracker configuration</span>
+      {% if config.connection_status == "ok" %}
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Connected</span>
+      {% elif config.connection_status == "error" %}
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Error</span>
+      {% else %}
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Not configured</span>
+      {% endif %}
+    </div>
+    <div class="px-7 py-6">
+      <form method="post">
+        {% csrf_token %}
+
+        {# ── Enable toggle ─────────────────────────────────────────── #}
+        <label class="flex items-start gap-2.5 p-3.5 bg-gray-50 border border-gray-200 rounded-lg mb-4 cursor-pointer hover:bg-gray-100 transition-colors">
+          <input type="checkbox" name="enabled" class="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 shrink-0 cursor-pointer" {% if config.enabled %}checked{% endif %}>
+          <div>
+            <div class="text-sm font-medium text-gray-900 leading-snug">Enable activity tracker</div>
+            <div class="text-xs text-gray-500 mt-0.5">When off, agents stop syncing and dashboards show no data.</div>
+          </div>
+        </label>
+
+        {# ── External database connection ─────────────────────────── #}
+        <div class="pt-6 mt-8 border-t border-gray-100 first:mt-2 first:pt-0 first:border-0">
+          <h3 class="text-[15px] font-semibold text-gray-900 mb-1 tracking-tight">External database connection</h3>
+          <p class="text-[13px] text-gray-500 mb-4 max-w-[64ch] leading-relaxed">
+            Read-only connection to your existing activity-tracker database. {{ site_name }} never writes to it.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-5">
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Database engine</label>
+              <select name="engine" id="tracker-engine" class="block w-full border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm">
+                <option value="django.db.backends.postgresql" {% if config.engine == "django.db.backends.postgresql" %}selected{% endif %}>PostgreSQL</option>
+                <option value="django.db.backends.mysql" {% if config.engine == "django.db.backends.mysql" %}selected{% endif %}>MySQL</option>
+                <option value="django.db.backends.sqlite3" {% if config.engine == "django.db.backends.sqlite3" %}selected{% endif %}>SQLite (file)</option>
+              </select>
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed" id="tracker-engine-hint">
+                {% if config.engine == "django.db.backends.postgresql" %}
+                  Requires <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">psycopg2-binary</code> on the server.
+                {% elif config.engine == "django.db.backends.mysql" %}
+                  Requires <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">mysqlclient</code> on the server.
+                {% else %}
+                  SQLite is bundled with Python — no extra driver needed.
+                {% endif %}
+              </div>
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Host</label>
+              <input type="text" name="host" id="tracker-host" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ config.host }}" placeholder="192.168.1.50">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Leave blank for SQLite (file-based, no host).</div>
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Port</label>
+              <input type="number" name="port" id="tracker-port" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ config.port }}">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Defaults: PostgreSQL <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">5432</code>, MySQL <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">3306</code>.</div>
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Database name</label>
+              <input type="text" name="db_name" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ config.db_name }}" placeholder="activity_tracker">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">For SQLite this is the file path (e.g. <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">/var/lib/tracker.db</code>).</div>
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Username</label>
+              <input type="text" name="db_user" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ config.db_user }}" autocomplete="off">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Password</label>
+              <input type="password" name="db_password" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" placeholder="Leave blank to keep existing" autocomplete="new-password">
+            </div>
+          </div>
+        </div>
+
+        {# ── Agent sync intervals ──────────────────────────────────── #}
+        <div class="pt-6 mt-8 border-t border-gray-100">
+          <h3 class="text-[15px] font-semibold text-gray-900 mb-1 tracking-tight">Agent sync &amp; retention</h3>
+          <p class="text-[13px] text-gray-500 mb-4 max-w-[64ch] leading-relaxed">
+            These settings are pulled by every Activity Tracker agent from the portal.
+            Changes propagate at the next refresh.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-5">
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Config refresh (minutes)</label>
+              <input type="number" name="agent_config_refresh_minutes" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="1" max="240" value="{{ config.agent_config_refresh_minutes }}">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">How often agents re-check this page for changes.</div>
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Sync interval (minutes)</label>
+              <input type="number" name="agent_sync_interval_minutes" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="1" max="240" value="{{ config.agent_sync_interval_minutes }}">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">How often agents push captured data to the DB.</div>
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Local retention (days)</label>
+              <input type="number" name="agent_retention_days" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="1" max="365" value="{{ config.agent_retention_days }}">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Days an agent keeps data locally before deletion.</div>
+            </div>
+          </div>
+        </div>
+
+        {# ── Tracking rules ────────────────────────────────────────── #}
+        <div class="pt-6 mt-8 border-t border-gray-100">
+          <h3 class="text-[15px] font-semibold text-gray-900 mb-1 tracking-tight">Tracking rules</h3>
+          <p class="text-[13px] text-gray-500 mb-4 max-w-[64ch] leading-relaxed">
+            Thresholds that decide what counts as an active session vs. noise or idle time.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-5">
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Min active seconds</label>
+              <input type="number" name="min_active_seconds" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="1" max="600" value="{{ config.min_active_seconds }}">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Sessions shorter than this are discarded as noise.</div>
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Idle timeout (seconds)</label>
+              <input type="number" name="idle_timeout_seconds" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="30" max="3600" value="{{ config.idle_timeout_seconds }}">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">No input for this long → session ends.</div>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Non-focused window exceptions</label>
+              <input type="text" name="non_focused_exceptions" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ config.non_focused_exceptions }}" placeholder="Batch Render In Progress, Rendering">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                Comma-separated window-title fragments. Matching windows still count
+                as active even when not focused (useful for long-running renders).
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# ── Task switching detection ──────────────────────────────── #}
+        <div class="pt-6 mt-8 border-t border-gray-100">
+          <h3 class="text-[15px] font-semibold text-gray-900 mb-1 tracking-tight">Task switching detection</h3>
+          <p class="text-[13px] text-gray-500 mb-4 max-w-[64ch] leading-relaxed">
+            Flag bursts of rapid window switching that look like multitasking churn.
+          </p>
+
+          <label class="flex items-start gap-2.5 p-3.5 bg-gray-50 border border-gray-200 rounded-lg mb-4 cursor-pointer hover:bg-gray-100 transition-colors">
+            <input type="checkbox" name="task_switch_enabled" class="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 shrink-0 cursor-pointer" {% if config.task_switch_enabled %}checked{% endif %}>
+            <div>
+              <div class="text-sm font-medium text-gray-900 leading-snug">Detect rapid task switching</div>
+              <div class="text-xs text-gray-500 mt-0.5">Surfaces noisy multitasking patterns on the timeline.</div>
+            </div>
+          </label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-5">
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Window (seconds)</label>
+              <input type="number" name="task_switch_window_seconds" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="10" max="600" value="{{ config.task_switch_window_seconds }}">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Min switches</label>
+              <input type="number" name="task_switch_min_switches" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="2" max="50" value="{{ config.task_switch_min_switches }}">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Min switch duration (s)</label>
+              <input type="number" name="task_switch_min_duration_seconds" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="1" max="60" value="{{ config.task_switch_min_duration_seconds }}">
+            </div>
+          </div>
+        </div>
+
+        {# ── Screenshots ───────────────────────────────────────────── #}
+        <div class="pt-6 mt-8 border-t border-gray-100">
+          <h3 class="text-[15px] font-semibold text-gray-900 mb-1 tracking-tight">Screenshots</h3>
+          <p class="text-[13px] text-gray-500 mb-4 max-w-[64ch] leading-relaxed">
+            Periodic screenshots are stored alongside activity segments and viewable from the timeline.
+          </p>
+
+          <label class="flex items-start gap-2.5 p-3.5 bg-gray-50 border border-gray-200 rounded-lg mb-4 cursor-pointer hover:bg-gray-100 transition-colors">
+            <input type="checkbox" name="screenshots_enabled" class="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 shrink-0 cursor-pointer" {% if config.screenshots_enabled %}checked{% endif %}>
+            <div>
+              <div class="text-sm font-medium text-gray-900 leading-snug">Capture screenshots</div>
+              <div class="text-xs text-gray-500 mt-0.5">Agents will save a JPEG at the configured interval.</div>
+            </div>
+          </label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-5">
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Interval (minutes)</label>
+              <input type="number" name="screenshot_interval_minutes" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="1" max="120" value="{{ config.screenshot_interval_minutes }}">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">JPEG quality (10–95)</label>
+              <input type="number" name="screenshot_jpeg_quality" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="10" max="95" value="{{ config.screenshot_jpeg_quality }}">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Lower = smaller files, lower fidelity.</div>
+            </div>
+          </div>
+        </div>
+
+        {# ── Local cleanup ─────────────────────────────────────────── #}
+        <div class="pt-6 mt-8 border-t border-gray-100">
+          <h3 class="text-[15px] font-semibold text-gray-900 mb-1 tracking-tight">Local cleanup on agent PCs</h3>
+          <p class="text-[13px] text-gray-500 mb-4 max-w-[64ch] leading-relaxed">
+            After a successful sync, agents can purge older local data to keep disk use small.
+          </p>
+
+          <label class="flex items-start gap-2.5 p-3.5 bg-gray-50 border border-gray-200 rounded-lg mb-4 cursor-pointer hover:bg-gray-100 transition-colors">
+            <input type="checkbox" name="agent_cleanup_enabled" class="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 shrink-0 cursor-pointer" {% if config.agent_cleanup_enabled %}checked{% endif %}>
+            <div>
+              <div class="text-sm font-medium text-gray-900 leading-snug">Auto-cleanup synced data on agent PCs</div>
+              <div class="text-xs text-gray-500 mt-0.5">Deletes locally-stored data once it's been successfully synced.</div>
+            </div>
+          </label>
+
+          <div class="max-w-[280px]">
+            <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Keep N days after sync</label>
+            <input type="number" name="agent_cleanup_keep_days_after_sync" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" min="1" max="90" value="{{ config.agent_cleanup_keep_days_after_sync }}">
+            <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">
+              Agents keep this many days of locally-stored data after a successful sync, then delete.
+            </div>
+          </div>
+        </div>
+
+        {# ── Default working hours ─────────────────────────────────── #}
+        <div class="pt-6 mt-8 border-t border-gray-100">
+          <h3 class="text-[15px] font-semibold text-gray-900 mb-1 tracking-tight">Default working hours</h3>
+          <p class="text-[13px] text-gray-500 mb-4 max-w-[64ch] leading-relaxed">
+            Used as a fallback when an agent's hostname doesn't match an Employee with a Shift assigned.
+            Per-employee shifts in Attendance → Shifts always override these.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-y-4 gap-x-5">
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Start</label>
+              <input type="time" name="default_work_start" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ config.default_work_start|time:'H:i' }}">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">End</label>
+              <input type="time" name="default_work_end" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ config.default_work_end|time:'H:i' }}">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Working days</label>
+              <input type="text" name="default_work_days" class="block w-full border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 border shadow-sm" value="{{ config.default_work_days }}" placeholder="Mon,Tue,Wed,Thu,Fri">
+              <div class="text-xs text-gray-500 mt-1.5 leading-relaxed">Comma-separated short day names.</div>
+            </div>
+          </div>
+        </div>
+
+        {# ── Agent token ───────────────────────────────────────────── #}
+        <div class="pt-6 mt-8 border-t border-gray-100">
+          <h3 class="text-[15px] font-semibold text-gray-900 mb-1 tracking-tight">Agent token</h3>
+          <p class="text-[13px] text-gray-500 mb-4 max-w-[64ch] leading-relaxed">
+            Shared secret every agent sends when fetching its config. Treat this like a
+            password — anyone with it can pull the tracker config. Rotating it forces
+            every agent to be re-configured with the new token.
+          </p>
+
+          <label class="block text-[13px] font-medium text-gray-700 mb-1.5">Current token</label>
+          <div class="p-3.5 bg-gray-100 border border-gray-200 rounded-lg font-mono text-[13px] text-gray-800 break-all select-all leading-relaxed">
+            {{ config.agent_token|default:"(will be generated on first save)" }}
+          </div>
+          <div class="mt-3">
+            <button type="submit" name="action" value="rotate_token" class="inline-flex justify-center items-center px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors shadow-sm focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2" data-confirm="Rotate the agent token? All agents will need to be re-configured with the new token before they can fetch config or sync.">
+              Rotate token
+            </button>
+          </div>
+        </div>
+
+        {# ── Action bar ────────────────────────────────────────────── #}
+        <div class="mt-8 pt-5 border-t border-gray-200 flex flex-wrap gap-2.5 items-center">
+          <button type="submit" class="inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors shadow-sm focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 min-w-[100px]">Save changes</button>
+          <a href="{% url 'tracker:test_connection' %}" class="inline-flex justify-center items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors shadow-sm focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 min-w-[100px]" data-confirm="Test the activity tracker DB connection?">
+            Test connection
+          </a>
+          <div class="flex-1"></div>
+          <a href="{% url 'tracker:index' %}" class="inline-flex justify-center items-center px-4 py-2 text-indigo-600 hover:text-indigo-900 text-sm font-medium transition-colors bg-transparent">View tracker &rarr;</a>
+        </div>
+      </form>
+
+      {% if config.last_tested_at %}
+      <div class="mt-4 p-3 bg-gray-50 border border-gray-100 rounded-md text-[13px] text-gray-500">
+        Last tested: {{ config.last_tested_at|date:"d M Y H:i" }}
+        {% if config.last_error %}
+        <div class="text-red-700 mt-1.5 font-medium">{{ config.last_error }}</div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bg-white shadow-sm border border-gray-200 rounded-lg mt-5">
+    <div class="px-7 py-4 border-b border-gray-200">
+      <span class="text-lg font-semibold text-gray-900">How it works</span>
+    </div>
+    <div class="px-7 py-5 text-sm text-gray-700 space-y-3 leading-relaxed">
+      <p>{{ site_name }} connects to your existing activity tracker database as a <strong>read-only</strong> secondary connection. No data is written to it.</p>
+      <p>Employees are matched to workstation records using the <strong>hostname</strong> field in the Employee Directory. Assign a hostname to each employee so their activity data appears here.</p>
+      <p>{{ site_name }} expects a table named <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">activity_summary</code> with columns: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">hostname, last_seen, active_seconds, idle_seconds, top_application, status</code>.</p>
+      <p><strong>Server requirements:</strong> PostgreSQL needs <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">pip install psycopg2-binary</code> on the {{ site_name }} server. MySQL needs <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">pip install mysqlclient</code>. SQLite works out of the box.</p>
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+  // Engine-aware UI: swap the port default and driver hint when the
+  // SA changes the engine dropdown. Purely cosmetic — the backend
+  // still validates and the driver-availability check runs on save.
+  (function () {
+    var engineSelect = document.getElementById('tracker-engine');
+    var portInput    = document.getElementById('tracker-port');
+    var hostInput    = document.getElementById('tracker-host');
+    var hint         = document.getElementById('tracker-engine-hint');
+    if (!engineSelect || !portInput || !hint) return;
+
+    var defaults = {
+      'django.db.backends.postgresql': {
+        port: 5432,
+        hint: 'Requires <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">psycopg2-binary</code> on the server.',
+        hostPlaceholder: '192.168.1.50',
+      },
+      'django.db.backends.mysql': {
+        port: 3306,
+        hint: 'Requires <code class="bg-gray-100 px-1.5 py-0.5 rounded text-[0.92em] font-mono text-gray-800">mysqlclient</code> on the server.',
+        hostPlaceholder: '192.168.1.50',
+      },
+      'django.db.backends.sqlite3': {
+        port: 0,
+        hint: 'SQLite is bundled with Python — no extra driver needed.',
+        hostPlaceholder: '(not used for SQLite)',
+      },
+    };
+
+    engineSelect.addEventListener('change', function () {
+      var d = defaults[engineSelect.value];
+      if (!d) return;
+      hint.innerHTML = d.hint;
+      if (hostInput) hostInput.placeholder = d.hostPlaceholder;
+      // Only overwrite the port if it's still set to the previous
+      // engine's default (don't clobber a custom port the user typed).
+      var currentPort = parseInt(portInput.value, 10);
+      var wasDefault = currentPort === 5432 || currentPort === 3306 || currentPort === 0 || isNaN(currentPort);
+      if (wasDefault) portInput.value = d.port || '';
+    });
+  })();
+</script>
+{% endblock %}
+{% endblock %}

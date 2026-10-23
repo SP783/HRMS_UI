@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}Archived Employees — {{ site_name }}{% endblock %}
+{% block page_title %}Archived Employees{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'employees:list' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 12H5M12 19l-7-7 7-7"/>
+    </svg>
+    Back to Active
+  </a>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="flex flex-col gap-6">
+  
+  <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <form data-ui-filter method="get" class="w-full sm:w-auto flex flex-1 gap-2 items-center">
+      <div class="relative w-full sm:max-w-md">
+        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </span>
+        <input 
+          type="text" 
+          name="q" 
+          value="{{ search }}" 
+          placeholder="Search archived employees…" 
+          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+         id="ui-live-query">
+      </div>
+      <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition-colors shadow-sm">
+        Search
+      </button>
+      {% if search %}
+        <a href="{% url 'employees:archived' %}" class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+          Clear
+        </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse whitespace-nowrap">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-100 text-gray-500 text-xs uppercase tracking-wider">
+            <th class="px-6 py-4 font-semibold">ID</th>
+            <th class="px-6 py-4 font-semibold">Name</th>
+            <th class="px-6 py-4 font-semibold">Department</th>
+            <th class="px-6 py-4 font-semibold">Designation</th>
+            <th class="px-6 py-4 font-semibold">Role</th>
+            <th class="px-6 py-4 font-semibold">Archived Details</th>
+            <th class="px-6 py-4 font-semibold text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 text-sm">
+          {% for emp in employees %}
+          <tr class="hover:bg-gray-50/50 transition-colors group">
+            <td class="px-6 py-4 text-gray-400 font-mono text-xs">
+              {{ emp.employee_id }}
+            </td>
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                {% if emp.profile_photo %}
+                  <img src="{{ emp.profile_photo.url }}" alt="{{ emp.profile.full_name }}" class="w-10 h-10 rounded-full object-cover border border-gray-200">
+                {% else %}
+                  <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100">
+                    {{ emp.profile.initials }}
+                  </div>
+                {% endif %}
+                <div>
+                  <div class="font-semibold text-gray-900">{{ emp.profile.full_name }}</div>
+                  <div class="text-gray-500 text-xs">{{ emp.profile.user.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              {% if emp.department %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                  {{ emp.department.name }}
+                </span>
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4 text-gray-600">
+              {{ emp.designation.name|default:'—' }}
+            </td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-200 role-{{ emp.profile.role }}">
+                {{ emp.profile.get_role_display }}
+              </span>
+            </td>
+            <td class="px-6 py-4">
+              <div class="flex flex-col">
+                <span class="text-gray-900">{{ emp.archived_at|date:'d M Y' }}</span>
+                <span class="text-xs text-gray-500">by {{ emp.archived_by.full_name|default:'System' }}</span>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <a href="{% url 'employees:detail' emp.employee_id %}" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View details">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </a>
+                
+                {% if can_archive %}
+                <form method="post" action="{% url 'employees:unarchive' emp.employee_id %}" class="inline-block m-0">
+                  {% csrf_token %}
+                  <button type="submit" 
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-600 hover:text-white transition-colors"
+                    onclick="return confirm('Unarchive {{ emp.profile.full_name }}? They will regain system access.');">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                    </svg>
+                    Restore
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="px-6 py-12">
+              <div class="flex flex-col items-center justify-center text-center">
+                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
+                  <span class="text-2xl">📦</span>
+                </div>
+                <h3 class="text-sm font-medium text-gray-900 mb-1">No archived employees found</h3>
+                <p class="text-sm text-gray-500">Archived employee records will appear here.</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</section>
+{% endblock %}

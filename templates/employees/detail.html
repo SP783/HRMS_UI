@@ -1,0 +1,439 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/employee-detail.css' %}">{% endblock %}
+{% block title %}{{ employee.profile.full_name }} — {{ site_name }}{% endblock %}
+{% block page_title %}{{ employee.profile.full_name }}{% endblock %}
+
+{% block topbar_actions %}
+  <div class="flex items-center gap-2 print:hidden">
+    {% if can_export_employee %}
+    <a href="{% url 'employees:print' employee.pk %}" target="_blank" rel="noopener" class='inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm transition-colors' title='Print employee record'>
+      <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><polyline points='6 9 6 2 18 2 18 9'/><path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2'/><rect x='6' y='14' width='12' height='8'/></svg>
+      Print
+    </a>
+    <a href="{% url 'employees:pdf' employee.pk %}" class="inline-flex items-center px-3 py-1.5 text-sm font-medium border rounded-md">Download PDF</a>
+    {% else %}<button type="button" onclick="window.print()" class="inline-flex items-center px-3 py-1.5 text-sm border rounded-md">Print</button>{% endif %}
+    {% if can_edit %}
+    <a href='{% url 'employees:edit' employee.employee_id %}' class='inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>
+      <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/><path d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/></svg>
+      Edit
+    </a>
+    {% endif %}
+    {% if can_archive %}
+      {% if employee.is_archived %}
+      <form method='post' action='{% url 'employees:unarchive' employee.employee_id %}' class='inline m-0'>
+        {% csrf_token %}
+        <button type='submit' class='inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500' data-confirm='Unarchive {{ employee.profile.full_name }}? They will regain system access.'>
+          <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><polyline points='1 4 1 10 7 10'/><path d='M3.51 15a9 9 0 1 0 2.13-9.36L1 10'/></svg>
+          Unarchive
+        </button>
+      </form>
+      {% else %}
+      <form method='post' action='{% url 'employees:archive' employee.employee_id %}' class='inline m-0'>
+        {% csrf_token %}
+        <button type='submit' class='inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500' data-confirm='Archive {{ employee.profile.full_name }}? They will lose system access.'>Archive</button>
+      </form>
+      {% endif %}
+    {% endif %}
+    {% if can_delete and not employee.is_archived %}
+    <form method='post' action='{% url 'employees:delete' employee.employee_id %}' class='inline m-0'>
+      {% csrf_token %}
+      <button type='submit' class='inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500' data-confirm='Permanently delete {{ employee.profile.full_name }}? This cannot be undone.'>Delete</button>
+    </form>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block content %}
+<!-- Print-Specific Overrides to fix base.html bleed and background colors -->
+<style type="text/css" media="print">
+  /* A4 page with its own margins — the page box owns the geometry,
+     NOT the on-screen sheet div (whose 210mm width + 297mm min-height
+     would otherwise overflow the printable area and spill a near-empty
+     second page). */
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  /* Hide base.html navigation chrome */
+  nav, aside, #sidebar, .sidebar, .navbar, .topbar,
+  header:not(.doc-header) {
+    display: none !important;
+  }
+
+  /* Print background colours (badges, photo box, stat tiles) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html, body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* Neutralise the on-screen A4 sheet so content flows to the real
+     @page box: strip the fixed width, the forced full-page height,
+     and the grey outer wrapper. */
+  .doc-print-wrap {
+    background: #fff !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+  .doc-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+    width: 100% !important;
+    min-height: 0 !important;   /* critical: stops the empty 2nd page */
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide interactive chrome on paper. We do NOT rely on Tailwind's
+     print:hidden here — Tailwind is loaded via the CDN runtime and may
+     not have generated those rules by print time, so the footer/topbar
+     actions could leak onto a near-empty extra page. These plain rules
+     always apply. */
+  .print\:hidden,
+  [data-print-hide],
+  footer.print\:hidden {
+    display: none !important;
+  }
+
+  /* Keep each section together; allow the document to break between
+     sections rather than mid-field. */
+  section, .doc-header, footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  h1, h2, h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Tailwind's print: utilities can't express min-height:0, so the
+     sheet div keeps these class hooks for the rules above. */
+</style>
+
+<!-- A4 Sheet Document Container -->
+<div class='doc-print-wrap bg-gray-100 min-h-screen py-8 px-4 sm:px-6 lg:px-8 flex justify-center print:bg-white print:py-0 print:px-0 print:block print:min-h-0'>
+  <div data-employee-profile data-documents-url="{% url 'documents:gallery' employee.employee_id %}" class='doc-sheet bg-white shadow-xl max-w-[210mm] w-full min-h-[297mm] p-10 sm:p-14 border border-gray-200 mx-auto text-gray-800 print:shadow-none print:border-none print:max-w-none print:w-full print:p-0 print:m-0'>
+
+    <!-- ── Header: Company logo + Photo + Name + Key Info ─────────────────── -->
+    <header class='doc-header flex flex-col mb-10 pb-8 border-b border-gray-200 print:mb-6 print:pb-6 print:border-gray-300'>
+      {% if company_logo_url or company_name %}
+      <div class='flex items-center gap-3 mb-6 print:mb-5'>
+        {% if company_logo_url %}
+        <img src='{{ company_logo_url }}' alt='{{ company_name }}' class='h-10 w-auto object-contain print:h-8'>
+        {% endif %}
+        {% if company_name and not company_logo_url %}
+        <span class='text-xl font-bold tracking-tight text-gray-900'>{{ company_name }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div class='flex flex-col sm:flex-row gap-8 items-start w-full print:flex-row print:gap-6'>
+        
+        <!-- Photo (Locked to passport size 2.5cm x 3.5cm, whole image fit) -->
+        <div class='shrink-0 w-[25mm] h-[35mm]'>
+          {% if employee.profile_photo %}
+          <img src='{{ employee.profile_photo.url }}' alt='Photo' class='w-full h-full rounded-md object-contain bg-gray-50 border-2 border-gray-100 shadow-sm print:rounded-sm print:border-gray-200 print:shadow-none'>
+          {% else %}
+          <div class='w-full h-full rounded-md bg-blue-50 text-blue-600 flex items-center justify-center text-3xl font-semibold border-2 border-blue-100 shadow-sm print:rounded-sm print:border-blue-200 print:shadow-none print:text-2xl'>
+            {{ employee.profile.initials }}
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Info -->
+        <div class='flex-1 flex flex-col gap-2 print:gap-1'>
+          <h1 class='text-3xl font-bold text-gray-900 m-0 print:text-2xl'>{{ employee.profile.full_name }}</h1>
+          <p class="text-sm text-gray-500">{{ active_organization.name }}</p>
+          <div class='text-sm text-gray-600 flex flex-wrap items-center gap-2 print:text-xs print:mt-1'>
+            <span class='font-mono bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded print:bg-gray-100 print:px-1 print:font-semibold'>{{ employee.employee_id }}</span>
+            <span class='text-gray-300 print:text-gray-400'>&bull;</span>
+            <span class='font-medium text-gray-700'>{{ employee.designation.name|default:'No designation' }}</span>
+            <span class='text-gray-300 print:text-gray-400'>&bull;</span>
+            <span>{{ employee.department.name|default:'—' }}</span>
+          </div>
+          <div class='flex flex-wrap gap-2 mt-2 print:mt-2'>
+            <span class='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-200 bg-gray-50 text-gray-700 role--{{ employee.profile.role }} print:text-[11px] print:px-2 print:border-gray-300'>
+              {{ employee.profile.get_role_display }}
+            </span>
+            <span class='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-200 bg-gray-50 text-gray-700 {{ employee.status_badge_class }} print:text-[11px] print:px-2 print:border-gray-300'>
+              {{ employee.display_status }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class='flex gap-4 sm:ml-auto w-full sm:w-auto shrink-0 print:ml-auto print:w-auto'>
+          <div class='flex-1 sm:flex-none text-center bg-gray-50 px-5 py-3 rounded-xl border border-gray-200 shadow-sm min-w-[80px] print:py-2 print:px-4 print:bg-gray-50 print:border-gray-200 print:rounded-lg print:shadow-none'>
+            <div class='text-2xl font-bold text-gray-900 leading-none mb-1 print:text-xl'>{{ employee.age|default:'—' }}</div>
+            <div class='text-[10px] text-gray-500 uppercase tracking-widest font-semibold print:text-[9px]'>Age</div>
+          </div>
+          <div class='flex-1 sm:flex-none text-center bg-gray-50 px-5 py-3 rounded-xl border border-gray-200 shadow-sm min-w-[80px] print:py-2 print:px-4 print:bg-gray-50 print:border-gray-200 print:rounded-lg print:shadow-none'>
+            <div class='text-2xl font-bold text-gray-900 leading-none mb-1 print:text-xl'>{{ employee.tenure_years|default:'—' }}</div>
+            <div class='text-[10px] text-gray-500 uppercase tracking-widest font-semibold print:text-[9px]'>Years</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Body: Single-column stacked sections ─────────────────────────── -->
+    <main class='flex flex-col gap-10 print:gap-8'>
+
+        <!-- Personal -->
+        <section class="print:break-inside-avoid">
+          <h2 class='flex items-center gap-2 text-lg font-bold text-gray-900 border-b border-gray-200 pb-2 mb-5 print:mb-4 print:text-base print:border-gray-300'>
+            <svg class="text-blue-500 print:hidden" width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>
+            Personal
+          </h2>
+          <div class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-8 print:grid-cols-3 print:gap-y-5 print:gap-x-6'>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Work email</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.profile.user.email|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Personal email</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.personal_email|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Phone</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.phone|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Date of birth</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.date_of_birth|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Gender</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.get_gender_display|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Marital status</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.get_marital_status_display|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Emergency contact</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.emergency_contact|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Emergency phone</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.emergency_phone|default:'—' }}</span></div>
+            {% if employee.address %}
+            <div class='flex flex-col gap-1 col-span-1 sm:col-span-2 md:col-span-3 print:col-span-3'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Address</span><span class='text-sm text-gray-600 print:text-xs'>{{ employee.address }}</span></div>
+            {% endif %}
+          </div>
+        </section>
+
+        <!-- System -->
+        <section class="print:break-inside-avoid">
+          <h2 class='flex items-center gap-2 text-lg font-bold text-gray-900 border-b border-gray-200 pb-2 mb-5 print:mb-4 print:text-base print:border-gray-300'>
+            <svg class="text-blue-500 print:hidden" width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='2' y='3' width='20' height='14' rx='2' ry='2'/><line x1='8' y1='21' x2='16' y2='21'/><line x1='12' y1='17' x2='12' y2='21'/></svg>
+            System
+          </h2>
+          <div class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-8 print:grid-cols-3 print:gap-y-5 print:gap-x-6'>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Username</span><span class='font-mono text-sm text-gray-900 print:text-xs'>{{ employee.profile.user.username }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Hostname</span><span class='font-mono text-sm text-gray-900 print:text-xs'>{{ employee.profile.hostname|default:'Not assigned' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Account</span><span class='text-sm print:text-xs'><span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border border-gray-200 bg-gray-50 {{ employee.status_badge_class }} print:p-0 print:border-none print:bg-transparent'>{{ employee.display_status }}</span></span></div>
+            {% if employee.archived_at %}
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Archived</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.archived_at|date:'d M Y' }}{% if employee.archived_by %} by {{ employee.archived_by.full_name }}{% endif %}</span></div>
+            {% endif %}
+            {% if employee.profile.revoked_at %}
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Access revoked</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.profile.revoked_at|date:'d M Y' }}</span></div>
+            {% endif %}
+          </div>
+        </section>
+
+        <!-- Work info -->
+        <section class="print:break-inside-avoid">
+          <h2 class='flex items-center gap-2 text-lg font-bold text-gray-900 border-b border-gray-200 pb-2 mb-5 print:mb-4 print:text-base print:border-gray-300'>
+            <svg class="text-blue-500 print:hidden" width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'/><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'/></svg>
+            Work information
+          </h2>
+          <div class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-8 print:grid-cols-3 print:gap-y-5 print:gap-x-6'>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Department</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.department.name|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Designation</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.designation.name|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Employment type</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.get_employment_type_display }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Date joined</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.joined_date|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Date left</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.date_left|default:'—' }}</span></div>
+          </div>
+        </section>
+
+        <!-- Reporting structure -->
+        <section class="print:break-inside-avoid">
+          <h2 class='flex items-center gap-2 text-lg font-bold text-gray-900 border-b border-gray-200 pb-2 mb-5 print:mb-4 print:text-base print:border-gray-300'>
+            <svg class="text-blue-500 print:hidden" width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>
+            Reporting structure
+          </h2>
+          <div class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-8 print:grid-cols-3 print:gap-y-5 print:gap-x-6'>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Manager (RM1)</span><span class='text-sm text-gray-900 print:text-xs'>{% if employee.reports_to %}{{ employee.reports_to.profile.full_name }}{% else %}—{% endif %}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>RM2</span><span class='text-sm text-gray-900 print:text-xs'>{% if employee.rm2 %}{{ employee.rm2.profile.full_name }}{% else %}—{% endif %}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Dept Head</span><span class='text-sm text-gray-900 print:text-xs'>{% if employee.dept_head %}{{ employee.dept_head.profile.full_name }}{% else %}—{% endif %}</span></div>
+          </div>
+        </section>
+
+        <!-- Probation & Notice -->
+        <section class="print:break-inside-avoid">
+          <h2 class='flex items-center gap-2 text-lg font-bold text-gray-900 border-b border-gray-200 pb-2 mb-5 print:mb-4 print:text-base print:border-gray-300'>
+            <svg class="text-blue-500 print:hidden" width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>
+            Probation &amp; Notice
+          </h2>
+          <div class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-8 print:grid-cols-3 print:gap-y-5 print:gap-x-6'>
+            <div class='flex flex-col gap-1'>
+              <span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>On probation</span>
+              <span class='text-sm text-gray-900 print:text-xs'>
+                {% if employee.on_probation %}
+                  {% if employee.probation_completed %}
+                  <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 print:px-1.5 print:border print:border-green-200'>Completed</span>
+                  {% else %}
+                  <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 print:px-1.5 print:border print:border-yellow-200'>In Progress</span>
+                  {% endif %}
+                {% else %}
+                  <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 print:px-1.5 print:border print:border-green-200'>No</span>
+                {% endif %}
+              </span>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Probation end</span>
+              <span class='text-sm text-gray-900 print:text-xs'>
+                {{ employee.probation_end_date|default:'—' }}
+                {% if employee.probation_completed %} <span class='text-green-600 text-xs ml-1 font-medium print:inline'>(completed)</span>{% endif %}
+              </span>
+            </div>
+            <div class='flex flex-col gap-1'>
+              <span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>On notice</span>
+              <span class='text-sm text-gray-900 print:text-xs'>
+                {% if employee.on_notice %}
+                <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 print:px-1.5 print:border print:border-yellow-200'>Yes</span>
+                {% else %}
+                <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 print:px-1.5 print:border print:border-green-200'>No</span>
+                {% endif %}
+              </span>
+            </div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Notice period</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.get_notice_months_display }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Notice start</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.notice_start|default:'—' }}</span></div>
+            <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Notice end</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.notice_end|default:'—' }}</span></div>
+          </div>
+
+          {% if employee.on_notice %}
+          <div class='mt-8 pt-6 border-t border-gray-100 print:mt-6 print:pt-4 print:border-gray-200 print:break-inside-avoid'>
+            <h3 class='text-sm font-semibold text-gray-800 mb-5 print:mb-3 print:text-xs'>Early release</h3>
+
+            {% if employee.early_release_requested and employee.early_release_status != 'rejected' %}
+            <div class='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-8 mb-6 print:grid-cols-3 print:gap-y-4 print:gap-x-6 print:mb-0'>
+              <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Requested date</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.early_release_date|default:'—' }}</span></div>
+              <div class='flex flex-col gap-1'>
+                <span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Status</span>
+                <span class='text-sm text-gray-900 print:text-xs'>
+                  {% if employee.early_release_status == 'approved' %}
+                  <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 print:px-1.5 print:border print:border-green-200'>Approved</span>
+                  {% else %}
+                  <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 print:px-1.5 print:border print:border-yellow-200'>Pending</span>
+                  {% endif %}
+                </span>
+              </div>
+              {% if employee.early_release_reason %}
+              <div class='flex flex-col gap-1 col-span-1 sm:col-span-2 md:col-span-3 print:col-span-3'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Reason</span><span class='text-sm text-gray-600 print:text-xs'>{{ employee.early_release_reason }}</span></div>
+              {% endif %}
+              {% if employee.early_release_approved_by %}
+              <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Reviewed by</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.early_release_approved_by.full_name }}</span></div>
+              <div class='flex flex-col gap-1'><span class='text-[11px] text-gray-500 font-bold uppercase tracking-wider print:text-[10px]'>Reviewed on</span><span class='text-sm text-gray-900 print:text-xs'>{{ employee.early_release_approved_at|date:'d M Y' }}</span></div>
+              {% endif %}
+            </div>
+
+            {% if can_review_early_release and employee.early_release_status == 'pending' %}
+            <div class='flex gap-3 mt-4 print:hidden'>
+              <form method='post' action='{% url 'employees:early_release_review' employee.employee_id %}' class='inline m-0'>
+                {% csrf_token %}
+                <input type='hidden' name='action' value='approve'>
+                <button type='submit' class='inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 border border-transparent rounded shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors'
+                  data-confirm='Approve early release for {{ employee.profile.full_name }}? Notice end will be updated to {{ employee.early_release_date }}.'>
+                  Approve
+                </button>
+              </form>
+              <form method='post' action='{% url 'employees:early_release_review' employee.employee_id %}' class='inline m-0'>
+                {% csrf_token %}
+                <input type='hidden' name='action' value='reject'>
+                <button type='submit' class='inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white bg-red-600 border border-transparent rounded shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors'
+                  data-confirm='Reject early release for {{ employee.profile.full_name }}?'>
+                  Reject
+                </button>
+              </form>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {% if employee.early_release_requested and employee.early_release_status == 'rejected' %}
+            <div class='mb-6 p-4 bg-red-50 border border-red-100 rounded-md print:p-0 print:bg-transparent print:border-none print:mb-0'>
+              <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 print:px-1.5 print:border print:border-red-200'>Previous request rejected</span>
+              {% if employee.early_release_approved_by %}
+              <span class='text-gray-500 text-xs ml-2'>by {{ employee.early_release_approved_by.full_name }} on {{ employee.early_release_approved_at|date:'d M Y' }}</span>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            {% if can_request_early_release and employee.early_release_status != 'approved' %}
+            <form method='post' action='{% url 'employees:early_release_request' employee.employee_id %}' class='mt-4 p-5 bg-gray-50 border border-gray-200 rounded-lg print:hidden'>
+              {% csrf_token %}
+              <div class='grid grid-cols-1 sm:grid-cols-2 gap-6'>
+                <div class='flex flex-col gap-1'>
+                  <label class='text-[11px] text-gray-500 font-bold uppercase tracking-wider'>Requested last working date</label>
+                  <input type='date' name='early_release_date' class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border px-3 py-1.5' required>
+                  {% if employee.notice_end %}<span class='text-gray-500 text-xs mt-1'>Must be before {{ employee.notice_end }}</span>{% endif %}
+                </div>
+                <div class='flex flex-col gap-1'>
+                  <label class='text-[11px] text-gray-500 font-bold uppercase tracking-wider'>Reason</label>
+                  <input type='text' name='early_release_reason' class='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border px-3 py-1.5' placeholder='Optional reason'>
+                </div>
+              </div>
+              <div class='mt-5'>
+                <button type='submit' class='inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors'>
+                  {% if employee.early_release_requested %}Re-request{% else %}Request{% endif %} early release
+                </button>
+              </div>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+        </section>
+    </main>
+
+    <!-- ── Footer: Role assignment & actions ─────────────────────────────── -->
+    {% if can_assign_role or can_archive or can_delete %}
+    <footer class='print:hidden mt-12 pt-6 border-t border-gray-200 flex flex-wrap gap-x-8 gap-y-6 items-end bg-gray-50 p-6 rounded-xl border border-gray-100 shadow-sm'>
+      
+      {% if can_assign_role %}
+      <div class='flex flex-col gap-2'>
+        <div class='text-[10px] font-bold text-gray-500 uppercase tracking-widest'>Assign role</div>
+        <form method='post' action='{% url 'employees:assign_role' employee.employee_id %}' class='flex items-center gap-2 m-0'>
+          {% csrf_token %}
+          <select name='role' class='block w-32 rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs border px-2 py-1 bg-white'>
+            {% for val, label in employee.profile.ROLES %}
+            {% if val != 'super_admin' or request.user.profile.can_manage_super_admin %}
+            <option value='{{ val }}' {% if employee.profile.role == val %}selected{% endif %}>{{ label }}</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+          <button type='submit' class='inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded border border-transparent shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'>Update</button>
+        </form>
+      </div>
+      {% endif %}
+
+      <div class="flex flex-wrap items-center gap-3 ml-auto">
+        {% if can_assign_role %}
+        <a href='{% url 'employees:reset_password' employee.employee_id %}' class='inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors'>
+          Reset Password
+        </a>
+        {% endif %}
+        
+        <a href='{% url "attendance:monthly_summary" %}?employee_ids={{ employee.employee_id }}' class='inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors'>
+          📅 Calendar
+        </a>
+  
+        <a href='{% url 'documents:gallery' employee.employee_id %}' class='inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors'>
+          📁 Employee Documents
+        </a>
+  
+        {% if can_archive and not employee.profile.is_access_revoked %}
+        <form method='post' action='{% url 'employees:revoke' employee.employee_id %}' class='inline m-0'>
+          {% csrf_token %}
+          <button type='submit' class='inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-red-700 bg-white border border-red-300 rounded shadow-sm hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors'
+            data-confirm='Revoke system access for {{ employee.profile.full_name }}?'>
+            Revoke access
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </footer>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

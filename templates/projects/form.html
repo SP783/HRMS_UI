@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Project — {{ site_name }}{% endblock %}
+{% block page_title %}{{ action }} Project{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'projects:index' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-500"><polyline points="15 18 9 12 15 6"/></svg>
+  Back
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div class="p-6 sm:p-8">
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-5">
+          <label class="block mb-1 text-sm font-medium text-gray-900">Project name <span class="text-red-500">*</span></label>
+          <input type="text" name="name" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required value="{{ form_values.name }}">
+        </div>
+
+        <div class="mb-5">
+          <label class="block mb-1 text-sm font-medium text-gray-900">Description</label>
+          <textarea name="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">{{ form_values.description }}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 mb-6 sm:grid-cols-2">
+
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-900">Status</label>
+            <select name="status" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+              <option value="new"       {% if form_values.status == "new" %}selected{% endif %}>New</option>
+              <option value="active"    {% if form_values.status == "active" %}selected{% endif %}>Active</option>
+              <option value="on_hold"   {% if form_values.status == "on_hold" %}selected{% endif %}>On Hold</option>
+              <option value="completed" {% if form_values.status == "completed" %}selected{% endif %}>Completed</option>
+              <option value="cancelled" {% if form_values.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-900">Department</label>
+            <div class="flex items-center gap-2">
+              <select name="department" id="id_department" class="flex-1 w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <option value="">— None —</option>
+                {% for dept in departments %}
+                <option value="{{ dept.pk }}" {% if form_values.department == dept.pk|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+                {% endfor %}
+              </select>
+              {% if can_manage_departments %}
+              <button type="button" class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" id="btn-add-dept">+ New</button>
+              {% endif %}
+            </div>
+            {% if not can_manage_departments %}
+            <p class="mt-1 text-xs text-gray-500">Pick from the list — only HR can add new departments.</p>
+            {% endif %}
+          </div>
+
+          <div class="col-span-1 sm:col-span-2">
+            <label class="block mb-1 text-sm font-medium text-gray-900">Workspace {% if action == "Create" %}<span class="text-red-500">*</span>{% endif %}</label>
+            <div class="flex items-center gap-2">
+              <select name="workspace" id="id_client" class="flex-1 w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" {% if action == "Create" %}required{% endif %}>
+                <option value="">— Select a workspace —</option>
+                {% for c in workspaces %}
+                <option value="{{ c.pk }}" {% if form_values.workspace == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+              </select>
+              <button type="button" class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" id="btn-add-client">+ New</button>
+            </div>
+            <p class="mt-1 text-xs text-gray-500">Top-level grouping for this project. End-client info goes below (optional).</p>
+          </div>
+
+          {# ── Optional per-project client info ─────────────────── #}
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-900">Client name <span class="text-gray-500 font-normal">(optional)</span></label>
+            <input type="text" name="client_name" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                   value="{{ form_values.client_name }}"
+                   placeholder="e.g. Acme Corp">
+          </div>
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-900">Client contact <span class="text-gray-500 font-normal">(optional)</span></label>
+            <input type="text" name="client_contact_person" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                   value="{{ form_values.client_contact_person }}"
+                   placeholder="e.g. Jane Smith">
+          </div>
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-900">Client email <span class="text-gray-500 font-normal">(optional)</span></label>
+            <input type="email" name="client_email" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                   value="{{ form_values.client_email }}"
+                   placeholder="jane@example.com">
+          </div>
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-900">Client phone <span class="text-gray-500 font-normal">(optional)</span></label>
+            <input type="tel" name="client_phone" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                   value="{{ form_values.client_phone }}"
+                   placeholder="+1 555 000 1234">
+          </div>
+
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-900">Start date</label>
+            <input type="date" name="start_date" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" value="{{ form_values.start_date }}">
+          </div>
+          <div>
+            <label class="block mb-1 text-sm font-medium text-gray-900">End date</label>
+            <input type="date" name="end_date" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" value="{{ form_values.end_date }}">
+          </div>
+
+          {# ── Project Handler ───────────────────────────────────── #}
+          <div class="col-span-1 sm:col-span-2">
+            <label class="block mb-1 text-sm font-medium text-gray-900">Project Handler <span class="text-gray-500 font-normal">(optional)</span></label>
+            <select name="handler" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+              <option value="">— None —</option>
+              {% for emp in employees %}
+              <option value="{{ emp.profile_id }}"
+                {% if form_values.handler == emp.profile_id|stringformat:"s" %}selected{% endif %}>
+                {{ emp.full_name }} ({{ emp.employee_id }})
+              </option>
+              {% endfor %}
+            </select>
+            <p class="mt-1 text-xs text-gray-500">Handler can create and assign tasks but cannot delete. If none set, Manager and Team Lead have access.</p>
+          </div>
+
+        </div>
+
+        <div class="flex items-center gap-3 pt-4 border-t border-gray-200">
+          <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            {% if action == "Create" %}Create project{% else %}Save changes{% endif %}
+          </button>
+          <a href="{% url 'projects:index' %}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="modal-add-client" class="fixed inset-0 z-50 items-center justify-center p-4 bg-gray-900 bg-opacity-50" style="display:none">
+  <div class="w-full max-w-md bg-white rounded-lg shadow-xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">New Client</h3>
+      <button type="button" class="text-gray-400 hover:text-gray-600 focus:outline-none" id="btn-close-client-modal">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block mb-1 text-sm font-medium text-gray-900">Client name <span class="text-red-500">*</span></label>
+        <input type="text" id="new-client-name" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. Acme Corp">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium text-gray-900">Contact person</label>
+        <input type="text" id="new-client-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. Jane Smith">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium text-gray-900">Email</label>
+        <input type="email" id="new-client-email" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. jane@acme.com">
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-medium text-gray-900">Phone</label>
+        <input type="text" id="new-client-phone" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. +1 555 000 1234">
+      </div>
+      <p id="client-modal-error" class="text-sm font-medium text-red-600" style="display:none"></p>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+      <button type="button" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" id="btn-cancel-client">Cancel</button>
+      <button type="button" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" id="btn-save-client">Save client</button>
+    </div>
+  </div>
+</div>
+
+{% if can_manage_departments %}
+<div id="modal-add-dept" class="fixed inset-0 z-50 items-center justify-center p-4 bg-gray-900 bg-opacity-50" style="display:none">
+  <div class="w-full max-w-sm bg-white rounded-lg shadow-xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">New Department</h3>
+      <button type="button" class="text-gray-400 hover:text-gray-600 focus:outline-none" id="btn-close-dept-modal">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <div class="p-6">
+      <div class="mb-2">
+        <label class="block mb-1 text-sm font-medium text-gray-900">Department name <span class="text-red-500">*</span></label>
+        <input type="text" id="new-dept-name" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g. Compositing">
+      </div>
+      <p id="dept-modal-error" class="mt-2 text-sm font-medium text-red-600" style="display:none"></p>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+      <button type="button" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" id="btn-cancel-dept">Cancel</button>
+      <button type="button" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" id="btn-save-dept">Save department</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  // ── Add Client modal ───────────────────────────────────────────────────
+  const cOverlay  = document.getElementById('modal-add-client');
+  const cBtnOpen  = document.getElementById('btn-add-client');
+  const cBtnClose = document.getElementById('btn-close-client-modal');
+  const cBtnCancel= document.getElementById('btn-cancel-client');
+  const cBtnSave  = document.getElementById('btn-save-client');
+  const cErr      = document.getElementById('client-modal-error');
+  const cSelect   = document.getElementById('id_client');
+
+  function cOpen()  { cOverlay.style.display = 'flex'; cErr.style.display = 'none'; }
+  function cClose() { cOverlay.style.display = 'none'; }
+
+  cBtnOpen.addEventListener('click', cOpen);
+  cBtnClose.addEventListener('click', cClose);
+  cBtnCancel.addEventListener('click', cClose);
+  cOverlay.addEventListener('click', e => { if (e.target === cOverlay) cClose(); });
+
+  cBtnSave.addEventListener('click', function () {
+    const name = document.getElementById('new-client-name').value.trim();
+    if (!name) { cErr.textContent = 'Client name is required.'; cErr.style.display = 'block'; return; }
+
+    const data = new FormData();
+    data.append('name', name);
+    data.append('contact_person', document.getElementById('new-client-contact').value.trim());
+    data.append('email',          document.getElementById('new-client-email').value.trim());
+    data.append('phone',          document.getElementById('new-client-phone').value.trim());
+    data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch('{% url "projects:client_create_ajax" %}', { method: 'POST', body: data })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) { cErr.textContent = res.error; cErr.style.display = 'block'; return; }
+        cSelect.add(new Option(res.name, res.pk, true, true));
+        ['new-client-name','new-client-contact','new-client-email','new-client-phone']
+          .forEach(id => document.getElementById(id).value = '');
+        cClose();
+      })
+      .catch(() => { cErr.textContent = 'An error occurred.'; cErr.style.display = 'block'; });
+  });
+
+  {% if can_manage_departments %}
+  // ── Add Department modal ────────────────────────────────────────────────
+  const dOverlay  = document.getElementById('modal-add-dept');
+  const dBtnOpen  = document.getElementById('btn-add-dept');
+  const dBtnClose = document.getElementById('btn-close-dept-modal');
+  const dBtnCancel= document.getElementById('btn-cancel-dept');
+  const dBtnSave  = document.getElementById('btn-save-dept');
+  const dErr      = document.getElementById('dept-modal-error');
+  const dSelect   = document.getElementById('id_department');
+
+  function dOpen()  { dOverlay.style.display = 'flex'; dErr.style.display = 'none'; }
+  function dClose() { dOverlay.style.display = 'none'; }
+
+  dBtnOpen.addEventListener('click', dOpen);
+  dBtnClose.addEventListener('click', dClose);
+  dBtnCancel.addEventListener('click', dClose);
+  dOverlay.addEventListener('click', e => { if (e.target === dOverlay) dClose(); });
+
+  dBtnSave.addEventListener('click', function () {
+    const name = document.getElementById('new-dept-name').value.trim();
+    if (!name) { dErr.textContent = 'Department name is required.'; dErr.style.display = 'block'; return; }
+
+    const data = new FormData();
+    data.append('name', name);
+    data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch('{% url "projects:department_create_ajax" %}', { method: 'POST', body: data })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.ok) { dErr.textContent = res.error; dErr.style.display = 'block'; return; }
+        dSelect.add(new Option(res.name, res.pk, true, true));
+        document.getElementById('new-dept-name').value = '';
+        dClose();
+      })
+      .catch(() => { dErr.textContent = 'An error occurred.'; dErr.style.display = 'block'; });
+  });
+  {% endif %}
+})();
+</script>
+{% endblock %}

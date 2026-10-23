@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Workspace — {{ site_name }}{% endblock %}
+{% block page_title %}{{ action }} Workspace{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'projects:workspaces_index' %}" class="btn btn--outline btn--sm">← Workspaces</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-md">
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-group mb-4">
+          <label class="form-label">Workspace name *</label>
+          <input type="text" name="name" class="form-input" value="{{ workspace.name }}" required>
+        </div>
+        <div class="form-group mb-4">
+          <label class="form-label">Contact person</label>
+          <input type="text" name="contact_person" class="form-input" value="{{ workspace.contact_person }}">
+        </div>
+        <div class="form-group mb-4">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-input" value="{{ workspace.email }}">
+        </div>
+        <div class="form-group mb-4">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-input" value="{{ workspace.phone }}">
+        </div>
+        <div class="form-group mb-4">
+          <label class="form-label">Colour</label>
+          <select name="color" class="form-select">
+            {% with c=client.color %}
+            <option value="#2d5be3" {% if c == "#2d5be3" %}selected{% endif %}>Blue</option>
+            <option value="#1a9e5c" {% if c == "#1a9e5c" %}selected{% endif %}>Green</option>
+            <option value="#c97c10" {% if c == "#c97c10" %}selected{% endif %}>Amber</option>
+            <option value="#7c3aed" {% if c == "#7c3aed" %}selected{% endif %}>Purple</option>
+            <option value="#0d7c7c" {% if c == "#0d7c7c" %}selected{% endif %}>Teal</option>
+            <option value="#c9321a" {% if c == "#c9321a" %}selected{% endif %}>Red</option>
+            <option value="#e055a1" {% if c == "#e055a1" %}selected{% endif %}>Pink</option>
+            {% endwith %}
+          </select>
+        </div>
+        <div class="btn-group">
+          <button type="submit" class="btn btn--primary">Save changes</button>
+          <a href="{% url 'projects:workspaces_index' %}" class="btn btn--outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

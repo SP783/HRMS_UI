@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load project_tags %}
+{% block title %}{% if is_own %}My Timesheets{% else %}Timesheets{% endif %} — {{ site_name }}{% endblock %}
+{% block page_title %}{% if is_own %}My Timesheets{% else %}Timesheets — {{ target_profile.full_name|default:"Employee" }}{% endif %}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'projects:timesheet_weekly' %}{% if not is_own and target_emp_pk %}?emp={{ target_emp_pk }}{% endif %}" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    This week
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+
+  <!-- Status summary -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white border border-gray-200 rounded-lg px-4 py-3">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Draft</div>
+      <div class="text-2xl font-semibold text-gray-700 mt-1">{{ counts.draft }}</div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-lg px-4 py-3">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Submitted</div>
+      <div class="text-2xl font-semibold text-blue-600 mt-1">{{ counts.submitted }}</div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-lg px-4 py-3">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Approved</div>
+      <div class="text-2xl font-semibold text-green-600 mt-1">{{ counts.approved }}</div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-lg px-4 py-3">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Rejected</div>
+      <div class="text-2xl font-semibold text-red-600 mt-1">{{ counts.rejected }}</div>
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-gray-700">All weeks</h2>
+      <p class="text-xs text-gray-500">Draft &amp; rejected weeks can be edited. Submitted &amp; approved weeks are locked.</p>
+    </div>
+
+    {% if timesheets %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Week</th>
+            <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Hours</th>
+            <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+            <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wide">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for ts in timesheets %}
+          <tr class="hover:bg-gray-50 {% if ts.week_start <= today and today <= ts.week_end %}bg-blue-50/40{% endif %}">
+            <td class="px-4 py-3 whitespace-nowrap">
+              <div class="text-sm font-medium text-gray-800">{{ ts.week_start|date:"d M Y" }} – {{ ts.week_end|date:"d M Y" }}</div>
+              {% if ts.week_start <= today and today <= ts.week_end %}
+                <span class="text-xs text-blue-600 font-medium">Current week</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{{ ts.total_hours|work_duration }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                {% if ts.status == 'draft' %}bg-gray-100 text-gray-600
+                {% elif ts.status == 'submitted' %}bg-blue-50 text-blue-600
+                {% elif ts.status == 'approved' %}bg-green-100 text-green-700
+                {% elif ts.status == 'rejected' %}bg-red-100 text-red-700{% endif %}">
+                {{ ts.get_status_display }}
+              </span>
+              {% if ts.status == 'rejected' and ts.review_comment %}
+                <div class="text-xs text-red-500 mt-1 max-w-xs truncate" title="{{ ts.review_comment }}">{{ ts.review_comment }}</div>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-right">
+              <a href="{% url 'projects:timesheet_weekly' %}?week={{ ts.week_start|date:'Y-m-d' }}{% if not is_own and target_emp_pk %}&emp={{ target_emp_pk }}{% endif %}"
+                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border transition-colors
+                 {% if ts.is_editable %}text-blue-700 border-blue-200 bg-blue-50 hover:bg-blue-100{% else %}text-gray-600 border-gray-200 bg-white hover:bg-gray-50{% endif %}">
+                {% if ts.is_editable %}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                  Edit
+                {% else %}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  View
+                {% endif %}
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-4 py-12 text-center">
+      <p class="text-sm text-gray-500">No timesheets yet.</p>
+      <a href="{% url 'projects:timesheet_weekly' %}" class="inline-block mt-3 text-sm font-medium text-blue-600 hover:text-blue-700">Start this week's timesheet →</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

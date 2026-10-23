@@ -1,0 +1,82 @@
+{% load tracker_extras %}
+
+{% comment %}
+Single pie + breakdown table. SVG arc math is done inline so we don't
+need an external chart library. Each slice is rendered as a path with
+the standard "large-arc-flag" computation. If the total is 0 (no data),
+we render a "no data" placeholder ring instead.
+
+Required context:
+  pie              {title, slices=[{label,seconds,color},...], total_seconds, expected_seconds}
+  expected_seconds (int) — for the "X of Y hours" caption
+  tracked_total    (int) — the tracked-only total for the small caption
+{% endcomment %}
+
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+  
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-5 py-4">
+    <span class="text-lg font-semibold text-gray-900">{{ pie.title }}</span>
+    <span class="text-sm text-gray-500">
+      {% if expected_seconds %}{{ tracked_total|secs_to_hm }} tracked / {{ expected_seconds|secs_to_hm }} expected{% else %}{{ pie.total_seconds|secs_to_hm }} tracked{% endif %}
+    </span>
+  </div>
+  
+  <div class="flex flex-wrap items-center gap-8 p-6">
+
+    {# ── SVG pie (220x220) ─────────────────────────────────────────── #}
+    <div class="flex-none">
+      <svg viewBox="0 0 200 200" width="220" height="220" role="img"
+           aria-label="{{ pie.title }} breakdown">
+        {% if pie.total_seconds > 0 %}
+          {% pie_paths pie.slices pie.total_seconds as paths %}
+          {% for p in paths %}
+          <path d="{{ p.d }}" fill="{{ p.color }}" stroke="#ffffff" stroke-width="1.5">
+            <title>{{ p.label }}: {{ p.seconds|secs_to_hm }} ({{ p.pct }}%)</title>
+          </path>
+          {% endfor %}
+        {% else %}
+          {# No data placeholder — show a hollow grey ring #}
+          <circle cx="100" cy="100" r="90" fill="none" stroke="currentColor" class="text-gray-200" stroke-width="22"/>
+          <text x="100" y="106" text-anchor="middle" fill="currentColor" class="text-gray-400 font-medium text-sm">No data</text>
+        {% endif %}
+      </svg>
+    </div>
+
+    {# ── Breakdown table ─────────────────────────────────────────── #}
+    <div class="flex-1 min-w-[200px]">
+      {% if pie.total_seconds > 0 %}
+      <table class="w-full border-collapse text-sm">
+        <tbody>
+          {% for s in pie.slices %}
+          <tr class="border-b border-gray-100 last:border-0">
+            <td class="px-1 py-2.5 leading-relaxed text-gray-700">
+              <span class="mr-2.5 inline-block h-3 w-3 align-middle rounded-sm" style="background-color: {{ s.color }};"></span>
+              {{ s.label }}
+            </td>
+            <td class="px-1 py-2.5 text-right tabular-nums text-gray-900">
+              {{ s.seconds|secs_to_hm }}
+            </td>
+            <td class="w-14 px-1 py-2.5 text-right tabular-nums text-gray-500">
+              {% pct s.seconds pie.total_seconds %}%
+            </td>
+          </tr>
+          {% endfor %}
+          
+          <tr class="border-t-2 border-gray-100 font-semibold">
+            <td class="px-1 pb-1 pt-3 text-gray-900">Total</td>
+            <td class="px-1 pb-1 pt-3 text-right tabular-nums text-gray-900">
+              {{ pie.total_seconds|secs_to_hm }}
+            </td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      {% else %}
+      <div class="text-sm italic text-gray-500">
+        No activity recorded for this range.
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>

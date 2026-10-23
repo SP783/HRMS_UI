@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% load project_tags %}
+{% block title %}{{ project.name }} — {{ site_name }}{% endblock %}
+{% block page_title %}
+  {{ project.name }}
+  {% if project.handler_id %}
+    <span class="text-[13px] font-normal text-gray-500 ml-2">(Handler: {{ project.handler.full_name }})</span>
+  {% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'projects:index' %}" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">← Projects</a>
+  {% if can_edit_project %}
+    <a href="{% url 'projects:edit' project.pk %}" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">Edit</a>
+  {% endif %}
+  {% if can_manage_tasks %}
+    <a href="{% url 'projects:task_create' project.pk %}" class="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">+ Add task</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# Live-update banner — kept style="display:none" to ensure the JS logic underneath works without modification #}
+<div id="proj-update-banner"
+     style="display:none;"
+     class="items-center gap-3 bg-indigo-50 border border-indigo-400 text-indigo-800 px-4 py-3 rounded-lg mb-4 text-sm shadow-sm"
+     role="status" aria-live="polite">
+  <span class="text-lg">🔄</span>
+  <span id="proj-update-banner-text" class="flex-1 font-medium">This project has been updated.</span>
+  <button type="button" id="proj-update-banner-reload"
+          class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 whitespace-nowrap shadow-sm">
+    Refresh now
+  </button>
+  <button type="button" id="proj-update-banner-dismiss"
+          class="text-indigo-500 hover:text-indigo-800 focus:outline-none text-xl leading-none px-2 py-1" 
+          aria-label="Dismiss">&times;</button>
+</div>
+
+{# ── Header card: project metadata + progress ─────────────────────────── #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+  <div class="flex-1">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold 
+        {% if project.status == 'active' %}bg-green-100 text-green-800
+        {% elif project.status == 'on_hold' %}bg-yellow-100 text-yellow-800
+        {% elif project.status == 'completed' %}bg-blue-100 text-blue-800
+        {% else %}bg-gray-100 text-gray-800{% endif %}">
+        {{ project.get_status_display }}
+      </span>
+      
+      {% if project.workspace %}
+        <span class="flex items-center text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200"><span class="font-medium text-gray-500 mr-1.5">Workspace:</span> {{ project.workspace.name }}</span>
+      {% endif %}
+      {% if project.client_name %}
+        <span class="flex items-center text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200"><span class="font-medium text-gray-500 mr-1.5">Client:</span> {{ project.client_name }}</span>
+      {% endif %}
+      {% if project.department %}
+        <span class="flex items-center text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200"><span class="font-medium text-gray-500 mr-1.5">Department:</span> {{ project.department.name }}</span>
+      {% endif %}
+      {% if project.handler_id %}
+        <span class="flex items-center text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200"><span class="font-medium text-gray-500 mr-1.5">Handler:</span> {{ project.handler.full_name }}</span>
+      {% endif %}
+      {% if project.start_date %}
+        <span class="flex items-center text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200"><span class="font-medium text-gray-500 mr-1.5">Start:</span> {{ project.start_date|date:"d M Y" }}</span>
+      {% endif %}
+      {% if project.end_date %}
+        <span class="flex items-center text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200"><span class="font-medium text-gray-500 mr-1.5">Deadline:</span> {{ project.end_date|date:"d M Y" }}</span>
+      {% endif %}
+    </div>
+    {% if project.description %}
+      <p class="text-sm text-gray-600 leading-relaxed max-w-3xl">{{ project.description }}</p>
+    {% endif %}
+  </div>
+
+  <div class="flex flex-col items-end w-full md:w-64 shrink-0 bg-gray-50 p-4 rounded-lg border border-gray-100">
+    <div class="flex items-baseline gap-1 mb-2">
+      <span class="text-3xl font-bold text-gray-900">{{ progress_pct }}%</span>
+      <span class="text-xs text-gray-500 uppercase tracking-wide font-medium">complete</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+      <div class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: {{ progress_pct }}%"></div>
+    </div>
+    <div class="text-xs text-gray-500 text-right">{{ status_counts.done }} of {{ total_tasks }} task{{ total_tasks|pluralize }} done</div>
+  </div>
+</div>
+
+{# ── Stats grid: status breakdown, hours, contributor count ───────────── #}
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+  <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
+    <div class="text-2xl font-bold text-gray-800">{{ status_counts.todo }}</div>
+    <div class="text-xs text-gray-500 font-medium uppercase tracking-wide mt-1">To do</div>
+  </div>
+  <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center border-t-4 border-t-blue-400">
+    <div class="text-2xl font-bold text-blue-700">{{ status_counts.in_progress }}</div>
+    <div class="text-xs text-gray-500 font-medium uppercase tracking-wide mt-1">In progress</div>
+  </div>
+  <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center border-t-4 border-t-green-400">
+    <div class="text-2xl font-bold text-green-700">{{ status_counts.done }}</div>
+    <div class="text-xs text-gray-500 font-medium uppercase tracking-wide mt-1">Done</div>
+  </div>
+  <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center border-t-4 border-t-red-400">
+    <div class="text-2xl font-bold text-red-700">{{ status_counts.blocked }}</div>
+    <div class="text-xs text-gray-500 font-medium uppercase tracking-wide mt-1">Blocked</div>
+  </div>
+  <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
+    <div class="text-2xl font-bold text-gray-800">{{ total_hours|work_duration }}</div>
+    <div class="text-xs text-gray-500 font-medium uppercase tracking-wide mt-1">Total logged</div>
+    {% if week_hours > 0 %}
+      <div class="text-[11px] text-green-600 font-medium mt-1">+{{ week_hours|work_duration }} this week</div>
+    {% endif %}
+  </div>
+  <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center">
+    <div class="text-2xl font-bold text-gray-800">{{ contributors|length }}</div>
+    <div class="text-xs text-gray-500 font-medium uppercase tracking-wide mt-1">Contributor{{ contributors|length|pluralize }}</div>
+  </div>
+</div>
+
+{# ── Two-column: contributors panel + recent activity ─────────────────── #}
+<section class="bg-white border border-gray-200 rounded-xl shadow-sm mb-8 overflow-hidden" aria-label="Hours logged by employee">
+  <div class="bg-gray-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center"><h3 class="font-semibold text-gray-800 text-sm">Hours by employee</h3><span class="text-xs text-gray-500">{{ total_hours|work_duration }} total</span></div>
+  <div class="px-5 py-2">
+    {% for person in hours_by_employee %}<div class="flex justify-between gap-4 py-2 border-b border-gray-100 last:border-0"><span>{{ person.name }}</span><strong>{{ person.hours|work_duration }}</strong></div>
+    {% empty %}<p class="py-3 text-sm text-gray-500">No hours logged for this project yet.</p>{% endfor %}
+  </div>
+</section>
+{% if contributors or recent_tasks %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+  {% if contributors %}
+  <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-gray-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center">
+      <h3 class="font-semibold text-gray-800 text-sm">Contributors</h3>
+      <span class="text-xs text-gray-500">{{ contributors|length }} assigned</span>
+    </div>
+    <div class="p-5 flex flex-col gap-4">
+      {% for c in contributors %}
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold shrink-0">{{ c.initials }}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-gray-900 truncate">{{ c.full_name }}</div>
+          <div class="text-xs text-gray-500 mt-0.5">{{ c.done_count }} of {{ c.task_count }} task{{ c.task_count|pluralize }} done</div>
+        </div>
+        <div class="w-24 shrink-0">
+          <div class="w-full bg-gray-200 rounded-full h-1.5">
+            <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {% if c.task_count %}{% widthratio c.done_count c.task_count 100 %}{% else %}0{% endif %}%"></div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if recent_tasks %}
+  <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-gray-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center">
+      <h3 class="font-semibold text-gray-800 text-sm">Recent activity</h3>
+      <span class="text-xs text-gray-500">last 5 changes</span>
+    </div>
+    <div class="p-5 flex flex-col gap-4">
+      {% for t in recent_tasks %}
+      <div class="flex items-start gap-3">
+        <span class="mt-1 h-2 w-2 rounded-full shrink-0
+          {% if t.status == 'done' %}bg-green-500
+          {% elif t.status == 'in_progress' %}bg-blue-500
+          {% elif t.status == 'blocked' %}bg-red-500
+          {% else %}bg-gray-300{% endif %}">
+        </span>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-gray-800 truncate">{{ t.title }}</div>
+          <div class="text-xs text-gray-500 mt-1 flex gap-1.5 items-center">
+            <span>{% if t.assigned_to %}{{ t.assigned_to.full_name }}{% else %}<em class="italic">Unassigned</em>{% endif %}</span>
+            <span>&middot;</span>
+            <span>{{ t.get_status_display }}</span>
+            <span>&middot;</span>
+            <span>{{ t.updated_at|default:t.created_at|timesince }} ago</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── Task cards ──────────────────────────────────────────────────────── #}
+<div class="mb-8">
+  <div class="flex items-center justify-between mb-4 border-b border-gray-200 pb-3">
+    <h3 class="text-lg font-bold text-gray-900">Tasks</h3>
+    {% if can_manage_tasks %}
+    <a href="{% url 'projects:task_create' project.pk %}" class="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors">+ Add task</a>
+    {% endif %}
+  </div>
+
+  {% if role == "user" %}
+
+    {% if my_tasks %}
+    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">My tasks</div>
+    <div class="space-y-4">
+      {% for task in my_tasks %}{% include "projects/partials/task_card.html" with task=task can_add_subtask=True can_comment=True can_delete=False readonly=False employees=employees %}{% endfor %}
+    </div>
+    {% endif %}
+
+    {% if other_tasks %}
+    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mt-8 mb-3">Other tasks — read only</div>
+    <div class="space-y-4">
+      {% for task in other_tasks %}{% include "projects/partials/task_card.html" with task=task can_add_subtask=False can_comment=False can_delete=False readonly=True employees=employees %}{% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not my_tasks and not other_tasks %}
+    <div class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 text-sm shadow-sm">No tasks in this project yet.</div>
+    {% endif %}
+
+  {% else %}
+    <div class="space-y-4">
+      {% for task in my_tasks %}
+        {% include "projects/partials/task_card.html" with task=task can_add_subtask=True can_comment=True can_delete=can_delete readonly=False employees=employees %}
+      {% empty %}
+      <div class="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 text-sm shadow-sm flex flex-col items-center justify-center">
+        <p class="mb-3">No tasks yet.</p>
+        {% if can_manage_tasks %}
+          <a href="{% url 'projects:task_create' project.pk %}" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 shadow-sm">Add first task</a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+{# ── Project discussion thread ────────────────────────────────────────── #}
+<div class="bg-white border border-gray-200 rounded-xl shadow-sm mt-8 mb-8" id="project-comments">
+  <div class="bg-gray-50 px-5 py-4 border-b border-gray-200 flex justify-between items-center rounded-t-xl">
+    <h3 class="font-semibold text-gray-800">Discussion</h3>
+    <span class="text-sm text-gray-500">
+      <span id="proj-comment-count-num">{{ comments|length }}</span> comment{{ comments|length|pluralize }}
+    </span>
+  </div>
+  
+  <div class="p-5">
+    {% if comments %}
+      <ul class="space-y-4 mb-6">
+        {% for c in comments %}
+          <li class="flex gap-4 p-4 rounded-lg bg-gray-50 border border-gray-100">
+            <div class="h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold shrink-0">
+              {% if c.author %}{{ c.author.initials }}{% else %}?{% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <strong class="text-sm text-gray-900 font-semibold">{% if c.author %}{{ c.author.full_name }}{% else %}Unknown user{% endif %}</strong>
+                <span class="text-xs text-gray-500">{{ c.created_at|timesince }} ago</span>
+              </div>
+              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words">{{ c.body|linebreaksbr }}</div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="py-8 text-center text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg mb-6">
+        No comments yet — start the discussion below.
+      </div>
+    {% endif %}
+
+    {% if can_comment_on_project %}
+      <form method="post" action="{% url 'projects:project_comment' project.pk %}" class="flex flex-col gap-3 mt-4">
+        {% csrf_token %}
+        <textarea name="body" rows="3" required maxlength="5000"
+                  class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y"
+                  placeholder="Write a comment for the team…"></textarea>
+        <div class="flex justify-end">
+          <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 shadow-sm transition-colors">Post comment</button>
+        </div>
+      </form>
+    {% elif role == 'viewer' %}
+      <div class="text-sm text-gray-500 italic bg-gray-50 p-3 rounded text-center">Viewers cannot post comments.</div>
+    {% else %}
+      <div class="text-sm text-gray-500 italic bg-gray-50 p-3 rounded text-center">You can comment on a project once you're assigned to a task here.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% comment %}
+Live-update polling. (Unmodified)
+{% endcomment %}
+<script>
+(function() {
+  var POLL_URL = "{% url 'projects:detail_poll' project.pk %}";
+  var POLL_INTERVAL_MS = 25000; 
+  var initialFingerprint = null;
+  var bannerShown = false;
+  var dismissed = false;
+
+  var banner    = document.getElementById('proj-update-banner');
+  var bannerTxt = document.getElementById('proj-update-banner-text');
+  var btnReload = document.getElementById('proj-update-banner-reload');
+  var btnDismiss= document.getElementById('proj-update-banner-dismiss');
+  var commentCountEl = document.getElementById('proj-comment-count-num');
+
+  btnReload.addEventListener('click', function() { window.location.reload(); });
+  btnDismiss.addEventListener('click', function() {
+    banner.style.display = 'none';
+    dismissed = true;
+  });
+
+  function poll() {
+    if (document.hidden) return;
+    fetch(POLL_URL, { credentials: 'same-origin' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (!data || !data.ok) return;
+
+        if (commentCountEl && typeof data.comment_count === 'number') {
+          commentCountEl.textContent = data.comment_count;
+        }
+
+        if (initialFingerprint === null) {
+          initialFingerprint = data.fingerprint;
+          return;
+        }
+        if (data.fingerprint !== initialFingerprint && !bannerShown && !dismissed) {
+          bannerTxt.textContent =
+            'This project has been updated — new tasks, status changes, or comments.';
+          banner.style.display = 'flex';
+          bannerShown = true;
+        }
+      })
+      .catch(function() { /* transient — try again next tick */ });
+  }
+
+  poll();
+  setInterval(poll, POLL_INTERVAL_MS);
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) poll();
+  });
+})();
+</script>
+
+{% endblock %}

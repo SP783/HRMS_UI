@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% block title %}Backup — {{ site_name }}{% endblock %}
+{% block page_title %}Backup &amp; Restore{% endblock %}
+
+{% block content %}
+{% include "settings_app/partials/nav_system.html" %}
+
+<div class="flex flex-col gap-6 w-full max-w-none mt-6">
+
+  {% if pending_restore %}
+  <div class="rounded-md bg-yellow-50 border border-yellow-400 p-4 shadow-sm">
+    <div class="flex">
+      <div class="flex-shrink-0">
+        <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <div class="ml-3">
+        <h3 class="text-sm font-medium text-yellow-800">⏳ Restore staged — server restart required</h3>
+        <div class="mt-2 text-sm text-yellow-700 space-y-2">
+          <p>
+            A database restore was staged on <strong>{{ pending_restore.staged_at }}</strong>
+            by <strong>{{ pending_restore.triggered_by_username|default:"unknown" }}</strong>.
+          </p>
+          <p>Source: {{ pending_restore.source_description|default:"—" }}</p>
+          <p>Restart the {{ site_name }} server to apply the restore. If you don't want to proceed, cancel it below.</p>
+        </div>
+        <div class="mt-4">
+          <form method="post" action="{% url 'settings_app:restore_cancel' %}">
+            {% csrf_token %}
+            <button type="submit" 
+                    class="inline-flex items-center rounded-md bg-yellow-50 px-3 py-2 text-sm font-semibold text-yellow-800 shadow-sm ring-1 ring-inset ring-yellow-600/50 hover:bg-yellow-100"
+                    data-confirm="Cancel the staged restore? The pending files will be deleted.">
+              Cancel staged restore
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="text-lg leading-6 font-medium text-gray-900">Manual backup</h3>
+    </div>
+    <div class="px-6 py-4">
+      <p class="text-sm text-gray-500 mb-4">
+        Runs a backup immediately to all enabled destinations.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <form method="post" action="{% url 'settings_app:run_backup' %}" class="inline-block">
+          {% csrf_token %}
+          <button type="submit" 
+                  class="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  data-confirm="Run backup now?">
+            Run backup now
+          </button>
+        </form>
+        <form method="post" action="{% url 'settings_app:export_all' %}" class="inline-block">
+          {% csrf_token %}
+          <input type="hidden" name="format" value="xlsx">
+          <button type="submit" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            Export all → Excel
+          </button>
+        </form>
+        <form method="post" action="{% url 'settings_app:export_all' %}" class="inline-block">
+          {% csrf_token %}
+          <input type="hidden" name="format" value="csv">
+          <button type="submit" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            Export all → CSV
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="text-lg leading-6 font-medium text-gray-900">Backup configuration</h3>
+    </div>
+    <div class="px-6 py-6">
+      <form method="post" class="space-y-10">
+        {% csrf_token %}
+
+        <section>
+          <h4 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-3">Backup contents</h4>
+          <input type="hidden" name="content_settings_present" value="1">
+          <p class="text-sm text-gray-600 mb-4">Choose what manual and scheduled backups include. The Activity Tracker MySQL export uses this organization's tracker settings.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+            <label><input type="checkbox" name="include_default_db" {% if config.include_default_db %}checked{% endif %}> HRMS data</label>
+            <label><input type="checkbox" name="include_projects_db" {% if config.include_projects_db %}checked{% endif %}> Projects and timesheets</label>
+            <label><input type="checkbox" name="include_task_hub_db" {% if config.include_task_hub_db %}checked{% endif %}> Task Hub</label>
+            <label><input type="checkbox" name="include_biometric_db" {% if config.include_biometric_db %}checked{% endif %}> Biometric data</label>
+            <label><input type="checkbox" name="include_audit_db" {% if config.include_audit_db %}checked{% endif %}> Audit log</label>
+            <label><input type="checkbox" name="include_assets_db" {% if config.include_assets_db %}checked{% endif %}> IT Assets</label>
+            <label><input type="checkbox" name="include_media" {% if config.include_media %}checked{% endif %}> Uploaded files and images</label>
+            <label><input type="checkbox" name="include_tracker_screenshots" {% if config.include_tracker_screenshots %}checked{% endif %}> Tracker screenshot files</label>
+            <label><input type="checkbox" name="include_tracker_mysql" {% if config.include_tracker_mysql %}checked{% endif %}> Activity Tracker MySQL data</label>
+            <label><input type="checkbox" name="include_tracker_mysql_screenshots" {% if config.include_tracker_mysql_screenshots %}checked{% endif %}> MySQL screenshot rows</label>
+          </div>
+          <label for="mysqldump_path" class="block text-sm font-medium text-gray-700 mt-4">mysqldump executable (optional)</label>
+          <input id="mysqldump_path" name="mysqldump_path" value="{{ config.mysqldump_path }}" class="mt-1 block w-full rounded-md border p-2" placeholder="Leave blank if mysqldump is on PATH">
+          <p class="text-xs text-gray-500 mt-2">Screenshot files and MySQL screenshot rows are excluded by default. MySQL is saved as tracker_mysql.sql in the ZIP and must be restored using MySQL tools; the in-app restore only handles HRMS SQLite databases and media.</p>
+        </section>
+
+        <div>
+          <h4 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">Schedule</h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div class="sm:col-span-2 flex items-center h-full pt-2">
+              <input id="is_scheduled" name="is_scheduled" type="checkbox" 
+                     class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                     {% if config.is_scheduled %}checked{% endif %}>
+              <label for="is_scheduled" class="ml-3 text-sm font-medium text-gray-700">Enable scheduled backup</label>
+            </div>
+            
+            <div>
+              <label for="frequency" class="block text-sm font-medium text-gray-700">Frequency</label>
+              <select id="frequency" name="frequency" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border shadow-sm">
+                <option value="daily" {% if config.frequency == "daily" %}selected{% endif %}>Daily</option>
+                <option value="weekly" {% if config.frequency == "weekly" %}selected{% endif %}>Weekly (Monday)</option>
+                <option value="custom" {% if config.frequency == "custom" %}selected{% endif %}>Custom (cron)</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="scheduled_time" class="block text-sm font-medium text-gray-700">Time (24h)</label>
+              <input type="time" id="scheduled_time" name="scheduled_time" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     value="{{ config.scheduled_time|time:'H:i' }}">
+            </div>
+
+            <div class="sm:col-span-2">
+              <label for="custom_cron" class="block text-sm font-medium text-gray-700">Custom cron expression</label>
+              <input type="text" id="custom_cron" name="custom_cron" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     placeholder="e.g. 0 2 * * 1" value="{{ config.custom_cron }}">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">Local storage</h4>
+          <div class="mb-4 flex items-center">
+            <input id="local_enabled" name="local_enabled" type="checkbox" 
+                   class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                   {% if config.local_enabled %}checked{% endif %}>
+            <label for="local_enabled" class="ml-3 text-sm font-medium text-gray-700">Enable local backup</label>
+          </div>
+          <div>
+            <label for="local_path" class="block text-sm font-medium text-gray-700">Path (leave blank for default /backups/)</label>
+            <input type="text" id="local_path" name="local_path" 
+                   class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                   placeholder="/opt/studiohrs/backups" value="{{ config.local_path }}">
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">Google Drive</h4>
+          <div class="mb-4 flex items-center">
+            <input id="gdrive_enabled" name="gdrive_enabled" type="checkbox" 
+                   class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                   {% if config.gdrive_enabled %}checked{% endif %}>
+            <label for="gdrive_enabled" class="ml-3 text-sm font-medium text-gray-700">Enable Google Drive backup</label>
+          </div>
+          <div class="grid grid-cols-1 gap-6">
+            <div>
+              <label for="gdrive_service_account_json" class="block text-sm font-medium text-gray-700">Service account JSON key</label>
+              <textarea id="gdrive_service_account_json" name="gdrive_service_account_json" rows="4" 
+                        class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono border" 
+                        placeholder="Paste the full service account JSON here…">{{ config.gdrive_service_account_json }}</textarea>
+            </div>
+            <div>
+              <label for="gdrive_folder_id" class="block text-sm font-medium text-gray-700">Google Drive folder ID</label>
+              <input type="text" id="gdrive_folder_id" name="gdrive_folder_id" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     value="{{ config.gdrive_folder_id }}" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">OneDrive</h4>
+          <div class="mb-4 flex items-center">
+            <input id="onedrive_enabled" name="onedrive_enabled" type="checkbox" 
+                   class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                   {% if config.onedrive_enabled %}checked{% endif %}>
+            <label for="onedrive_enabled" class="ml-3 text-sm font-medium text-gray-700">Enable OneDrive backup</label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label for="onedrive_client_id" class="block text-sm font-medium text-gray-700">Client ID</label>
+              <input type="text" id="onedrive_client_id" name="onedrive_client_id" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     value="{{ config.onedrive_client_id }}">
+            </div>
+            <div>
+              <label for="onedrive_client_secret" class="block text-sm font-medium text-gray-700">Client secret</label>
+              <input type="password" id="onedrive_client_secret" name="onedrive_client_secret" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     placeholder="Leave blank to keep existing">
+            </div>
+            <div>
+              <label for="onedrive_tenant_id" class="block text-sm font-medium text-gray-700">Tenant ID</label>
+              <input type="text" id="onedrive_tenant_id" name="onedrive_tenant_id" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     value="{{ config.onedrive_tenant_id }}">
+            </div>
+            <div>
+              <label for="onedrive_folder_path" class="block text-sm font-medium text-gray-700">Folder path</label>
+              <input type="text" id="onedrive_folder_path" name="onedrive_folder_path" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     value="{{ config.onedrive_folder_path }}" placeholder="/StudioHR/Backups">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mb-4">NAS / Network share</h4>
+          <div class="mb-4 flex items-center">
+            <input id="nas_enabled" name="nas_enabled" type="checkbox" 
+                   class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                   {% if config.nas_enabled %}checked{% endif %}>
+            <label for="nas_enabled" class="ml-3 text-sm font-medium text-gray-700">Enable NAS backup</label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div class="sm:col-span-2">
+              <label for="nas_path" class="block text-sm font-medium text-gray-700">Network path</label>
+              <input type="text" id="nas_path" name="nas_path" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     value="{{ config.nas_path }}" placeholder="\\192.168.1.100\Backups">
+            </div>
+            <div>
+              <label for="nas_username" class="block text-sm font-medium text-gray-700">Username</label>
+              <input type="text" id="nas_username" name="nas_username" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     value="{{ config.nas_username }}">
+            </div>
+            <div>
+              <label for="nas_password" class="block text-sm font-medium text-gray-700">Password</label>
+              <input type="password" id="nas_password" name="nas_password" 
+                     class="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border" 
+                     placeholder="Leave blank to keep existing">
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" class="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            Save backup settings
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="text-lg leading-6 font-medium text-gray-900">Restore from a zip file</h3>
+    </div>
+    <div class="px-6 py-4">
+      <p class="text-sm text-gray-500 mb-4">
+        Overwrites the live database with the contents of a {{ site_name }} backup zip.
+        Useful if you're restoring from a downloaded backup (Google Drive, NAS, etc.)
+        rather than one in the local history list below. A safety snapshot is
+        taken automatically before the swap.
+      </p>
+      <a href="{% url 'settings_app:restore_upload' %}" 
+         class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+        Restore from uploaded zip…
+      </a>
+    </div>
+  </div>
+
+  <div class="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+      <h3 class="text-lg leading-6 font-medium text-gray-900">Recent backups</h3>
+      <a href="{% url 'settings_app:backup_history' %}" 
+         class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+        View all
+      </a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-300">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date / time</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trigger</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Local</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GDrive</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OneDrive</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NAS</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telegram</th>
+            <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for log in logs %}
+          <tr class="hover:bg-gray-50">
+            <td class="whitespace-nowrap px-4 py-4 text-sm text-gray-900">{{ log.run_at|date:"d M Y H:i" }}</td>
+            <td class="whitespace-nowrap px-4 py-4 text-sm text-gray-500">{{ log.triggered_by }}</td>
+            <td class="px-4 py-4 text-sm text-gray-600 font-mono">{{ log.filename }}{% if log.archive_error %}<p class="text-red-700 font-sans">{{ log.archive_error }}</p>{% endif %}</td>
+            
+            <td class="whitespace-nowrap px-4 py-4 text-sm">
+              {% if log.local_status %}
+                <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">{{ log.local_status }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-4 py-4 text-sm">
+              {% if log.gdrive_status %}
+                <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">{{ log.gdrive_status }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-4 py-4 text-sm">
+              {% if log.onedrive_status %}
+                <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">{{ log.onedrive_status }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-4 py-4 text-sm">
+              {% if log.nas_status %}
+                <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">{{ log.nas_status }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-4 py-4 text-sm">
+              {% if log.telegram_sent %}
+                <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Sent</span>
+              {% elif log.telegram_error %}
+                <span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10" title="{{ log.telegram_error }}">Failed</span>
+              {% else %}—{% endif %}
+            </td>
+            
+            <td class="whitespace-nowrap px-4 py-4 text-sm text-right font-medium">
+              {% if not log.archive_error %}<a href="{% url 'settings_app:download_backup' log.pk %}" 
+                 class="text-indigo-600 hover:text-indigo-900 mr-3" title="Download backup zip">
+                 ↓ Download
+              </a>{% endif %}
+              <a href="{% url 'settings_app:restore_confirm' log.pk %}" 
+                 class="text-red-600 hover:text-red-900" title="Restore this backup">
+                 ↺ Restore
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="whitespace-nowrap px-4 py-8 text-sm text-center text-gray-500">
+              No backups yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

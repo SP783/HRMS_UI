@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+{% load project_tags %}
+{% block title %}Timesheet — {{ monday }} to {{ sunday }} — {{ site_name }}{% endblock %}
+{% block page_title %}Timesheets{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'projects:timesheet_my_history' %}{% if not is_own and target_emp_pk %}?emp={{ target_emp_pk }}{% endif %}" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-5"/>
+    </svg>
+    {% if is_own %}My Timesheets{% else %}All Timesheets{% endif %}
+  </a>
+  {% if can_approve %}
+  <a href="{% url 'projects:timesheet_overview' %}" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    </svg>
+    Review Timesheets
+  </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Minimal JS State Classes & Print Overrides */
+  .ts-combo-panel { display: none; }
+  .ts-combo.open .ts-combo-panel { display: block; }
+  .ts-combo-clear { display: none; }
+  .ts-combo.has-value .ts-combo-clear { display: flex; }
+  .ts-combo-item.active { background-color: #eff6ff !important; color: #1d4ed8 !important; }
+  
+  .ts-combo-input.ts-combo-input--task { font-weight: 500; color: #111827; }
+  .ts-combo-input.ts-combo-input--custom { font-style: italic; color: #6b7280; }
+  
+  .ts-modal-bg { display: none; }
+  .ts-modal-bg.open { display: flex; }
+
+  @media print {
+    .print-hide { display: none !important; }
+    .ts-grid { gap: 8px !important; }
+    .ts-day { break-inside: avoid; }
+  }
+</style>
+
+{# ── Task catalog rendered once, consumed by the JS combobox ──────────── #}
+{{ task_catalog_json|json_script:"ts-task-catalog" }}
+
+<!-- Employee Selector (managers only) -->
+{% if can_approve %}
+<div class="flex flex-wrap items-center gap-3 mb-5 print-hide">
+  <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Viewing:</span>
+  <select class="block w-full min-w-[220px] max-w-xs pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" onchange="switchEmployee(this.value)">
+    <option value=""{% if is_own %} selected{% endif %}>My Timesheet</option>
+    {% if team_employees %}
+    <optgroup label="Team">
+      {% for emp in team_employees %}
+      <option value="{{ emp.pk }}"{% if not is_own and emp.profile_id == target_profile.pk %} selected{% endif %}>{{ emp.full_name }}{% if emp.department_name %} ({{ emp.department_name }}){% endif %}</option>
+      {% endfor %}
+    </optgroup>
+    {% endif %}
+  </select>
+  <span class="text-sm font-bold text-gray-900">{{ target_profile.full_name }}</span>
+  {% if not is_own %}
+  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 tracking-wide uppercase">
+    Viewing as manager
+  </span>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Week Navigator -->
+<div class="flex flex-wrap items-center gap-3 mb-6 print-hide">
+  <a href="?week={{ prev_monday|date:'Y-m-d' }}{% if not is_own and target_emp_pk %}&emp={{ target_emp_pk }}{% endif %}" class="w-8 h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm" title="Previous week">◀</a>
+  <div>
+    <div class="text-[15px] font-semibold text-gray-900">{{ monday|date:"d M Y" }} — {{ sunday|date:"d M Y" }}</div>
+    <div class="text-xs text-gray-500">Week {{ monday|date:"W" }}</div>
+  </div>
+  <a href="?week={{ next_monday|date:'Y-m-d' }}{% if not is_own and target_emp_pk %}&emp={{ target_emp_pk }}{% endif %}" class="w-8 h-8 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm" title="Next week">▶</a>
+  
+  <a href="?week={% now 'Y-m-d' %}{% if not is_own and target_emp_pk %}&emp={{ target_emp_pk }}{% endif %}" class="ml-1 inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">Today</a>
+  
+  <div class="ml-auto flex items-center gap-2.5">
+    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase
+      {% if timesheet.status == 'draft' %}bg-gray-100 text-gray-600
+      {% elif timesheet.status == 'submitted' %}bg-blue-50 text-blue-600
+      {% elif timesheet.status == 'approved' %}bg-green-100 text-green-700
+      {% elif timesheet.status == 'rejected' %}bg-red-100 text-red-700{% endif %}">
+      {{ timesheet.get_status_display }}
+    </span>
+    {% if timesheet.status == 'approved' and timesheet.reviewed_by %}
+    <span class="text-[11px] text-gray-500">by {{ timesheet.reviewed_by.full_name }}</span>
+    {% endif %}
+    {% if timesheet.status == 'rejected' and timesheet.review_comment %}
+    <span class="text-[11px] text-red-600 font-medium">Reason: {{ timesheet.review_comment }}</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Summary Bar -->
+<div class="flex flex-wrap items-center gap-8 px-6 py-5 bg-white border border-gray-200 rounded-xl shadow-sm mb-6">
+  <div class="flex items-baseline gap-2.5">
+    <div class="text-3xl font-light text-blue-600 tabular-nums">{{ week_total|work_duration }}</div>
+    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Worked this week</div>
+  </div>
+  <div class="flex items-baseline gap-2.5">
+    <div class="text-3xl font-light text-blue-600 tabular-nums">{% widthratio week_total|floatformat:0 40 100 %}%</div>
+    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">of 40h target</div>
+  </div>
+  <div class="flex-1"></div>
+  
+  <div class="flex items-center gap-4 print-hide">
+    {% if timesheet.is_editable %}
+    <form method="post" class="inline">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="submit">
+      <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors" data-confirm="Submit this timesheet for approval? You won't be able to edit it after submission.">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+        Submit for Approval
+      </button>
+    </form>
+    {% elif timesheet.status == 'submitted' %}
+    <span class="text-sm font-medium text-blue-600">⏳ Awaiting approval</span>
+    {% elif timesheet.status == 'approved' %}
+    <span class="text-sm font-medium text-green-600">✅ Approved</span>
+    {% elif timesheet.status == 'rejected' %}
+    <span class="text-sm font-medium text-red-600">❌ Rejected — you can edit and resubmit</span>
+    {% endif %}
+    <button class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors" onclick="window.print()">🖨 Print</button>
+  </div>
+</div>
+
+{% if is_own and not is_checked_in_today and timesheet.is_editable %}
+<div class="flex items-center gap-3 p-4 mb-6 bg-amber-50 border border-amber-200 rounded-lg print-hide">
+  <span class="text-2xl">⏱️</span>
+  <div class="flex-1 text-sm text-gray-800">
+    <strong class="block text-[15px] font-semibold text-gray-900 mb-0.5">You haven't checked in today.</strong>
+    Timesheet entries can only be logged for days you've checked in.
+  </div>
+  <a href="{% url 'attendance:dashboard' %}" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 transition-colors">Go to attendance</a>
+</div>
+{% endif %}
+
+<!-- Weekly Grid -->
+<div class="flex flex-col gap-4 mb-6 ts-grid">
+  {% for day in days %}
+  <div class="flex flex-col bg-white border {% if day.is_today %}border-blue-500 ring-2 ring-blue-100{% else %}border-gray-200{% endif %} rounded-xl shadow-sm hover:shadow-md transition-shadow relative overflow-visible ts-day">
+    
+    <!-- Day Header -->
+    <div class="px-5 py-4 {% if day.is_today %}bg-blue-50 border-blue-200{% else %}bg-gray-50 border-gray-200{% endif %} border-b rounded-t-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+         {% if day.day_kind == 'weekoff' or day.day_kind == 'holiday' %}
+         style="background-image: repeating-linear-gradient(45deg, transparent 0, transparent 8px, rgba(148,163,184,0.06) 8px, rgba(148,163,184,0.06) 9px);"
+         {% endif %}>
+      <div class="flex flex-wrap items-baseline gap-3">
+        <div>
+          <span class="text-[11px] font-bold tracking-wider uppercase text-gray-500 mr-2">{{ day.label }}</span>
+          <span class="text-[15px] font-bold text-gray-900 tracking-tight">{{ day.date|date:"d F" }}</span>
+        </div>
+        {% if day.is_today %}
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide bg-blue-100 text-blue-700 ml-1">Today</span>
+        {% endif %}
+        {% if day.day_kind == 'weekoff' %}
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide bg-gray-200 text-gray-600 ml-1" title="Non-working day per your shift">Week off</span>
+        {% elif day.day_kind == 'holiday' %}
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide bg-blue-50 text-blue-600 border border-blue-100 ml-1" title="{{ day.holiday_name }}">{{ day.holiday_type|title }} holiday</span>
+        {% endif %}
+      </div>
+      <div class="text-lg font-semibold text-blue-600 tabular-nums">
+        {{ day.total|work_duration }}
+      </div>
+    </div>
+
+    {% if day.has_attendance and not day.is_working_day %}
+    <div class="px-5 py-2.5 text-sm bg-emerald-50 text-emerald-700 border-b border-gray-200">
+      {% if day.comp_off_earned %}
+        🎉 Comp-off earned — you checked in on a non-working day.
+      {% else %}
+        ℹ️ You checked in today; comp-off may have been recorded.
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Day Body (Entries) -->
+    <div class="p-4 sm:px-5">
+      {% for entry in day.entries %}
+      <div class="group flex items-center gap-3 p-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+        <div class="font-bold text-blue-600 min-w-[3rem] shrink-0 tabular-nums text-[14px]">{{ entry.hours|work_duration }}</div>
+        <div class="flex-1 min-w-0">
+          <div class="font-medium text-gray-900 truncate text-[13px] leading-snug" title="{% if entry.task %}{{ entry.task.title }} ({{ entry.task.project.name }}){% else %}Custom entry{% endif %}">
+            {% if entry.task %}{{ entry.task.title }} ({{ entry.task.project.name }}){% else %}<span class="italic text-gray-500 font-normal">Custom</span>{% endif %}
+          </div>
+          {% if entry.description %}<div class="text-xs text-gray-500 truncate mt-0.5" title="{{ entry.description }}">{{ entry.description }}</div>{% endif %}
+        </div>
+        
+        {% if timesheet.is_editable %}
+        <div class="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity print-hide">
+          <button class="w-7 h-7 rounded-md flex items-center justify-center text-[13px] text-gray-400 hover:bg-white hover:border-gray-300 border border-transparent hover:text-gray-900 transition-colors" onclick="openEditModal({{ entry.pk }}, '{{ entry.hours|work_duration }}', '{{ entry.task.pk|default:"" }}', '{{ entry.description|escapejs }}', '{{ entry.project_id|default:"" }}')" title="Edit">✏</button>
+          <form method="post" action="{% url 'projects:timesheet_entry_delete' entry.pk %}" class="inline" onclick="return confirm('Delete this entry?')">
+            {% csrf_token %}
+            <button type="submit" class="w-7 h-7 rounded-md flex items-center justify-center text-[13px] text-gray-400 hover:bg-red-50 hover:border-red-200 border border-transparent hover:text-red-600 transition-colors" title="Delete">✗</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      {% empty %}
+      <div class="py-3 px-3 text-[13px] text-gray-500 italic text-center">No hours logged for this day yet.</div>
+      {% endfor %}
+    </div>
+
+    <!-- Inline Add Form -->
+    {% if timesheet.is_editable %}
+      {% if not is_own or day.has_attendance %}
+      <div class="p-4 sm:px-5 border-t border-gray-100 bg-gray-50 rounded-b-xl print-hide">
+        <form method="post" action="{% url 'projects:timesheet_entry_add' %}">
+          {% csrf_token %}
+          <input type="hidden" name="timesheet_id" value="{{ timesheet.pk }}">
+          <input type="hidden" name="date" value="{{ day.date|date:'Y-m-d' }}">
+          
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span class="text-[11px] font-bold tracking-wider uppercase text-gray-500 mr-1">Time</span>
+            <input type="text" name="hours" placeholder="10m or 1.5" required title="Enter 10m, 1h 10m, or decimal hours such as 0.5" class="w-24 text-center font-semibold tabular-nums px-3 py-2 text-[13px] rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors shadow-sm">
+            
+            <span class="text-[11px] font-bold tracking-wider uppercase text-gray-500 mx-1">Task</span>
+            
+            <div class="relative flex-1 min-w-[240px] ts-combo" data-ts-combo>
+              <input type="text" class="w-full px-3 py-2 text-[13px] rounded-md border border-gray-300 bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors shadow-sm ts-combo-input ts-combo-input--custom" placeholder="🔍 Type to search projects, tasks, subtasks…" data-ts-combo-display autocomplete="off">
+              <input type="hidden" name="task" value="custom" data-ts-combo-value>
+              <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-transparent border-none text-gray-400 hover:bg-gray-200 hover:text-gray-700 flex items-center justify-center cursor-pointer ts-combo-clear" data-ts-combo-clear title="Clear">×</button>
+              
+              <!-- Dropdown Panel -->
+              <div class="absolute top-[calc(100%+6px)] left-0 right-0 z-[1000] bg-white border border-gray-200 rounded-lg shadow-lg max-h-[340px] overflow-y-auto min-w-[340px] ts-combo-panel" data-ts-combo-panel></div>
+            </div>
+            
+            <input type="text" name="description" placeholder="Add a note (optional)…" title="Description" class="flex-1 min-w-[140px] px-3 py-2 text-[13px] rounded-md border border-gray-300 bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors shadow-sm text-gray-900">
+            <button type="submit" class="inline-flex items-center px-4 py-2 text-[13px] font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors w-full sm:w-auto justify-center">Log time</button>
+          </div>
+        </form>
+      </div>
+      {% else %}
+      <div class="py-3.5 px-5 text-[13px] leading-relaxed bg-amber-50/50 text-gray-600 border-t border-dashed border-gray-200 text-center rounded-b-xl print-hide">
+        {% if day.date == today %}
+          ⚠️ <a href="{% url 'attendance:dashboard' %}" class="text-amber-600 font-semibold hover:text-blue-600 border-b border-amber-600 hover:border-blue-600 transition-colors">Check in</a> to log time for today.
+        {% elif day.date < today %}
+          ⓘ No check-in on {{ day.label }}. Hours can't be logged for absent days.
+        {% else %}
+          ⓘ Hours will be loggable after you check in on {{ day.label }}.
+        {% endif %}
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Edit Entry Modal -->
+<div class="fixed inset-0 bg-black/40 z-[1000] items-center justify-center ts-modal-bg" id="edit-modal">
+  <div class="bg-white rounded-xl shadow-2xl w-[90%] max-w-[480px] overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-200 font-bold text-[15px] flex items-center justify-between bg-gray-50">
+      Edit Time Entry
+      <button type="button" onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md p-1 transition-colors">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form method="post" action="{% url 'projects:timesheet_entry_edit' 0 %}" id="edit-form" onsubmit="submitEditForm(event)">
+      {% csrf_token %}
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-[13px] font-semibold text-gray-700 mb-1.5">Time worked</label>
+          <input type="text" name="hours" id="edit-hours" placeholder="10m, 1h 10m, or 0.5" required class="block w-full px-3 py-2 text-[13.5px] border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm border">
+        </div>
+        <div>
+          <label class="block text-[13px] font-semibold text-gray-700 mb-1.5">Task</label>
+          <div class="relative ts-combo" data-ts-combo>
+            <input type="text" class="w-full px-3 py-2 text-[13.5px] rounded-md border border-gray-300 bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors shadow-sm ts-combo-input ts-combo-input--custom" placeholder="🔍 Type to search projects, tasks, subtasks…" data-ts-combo-display autocomplete="off">
+            <input type="hidden" name="task" id="edit-task" value="custom" data-ts-combo-value>
+            <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-transparent text-gray-400 hover:bg-gray-200 hover:text-gray-700 flex items-center justify-center cursor-pointer ts-combo-clear" data-ts-combo-clear title="Clear">×</button>
+            <div class="absolute top-[calc(100%+6px)] left-0 right-0 z-[1000] bg-white border border-gray-200 rounded-lg shadow-lg max-h-[340px] overflow-y-auto min-w-[340px] ts-combo-panel" data-ts-combo-panel></div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[13px] font-semibold text-gray-700 mb-1.5">Description</label>
+          <input type="text" name="description" id="edit-desc" placeholder="Optional note" class="block w-full px-3 py-2 text-[13.5px] border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm border text-gray-900">
+        </div>
+      </div>
+      <div class="px-5 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2.5">
+        <button type="button" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors" onclick="closeEditModal()">Cancel</button>
+        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ── Searchable task combobox ─────────────────────────────────────────────
+(function() {
+  var catalogEl = document.getElementById('ts-task-catalog');
+  if (!catalogEl) return;
+  var CATALOG;
+  try { CATALOG = JSON.parse(catalogEl.textContent); }
+  catch (e) { CATALOG = []; }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function groupByProject(items) {
+    var byProj = {};
+    items.forEach(function(it) {
+      if (!byProj[it.project]) byProj[it.project] = {project: it.project, client: it.client, items: []};
+      byProj[it.project].items.push(it);
+    });
+    return Object.values(byProj);
+  }
+  var GROUPED = groupByProject(CATALOG);
+  var STAR_GROUP = CATALOG.filter(function(it) { return it.mine && it.kind === 'task'; });
+
+  function buildPanelHtml(query) {
+    var q = (query || '').trim().toLowerCase();
+    var html = '';
+
+    if (!q) {
+      html += '<div class="px-3 py-2.5 text-[12px] text-gray-500 bg-gray-50 border-b border-gray-200 rounded-t-lg">💡 Start typing to search by project, task, subtask, or client</div>';
+    }
+
+    html += '<div class="ts-combo-item px-3 py-2.5 text-[13px] cursor-pointer flex items-center gap-2 text-gray-500 italic border-b border-gray-100 select-none hover:bg-blue-50 hover:text-blue-700" data-value="custom" data-label="— Custom entry —">— Custom entry (use note) —</div>';
+
+    function matches(it) {
+      if (!q) return true;
+      var hay = (it.label + ' ' + (it.parent || '') + ' ' + it.project + ' ' + (it.client || '')).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    }
+
+    var starHits = STAR_GROUP.filter(matches);
+    if (starHits.length) {
+      html += '<div class="py-1">';
+      html += '<div class="px-3 pt-2 pb-1.5 text-[10.5px] font-bold tracking-wider uppercase text-gray-500 bg-gray-50 sticky top-0">★ Assigned to me</div>';
+      starHits.forEach(function(it) {
+        html += renderItem(it, true);
+      });
+      html += '</div>';
+    }
+
+    var anyHit = false;
+    GROUPED.forEach(function(grp) {
+      var hits = grp.items.filter(matches);
+      if (!hits.length) return;
+      anyHit = true;
+      var label = escapeHtml(grp.project);
+      if (grp.client) label += ' — ' + escapeHtml(grp.client);
+      html += '<div class="py-1">';
+      html += '<div class="px-3 pt-2 pb-1.5 text-[10.5px] font-bold tracking-wider uppercase text-gray-500 bg-gray-50 sticky top-0">' + label + '</div>';
+      hits.forEach(function(it) { html += renderItem(it, false); });
+      html += '</div>';
+    });
+
+    if (!anyHit && !starHits.length && q) {
+      html += '<div class="p-4 text-xs text-gray-500 text-center">No matches for "' + escapeHtml(query) + '"</div>';
+    }
+    return html;
+  }
+
+  function renderItem(it, starred) {
+    var cls = 'ts-combo-item px-3 py-2 text-[13px] cursor-pointer flex items-center gap-2 text-gray-800 select-none hover:bg-blue-50 hover:text-blue-700 leading-snug';
+    
+    var prefix = '';
+    if (it.kind === 'sub') {
+      cls += ' pl-8 text-gray-600 text-[12.5px]';
+      prefix = '<span class="text-gray-400 mr-1.5">└</span>';
+    } else if (it.kind === 'project') {
+      cls += ' italic text-gray-600';
+      prefix = '<span class="mr-1.5 not-italic">📁</span>';
+    } else if (it.mine && !starred) {
+      prefix = '<span class="text-amber-500 mr-1.5">★</span>';
+    }
+
+    var labelText = it.kind === 'project' ? it.project + ' — log against project' : it.label + (it.project ? ' (' + it.project + ')' : '');
+    var label = escapeHtml(labelText);
+    var meta = '';
+    
+    if (it.kind === 'sub' && it.parent) {
+      meta = '<span class="ml-auto text-[11px] text-gray-400 font-normal">in ' + escapeHtml(it.parent) + '</span>';
+    } else if (it.kind === 'project') {
+      meta = '<span class="ml-auto text-[11px] text-gray-400 font-normal">no specific task</span>';
+
+    }
+    
+    var displayLabel;
+    if (it.kind === 'sub') {
+      displayLabel = it.parent + ' › ' + it.label + ' (' + it.project + ')';
+    } else if (it.kind === 'project') {
+      displayLabel = it.project + ' (project-level)';
+    } else {
+      displayLabel = it.label + (it.project ? ' (' + it.project + ')' : '');
+    }
+    
+    return '<div class="' + cls + '" data-value="' + escapeHtml(it.value)
+      + '" data-label="' + escapeHtml(displayLabel) + '">'
+      + prefix + label + meta + '</div>';
+  }
+
+  function initCombo(root) {
+    if (root.__tsComboInited) return;
+    root.__tsComboInited = true;
+
+    var input  = root.querySelector('[data-ts-combo-display]');
+    var hidden = root.querySelector('[data-ts-combo-value]');
+    var panel  = root.querySelector('[data-ts-combo-panel]');
+    var clear  = root.querySelector('[data-ts-combo-clear]');
+    var activeIdx = -1;
+
+    function setValue(value, label) {
+      hidden.value = value || 'custom';
+      if (value && value !== 'custom') {
+        input.value = label || '';
+        input.classList.remove('ts-combo-input--custom');
+        input.classList.add('ts-combo-input--task');
+        root.classList.add('has-value');
+        input.setAttribute('readonly', 'readonly');
+      } else {
+        input.value = '';
+        input.placeholder = '🔍 Type to search projects, tasks, subtasks…';
+        input.classList.remove('ts-combo-input--task');
+        input.classList.add('ts-combo-input--custom');
+        root.classList.remove('has-value');
+        input.removeAttribute('readonly');
+      }
+    }
+
+    function open(query) {
+      if (root.classList.contains('has-value')) {
+        hidden.value = 'custom';
+        input.value = '';
+        input.classList.remove('ts-combo-input--task');
+        input.classList.add('ts-combo-input--custom');
+        root.classList.remove('has-value');
+        input.removeAttribute('readonly');
+      }
+      panel.innerHTML = buildPanelHtml(query !== undefined ? query : '');
+      root.classList.add('open');
+      input.removeAttribute('readonly');
+      activeIdx = -1;
+    }
+
+    function close() {
+      root.classList.remove('open');
+      activeIdx = -1;
+      if (root.classList.contains('has-value')) {
+        input.setAttribute('readonly', 'readonly');
+      }
+    }
+
+    function getItems() { return panel.querySelectorAll('.ts-combo-item'); }
+
+    function setActive(i) {
+      var items = getItems();
+      items.forEach(function(el) { el.classList.remove('active'); });
+      if (i < 0 || i >= items.length) { activeIdx = -1; return; }
+      activeIdx = i;
+      items[i].classList.add('active');
+      items[i].scrollIntoView({block: 'nearest'});
+    }
+
+    function pickItem(el) {
+      if (!el) return;
+      setValue(el.dataset.value, el.dataset.label);
+      close();
+    }
+
+    input.addEventListener('focus', function() { open(''); });
+    input.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!root.classList.contains('open')) open('');
+    });
+    input.addEventListener('input', function() {
+      open(input.value);
+    });
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!root.classList.contains('open')) open('');
+        setActive(Math.min(activeIdx + 1, getItems().length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActive(Math.max(activeIdx - 1, 0));
+      } else if (e.key === 'Enter') {
+        if (root.classList.contains('open')) {
+          e.preventDefault();
+          var items = getItems();
+          if (activeIdx >= 0) pickItem(items[activeIdx]);
+          else if (items.length === 1) pickItem(items[0]);
+        }
+      } else if (e.key === 'Escape') {
+        close();
+      }
+    });
+
+    panel.addEventListener('click', function(e) {
+      var item = e.target.closest('.ts-combo-item');
+      if (item) pickItem(item);
+    });
+
+    clear.addEventListener('click', function(e) {
+      e.stopPropagation();
+      setValue('custom', '');
+      input.focus();
+      open('');
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!root.contains(e.target)) close();
+    });
+
+    root.tsCombo = {
+      setByValue: function(value) {
+        if (!value || value === 'custom') {
+          setValue('custom', '');
+          return;
+        }
+        var found = CATALOG.find(function(it) { return it.value === value; });
+        if (found) {
+          var displayLabel;
+          if (found.kind === 'sub') {
+            displayLabel = found.parent + ' › ' + found.label + ' (' + found.project + ')';
+          } else if (found.kind === 'project') {
+            displayLabel = found.project + ' (project-level)';
+          } else {
+            displayLabel = found.label + (found.project ? ' (' + found.project + ')' : '');
+          }
+          setValue(value, displayLabel);
+        } else {
+          setValue('custom', '');
+        }
+      },
+      reset: function() { setValue('custom', ''); },
+    };
+  }
+
+  document.querySelectorAll('[data-ts-combo]').forEach(initCombo);
+})();
+
+function openEditModal(entryId, hours, taskId, description, projectId) {
+  var modal = document.getElementById('edit-modal');
+  var form = document.getElementById('edit-form');
+  var baseUrl = "{% url 'projects:timesheet_entry_edit' 0 %}";
+  form.action = baseUrl.replace('/0/', '/' + entryId + '/');
+  document.getElementById('edit-hours').value = hours;
+  var combo = form.querySelector('[data-ts-combo]');
+  if (combo && combo.tsCombo) {
+    combo.tsCombo.setByValue(taskId ? ('task:' + taskId) : projectId ? ('project:' + projectId) : 'custom');
+  }
+  document.getElementById('edit-desc').value = description || '';
+  modal.classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+}
+
+function submitEditForm(e) {
+  var form = document.getElementById('edit-form');
+}
+
+function switchEmployee(empPk) {
+  var url = "{% url 'projects:timesheet_weekly' %}?week={{ monday|date:'Y-m-d' }}";
+  if (empPk) url += "&emp=" + empPk;
+  window.location.href = url;
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+</script>
+{% endblock %}
