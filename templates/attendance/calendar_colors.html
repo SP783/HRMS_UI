@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Calendar Colors — {{ site_name }}{% endblock %}
+{% block page_title %}Team Attendance{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6">
+
+  {% comment %} Same Team Attendance tab bar, Calendar Colors active. {% endcomment %}
+  <div class="border-b border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar -mx-4 sm:mx-0 px-4 sm:px-0">
+    <nav class="-mb-px flex gap-6 min-w-max" aria-label="Tabs">
+      <a href="{% url 'attendance:team' %}" class="whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-300 transition-colors">Today</a>
+      <a href="{% url 'attendance:dashboard' %}" class="whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-300 transition-colors">Dashboard</a>
+      <a href="{% url 'attendance:daily_log' %}" class="whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-300 transition-colors">Daily Log</a>
+      <a href="{% url 'attendance:late_arrivals' %}" class="whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-300 transition-colors">Late Arrivals</a>
+      <a href="{% url 'attendance:monthly_summary' %}" class="whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-300 transition-colors">Monthly Summary</a>
+      <a href="{% url 'attendance:calendar_colors' %}" class="whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium border-primary-500 text-primary-600 dark:text-primary-400 flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.555C21.965 6.012 17.461 2 12 2z"/></svg>
+        Calendar Colors
+      </a>
+    </nav>
+  </div>
+
+  <div class="max-w-3xl">
+    <div class="mb-4">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Monthly Summary calendar colours</h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+        Pick the background colour for each day status on the attendance calendar. Changes apply to everyone's calendar view.
+      </p>
+    </div>
+
+    <form method="post" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-5">
+      {% csrf_token %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {% for field, label, value in color_fields %}
+        <div class="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+          <div class="flex items-center gap-3">
+            <span class="cc-swatch inline-block w-8 h-8 rounded-md border border-slate-200 dark:border-slate-700" data-swatch="{{ field }}" style="background-color: {{ value }};"></span>
+            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ label }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="color" name="{{ field }}" value="{{ value }}"
+                   data-color-input="{{ field }}"
+                   class="h-9 w-12 rounded cursor-pointer border border-slate-200 dark:border-slate-700 bg-transparent p-0.5">
+            <code class="cc-hex text-xs text-slate-500 dark:text-slate-400 w-16" data-hex="{{ field }}">{{ value }}</code>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="flex items-center gap-3 pt-5 mt-5 border-t border-slate-100 dark:border-slate-800">
+        <button type="submit" class="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+          Save colours
+        </button>
+        <button type="submit" name="reset" value="1"
+                onclick="return confirm('Reset all calendar colours to their defaults?');"
+                class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
+          Reset to defaults
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    document.querySelectorAll('[data-color-input]').forEach(function (input) {
+      var key = input.getAttribute('data-color-input');
+      input.addEventListener('input', function () {
+        var v = input.value;
+        var sw = document.querySelector('[data-swatch="' + key + '"]');
+        var hx = document.querySelector('[data-hex="' + key + '"]');
+        if (sw) sw.style.backgroundColor = v;
+        if (hx) hx.textContent = v;
+      });
+    });
+  })();
+</script>
+{% endblock %}

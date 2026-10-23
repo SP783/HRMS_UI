@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block title %}Late Arrivals — {{ site_name }}{% endblock %}
+{% block page_title %}Late Arrivals{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'attendance:dashboard' %}" class="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Dashboard
+  </a>
+  <button type="button" onclick="exportWithFilters()" class="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Export CSV
+  </button>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="flex flex-col gap-6">
+  {% include 'attendance/partials/_tabs.html' %}
+
+
+  <!-- Filters -->
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 sm:p-5">
+    <form data-ui-filter method="get" class="flex flex-wrap items-end gap-4" id="filterForm" hx-preserve>
+      <div class="w-full sm:w-auto">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">From</label>
+        <input type="date" name="from_date" class="w-40 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all color-scheme-dark" value="{{ from_date|date:'Y-m-d' }}">
+      </div>
+      <div class="w-full sm:w-auto">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">To</label>
+        <input type="date" name="to_date" class="w-40 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all color-scheme-dark" value="{{ to_date|date:'Y-m-d' }}">
+      </div>
+      
+      {% if departments %}
+      <div class="w-full sm:w-auto flex-1 min-w-[150px]">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Department</label>
+        <select name="department" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all appearance-none">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+          <option value="{{ dept.name }}" {% if dept_filter == dept.name %}selected{% endif %}>{{ dept.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      
+      {% if employees %}
+      <div class="w-full sm:w-auto flex-1 min-w-[200px]" id="empPicker">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Employees</label>
+        <button type="button" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm flex items-center justify-between focus:ring-2 focus:ring-primary-500 transition-all emp-picker-trigger" onclick="toggleEmpPicker()">
+          <span id="empPickerLabel" class="truncate text-slate-700 dark:text-slate-300">
+            {% if selected_employee_ids %}{{ selected_employee_ids|length }} selected{% else %}All Employees{% endif %}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 flex-shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        
+        <!-- Dropdown (JS moves this to body to escape overflow) -->
+        <div class="emp-picker-dropdown bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl flex-col overflow-hidden" id="empPickerDropdown" style="display:none;">
+          <div class="p-3 border-b border-slate-100 dark:border-slate-800">
+            <input type="text" placeholder="Search employees..." oninput="filterEmpList(this.value)" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all">
+          </div>
+          <div class="flex justify-between px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+            <button type="button" class="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline" onclick="selectAllEmps()">Select All</button>
+            <button type="button" class="text-xs font-semibold text-slate-500 hover:underline" onclick="deselectAllEmps()">Clear</button>
+          </div>
+          <div class="overflow-y-auto max-h-60 p-2 flex flex-col gap-1" id="empPickerList">
+            {% for emp in employees %}
+            <label class="emp-picker-item flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer transition-colors">
+              <input type="checkbox" form="filterForm" name="employee_ids" value="{{ emp.employee_id }}" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500 dark:border-slate-600 dark:bg-slate-700 dark:ring-offset-slate-900" {% if emp.employee_id in selected_employee_ids %}checked{% endif %}>
+              <div class="flex-1 min-w-0">
+                <div class="emp-picker-item-name text-sm font-semibold text-slate-900 dark:text-white truncate">{{ emp.profile.full_name }}</div>
+                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <span class="emp-picker-item-id font-mono">{{ emp.employee_id }}</span>
+                  {% if emp.department %}<span class="emp-picker-item-dept truncate">&bull; {{ emp.department.name }}</span>{% endif %}
+                </div>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      
+      <button type="submit" class="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2 focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Filter
+      </button>
+    </form>
+  </div>
+
+  <!-- Summary banner -->
+  <div class="bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-white">
+    <div class="flex items-center gap-4 sm:gap-6">
+      <div class="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center flex-shrink-0">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div>
+        <div class="text-3xl font-bold">{{ total_late }}</div>
+        <div class="text-amber-100 font-medium tracking-wide mt-1">Late arrival{{ total_late|pluralize }} found</div>
+      </div>
+    </div>
+    <div class="bg-white/10 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/20 text-center sm:text-right text-sm font-medium">
+      {{ from_date|date:"d M Y" }} &mdash; {{ to_date|date:"d M Y" }}
+    </div>
+  </div>
+
+  <!-- Per-employee summary -->
+  {% if emp_summary %}
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0f172a]/50 flex items-center justify-between gap-4 flex-wrap">
+      <span class="font-bold text-slate-900 dark:text-white">Late Count by Employee</span>
+      <span class="text-sm font-medium text-slate-500 dark:text-slate-400">Sorted by most late</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse whitespace-nowrap">
+        <thead>
+          <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <th class="px-6 py-3">Employee</th>
+            <th class="px-6 py-3">Late Count</th>
+            <th class="px-6 py-3">Severity</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
+          {% for emp in emp_summary %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center font-bold text-xs border border-slate-200 dark:border-slate-700">{{ emp.initials }}</div>
+                <div>
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">{{ emp.name }}</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">{{ emp.employee_id }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <span class="text-xl font-bold text-amber-500 dark:text-amber-400">{{ emp.count }}</span>
+            </td>
+            <td class="px-6 py-4">
+              {% if emp.count >= 5 %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200/50 dark:border-rose-800/50">Critical</span>
+              {% elif emp.count >= 3 %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/50">Warning</span>
+              {% else %}
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50">Normal</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Detailed records -->
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0f172a]/50 flex items-center justify-between gap-4 flex-wrap">
+      <span class="font-bold text-slate-900 dark:text-white">All Late Records</span>
+      <span class="text-sm font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">{{ records|length }} record{{ records|length|pluralize }}</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse whitespace-nowrap">
+        <thead>
+          <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <th class="px-6 py-3">Employee</th>
+            <th class="px-6 py-3">Department</th>
+            <th class="px-6 py-3">Date</th>
+            <th class="px-6 py-3">Check In</th>
+            <th class="px-6 py-3">Duration</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
+          {% for r in records %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                {% if r.profile.profile_photo %}
+                <img src="{{ r.profile.profile_photo.url }}" alt="" class="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700">
+                {% else %}
+                <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center font-bold text-xs border border-slate-200 dark:border-slate-700">{{ r.profile.initials }}</div>
+                {% endif %}
+                <div>
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">{{ r.profile.full_name }}</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">{{ r.profile.employee_id }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{{ r.profile.employee.department.name|default:"—" }}</td>
+            <td class="px-6 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">{{ r.date }}</td>
+            <td class="px-6 py-4">
+              <span class="font-bold text-amber-600 dark:text-amber-400">{{ r.check_in|time:"H:i"|default:"—" }}</span>
+            </td>
+            <td class="px-6 py-4 text-sm font-mono text-slate-600 dark:text-slate-400">{{ r.duration_display }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="px-6 py-12">
+              <div class="flex flex-col items-center justify-center text-center">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500 mb-4"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <h3 class="text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-1">No late arrivals</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">There are no late records for this period.</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .color-scheme-dark { color-scheme: light; }
+  .dark .color-scheme-dark { color-scheme: dark; }
+</style>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  /* ── Employee Picker — fixed positioning ────────────────────────────── */
+  var dd = document.getElementById('empPickerDropdown');
+  var picker = document.getElementById('empPicker');
+  if (dd && picker) {
+  var trigger = picker.querySelector('.emp-picker-trigger');
+
+  document.body.appendChild(dd);
+  dd.style.position = 'fixed';
+  dd.style.zIndex = '9999';
+
+  function positionDropdown() {
+    var rect = trigger.getBoundingClientRect();
+    dd.style.left = rect.left + 'px';
+    dd.style.top = (rect.bottom + 6) + 'px';
+    dd.style.width = Math.max(rect.width, 320) + 'px';
+  }
+
+  window.toggleEmpPicker = function() {
+    var isHidden = dd.style.display === 'none';
+    if (!isHidden) {
+      dd.style.display = 'none';
+    } else {
+      positionDropdown();
+      dd.style.display = 'flex';
+      var searchInput = dd.querySelector('input[type="text"]');
+      if (searchInput) setTimeout(function() { searchInput.focus(); }, 50);
+    }
+  };
+
+  function repositionHandler() {
+    if (dd.style.display !== 'none') positionDropdown();
+  }
+  window.addEventListener('scroll', repositionHandler, true);
+  window.addEventListener('resize', repositionHandler);
+
+  document.addEventListener('click', function(e) {
+    if (!picker.contains(e.target) && !dd.contains(e.target)) {
+      dd.style.display = 'none';
+    }
+  });
+
+  window.filterEmpList = function(query) {
+    var items = dd.querySelectorAll('.emp-picker-item');
+    var q = query.toLowerCase();
+    items.forEach(function(item) {
+      var name = item.querySelector('.emp-picker-item-name').textContent.toLowerCase();
+      var id = item.querySelector('.emp-picker-item-id').textContent.toLowerCase();
+      item.style.display = (name.includes(q) || id.includes(q)) ? 'flex' : 'none';
+    });
+  };
+
+  window.selectAllEmps = function() {
+    dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').forEach(function(cb) {
+      if (cb.closest('.emp-picker-item').style.display !== 'none') cb.checked = true;
+    });
+    updateEmpLabel();
+  };
+
+  window.deselectAllEmps = function() {
+    dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').forEach(function(cb) {
+      cb.checked = false;
+    });
+    updateEmpLabel();
+  };
+
+  function updateEmpLabel() {
+    var checked = dd.querySelectorAll('.emp-picker-item input[type="checkbox"]:checked').length;
+    var total = dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').length;
+    document.getElementById('empPickerLabel').textContent = checked > 0 ? checked + ' of ' + total + ' selected' : 'All Employees';
+  }
+
+  document.addEventListener('change', function(e) {
+    if (e.target.name === 'employee_ids') updateEmpLabel();
+  });
+
+  }
+
+  /* ── Export ────────────────────────────────────────────────────────── */
+  window.exportWithFilters = function() {
+    var form = document.getElementById('filterForm');
+    var params = new URLSearchParams();
+    params.set('type', 'late');
+    var from = form.querySelector('input[name="from_date"]').value;
+    var to = form.querySelector('input[name="to_date"]').value;
+    if (from) params.set('from_date', from);
+    if (to) params.set('to_date', to);
+    var dept = form.querySelector('select[name="department"]');
+    if (dept && dept.value) params.set('department', dept.value);
+    document.querySelectorAll('input[form="filterForm"][name="employee_ids"]:checked').forEach(function(cb) {
+      params.append('employee_ids', cb.value);
+    });
+    window.location.href = '{% url "attendance:export" %}?' + params.toString();
+  };
+})();
+</script>
+{% endblock %}

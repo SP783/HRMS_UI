@@ -1,0 +1,47 @@
+<div class="mt-8 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+  <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+    <h3 class="text-lg font-semibold text-gray-800">My recent attendance</h3>
+    <span class="text-sm text-gray-500 font-medium">
+      {{ my_records|length }} record{{ my_records|length|pluralize }}
+    </span>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="px-6 py-3">Date</th>
+          <th class="px-6 py-3">Check in</th>
+          <th class="px-6 py-3">Check out</th>
+          <th class="px-6 py-3">Duration</th>
+          <th class="px-6 py-3">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in my_records %}
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-6 py-4 font-medium text-gray-900">{{ r.date }}</td>
+          <td class="px-6 py-4 text-gray-600">{{ r.check_in|time:"H:i"|default:"—" }}</td>
+          <td class="px-6 py-4 text-gray-600">{{ r.check_out|time:"H:i"|default:"—" }}</td>
+          <td class="px-6 py-4 text-gray-600">{{ r.duration_display }}</td>
+          <td class="px-6 py-4">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold
+              {% if r.status == 'present' %}bg-green-100 text-green-800
+              {% elif r.status == 'absent' %}bg-red-100 text-red-800
+              {% elif r.status == 'late' %}bg-amber-100 text-amber-800
+              {% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ r.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="px-6 py-10 text-center text-gray-500 italic">
+            No records found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

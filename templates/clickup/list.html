@@ -1,0 +1,105 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}{{ task_list.name }} · Task Hub{% endblock %}{% block page_title %}Task Hub{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/clickup.css' %}"><link rel="stylesheet" href="{% static 'css/clickup-workflow.css' %}">{% endblock %}
+{% block content %}<div class="cu-workspace" data-cu-list-id="{{ task_list.pk }}">
+  {% include 'clickup/_sidebar.html' %}
+  <main class="cu-shell cu-workspace-main">
+    <header class="cu-heading"><div><a href="{% url 'clickup:home' %}">All spaces</a><p>{{ task_list.space.name }}{% if task_list.folder %} / {{ task_list.folder.name }}{% endif %}</p><h1>{{ task_list.name }}</h1></div>
+      <div class="cu-heading-actions"><a class="cu-button" href="{% url 'clickup:list_tools' task_list.pk %}?{{ request.GET.urlencode }}">List tools</a>{% if can_manage_access %}<a class="cu-button" href="{% url 'clickup:manage_list_access' task_list.pk %}">Access</a><a class="cu-button" href="{% url 'clickup:delete_list' task_list.pk %}">Delete list</a>{% endif %}{% if can_write %}<a class="cu-button" href="{% url 'clickup:manage_statuses' task_list.pk %}">Manage statuses</a><a class="cu-button cu-primary" href="{% url 'clickup:create_task' task_list.pk %}">+ Task</a>{% endif %}</div>
+    </header>
+    {% include 'clickup/_list_region.html' %}
+  </main>
+</div><div id="cu-task-panel" class="cu-task-panel-host"></div>
+<script>
+(function(){
+  const root = document.querySelector('[data-cu-list-id]');
+  if (!root) return;
+  const key = 'task-hub-columns-' + root.dataset.cuListId;
+  const defaults = ['assignees','due','status','progress','comments','start','completed','updated'];
+  function readColumns(){ const region=root.querySelector('#cu-list-region'); if(region?.hasAttribute('data-cu-saved-columns')) return region.dataset.cuSavedColumns.split(',').filter(Boolean); try { const value=JSON.parse(localStorage.getItem(key)); return Array.isArray(value)?value:defaults; } catch (_) { return defaults; } }
+  function applyColumns(){
+    const shown = readColumns();
+    root.querySelectorAll('[data-cu-col]').forEach(el=>el.classList.toggle('cu-column-hidden',!shown.includes(el.dataset.cuCol)));
+    root.querySelectorAll('[data-cu-toggle]').forEach(input=>input.checked=shown.includes(input.dataset.cuToggle));
+  }
+  function applyBulkControls(){
+    const form=root.querySelector('#cu-bulk-form');
+    if(!form) return;
+    const selected=form.querySelector('[name=change]').value;
+    const field={status:'status',priority:'priority',due:'due_date',assign:'assignee_id',move:'destination_id'};
+    Object.values(field).forEach(name=>{const control=form.querySelector('[name='+name+']'); if(control) control.hidden=name!==field[selected];});
+  }
+  root.addEventListener('change', function(event){
+    if(event.target.matches('#cu-bulk-form [name=change]')) { applyBulkControls(); return; }
+    if (event.target.matches('.cu-select-group')) {
+      event.target.closest('.cu-task-group').querySelectorAll('.cu-task-select').forEach(box=>{box.checked=event.target.checked});
+      return;
+    }
+    if (!event.target.matches('[data-cu-toggle]')) return;
+    const selected=[...root.querySelectorAll('[data-cu-toggle]:checked')].map(input=>input.dataset.cuToggle);
+    localStorage.setItem(key,JSON.stringify(selected));
+    applyColumns();
+  });
+  root.addEventListener('click', function(event){
+    const trigger=event.target.closest('.cu-assignee-trigger');
+    if (!trigger) return;
+    const picker=document.getElementById(trigger.getAttribute('aria-controls'));
+    if (!picker) return;
+    if (picker.matches(':popover-open')) { picker.hidePopover(); return; }
+    const box=trigger.getBoundingClientRect();
+    picker.style.left=Math.max(12,Math.min(box.left,window.innerWidth-272))+'px';
+    picker.style.top=Math.max(12,Math.min(box.bottom+6,window.innerHeight-330))+'px';
+    picker.showPopover();
+    picker.querySelector('.cu-assignee-search').focus();
+  });
+  root.addEventListener('input', function(event){
+    if (!event.target.matches('.cu-assignee-search')) return;
+    const query=event.target.value.trim().toLocaleLowerCase();
+    event.target.closest('.cu-assignee-picker').querySelectorAll('[data-cu-person]').forEach(label=>{
+      label.hidden=!label.dataset.cuPerson.includes(query);
+    });
+  });
+  root.addEventListener('htmx:afterSwap', ()=>{applyColumns();applyBulkControls();});
+  let dragged=null;
+  root.addEventListener('dragstart', event=>{
+    if (!event.target.matches('.cu-drag-handle')) return;
+    dragged=event.target.closest('[data-cu-task-id]');
+    event.dataTransfer.effectAllowed='move';
+    event.dataTransfer.setData('text/plain', dragged.dataset.cuTaskId);
+  });
+  root.addEventListener('dragover', event=>{
+    const group=event.target.closest('[data-cu-status]');
+    if (!dragged || !group) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect='move';
+    root.querySelectorAll('.cu-drop-before,.cu-drop-group').forEach(el=>el.classList.remove('cu-drop-before','cu-drop-group'));
+    const row=event.target.closest('[data-cu-task-id]');
+    if (row && row!==dragged) row.classList.add('cu-drop-before'); else group.classList.add('cu-drop-group');
+  });
+  root.addEventListener('drop', event=>{
+    const group=event.target.closest('[data-cu-status]');
+    if (!dragged || !group) return;
+    event.preventDefault();
+    const row=event.target.closest('[data-cu-task-id]');
+    const before=row && row!==dragged ? row.dataset.cuTaskId : '';
+    const token=root.querySelector('input[name=csrfmiddlewaretoken]')?.value;
+    if (token) htmx.ajax('POST', dragged.dataset.cuMoveUrl, {
+      target:'#cu-list-region',swap:'outerHTML',
+      values:{status:group.dataset.cuStatus,before:before,csrfmiddlewaretoken:token}
+    });
+    dragged=null;
+    root.querySelectorAll('.cu-drop-before,.cu-drop-group').forEach(el=>el.classList.remove('cu-drop-before','cu-drop-group'));
+  });
+  root.addEventListener('dragend', ()=>{dragged=null;root.querySelectorAll('.cu-drop-before,.cu-drop-group').forEach(el=>el.classList.remove('cu-drop-before','cu-drop-group'));});
+  const panel=document.getElementById('cu-task-panel');
+  panel.addEventListener('click', event=>{if (event.target.closest('[data-cu-close-panel]')) panel.innerHTML='';});
+  document.addEventListener('keydown', event=>{if (event.key==='Escape') panel.innerHTML='';});
+  panel.addEventListener('htmx:afterRequest', event=>{
+    if (event.detail.successful && event.detail.requestConfig?.verb==='post') {
+      htmx.ajax('GET', location.pathname + location.search, {target:'#cu-list-region',swap:'outerHTML'});
+    }
+  });
+  applyColumns();
+  applyBulkControls();
+})();
+</script>{% endblock %}

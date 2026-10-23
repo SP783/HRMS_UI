@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% load biometric_tags %}
+
+{% block title %}Biometric Employee Mapping — {{ site_name }}{% endblock %}
+{% block page_title %}Biometric Employee Mapping{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6">
+
+  {% include "biometric/partials/nav.html" %}
+
+  <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
+      <h3 class="text-base font-semibold text-gray-900">ESSL → StudioHR Employee Mapping</h3>
+      <div class="flex items-center gap-3">
+        <button type="button" id="btn-refresh" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+          <svg class="mr-1.5 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          Refresh from ESSL
+        </button>
+        <button type="button" id="btn-save" class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+          Save Mapping
+        </button>
+      </div>
+    </div>
+
+    <div id="refresh-msg" style="display:none;" class="px-5 py-3 text-sm font-medium border-b border-gray-200"></div>
+    <div class="px-5 py-4 border-b border-gray-200">
+      <label for="biometric-search" class="block text-sm font-medium text-gray-700">Add biometric employee</label>
+      <div class="relative mt-1 max-w-lg">
+        <input id="biometric-search" type="search" autocomplete="off" aria-controls="biometric-results" aria-expanded="false"
+               placeholder="Search device ID, code or name…"
+               class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        <div id="biometric-results" role="listbox" class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+          {% for m in available_mappings %}
+          <button type="button" role="option" class="biometric-choice block w-full px-3 py-2 text-left text-sm hover:bg-blue-50"
+                  data-id="{{ m.essl_employee_id }}" data-code="{{ m.essl_employee_code }}" data-name="{{ m.essl_employee_name }}">
+            {{ m.essl_employee_code }} — {{ m.essl_employee_name }} ({{ m.essl_employee_id }})
+          </button>
+          {% endfor %}
+          <div id="biometric-no-results" class="hidden px-3 py-2 text-sm text-gray-500">No matching unmapped employee</div>
+        </div>
+      </div>
+      <p class="mt-1 text-xs text-gray-500">Only mapped employees appear below. Search above to add another device employee.</p>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table id="mapping-table" class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ESSL Code</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ESSL Name</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ESSL ID</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">StudioHR Employee</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Multiple punches / hours</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 bg-white">
+          {% for m in mappings %}
+          <tr class="hover:bg-gray-50" data-mapping-row="{{ m.essl_employee_id }}">
+            <td class="whitespace-nowrap px-5 py-4 text-sm font-medium text-gray-900">{{ m.essl_employee_code }}</td>
+            <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700">{{ m.essl_employee_name }}</td>
+            <td class="whitespace-nowrap px-5 py-4 text-xs text-gray-500">{{ m.essl_employee_id }}</td>
+            <td class="whitespace-nowrap px-5 py-2.5">
+              <select class="mapping-select block w-full min-w-[220px] rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      data-essl-id="{{ m.essl_employee_id }}">
+                <option value="">— Not mapped —</option>
+                {% for emp in hrms_employees %}
+                <option value="{{ emp.profile.pk }}"
+                  {% if m.profile_id == emp.profile.pk %}selected{% endif %}>
+                  {{ emp.profile.employee_id }} — {{ emp.profile.full_name }}
+                </option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="whitespace-nowrap px-5 py-2.5">
+              <select class="punch-mode rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm" aria-label="Multiple punch rule for {{ m.essl_employee_name }}">
+                <option value="standard" {% if m.multiple_punch_mode == 'standard' %}selected{% endif %}>Standard: first IN, last OUT</option>
+                <option value="full_span" {% if m.multiple_punch_mode == 'full_span' %}selected{% endif %}>Multiple entries: full span</option>
+                <option value="deduct_outside" {% if m.multiple_punch_mode == 'deduct_outside' %}selected{% endif %}>Multiple entries: deduct outside time</option>
+              </select>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="px-5 py-8 text-center text-sm text-gray-500">
+              No mapped employees yet. Search above to add one, or refresh from ESSL first.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <template id="mapping-row-template"><tr class="hover:bg-gray-50">
+      <td class="whitespace-nowrap px-5 py-4 text-sm font-medium text-gray-900 mapping-code"></td>
+      <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700 mapping-name"></td>
+      <td class="whitespace-nowrap px-5 py-4 text-xs text-gray-500 mapping-id"></td>
+      <td class="whitespace-nowrap px-5 py-2.5"><select class="mapping-select block w-full min-w-[220px] rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm">
+        <option value="">— Not mapped —</option>
+        {% for emp in hrms_employees %}<option value="{{ emp.profile.pk }}">{{ emp.profile.employee_id }} — {{ emp.profile.full_name }}</option>{% endfor %}
+      </select></td>
+      <td class="whitespace-nowrap px-5 py-2.5"><select class="punch-mode rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm">
+        <option value="standard">Standard: first IN, last OUT</option>
+        <option value="full_span">Multiple entries: full span</option>
+        <option value="deduct_outside">Multiple entries: deduct outside time</option>
+      </select></td>
+    </tr></template>
+  </div>
+</div>
+
+<script>
+const biometricSearch = document.getElementById('biometric-search');
+const biometricResults = document.getElementById('biometric-results');
+function filterBiometricChoices() {
+  const query = biometricSearch.value.trim().toLocaleLowerCase();
+  let count = 0;
+  biometricResults.querySelectorAll('.biometric-choice').forEach(choice => {
+    const match = !choice.hidden && (!query || choice.textContent.toLocaleLowerCase().includes(query));
+    choice.style.display = match ? '' : 'none';
+    count += match ? 1 : 0;
+  });
+  document.getElementById('biometric-no-results').classList.toggle('hidden', count > 0);
+  biometricResults.classList.remove('hidden');
+  biometricSearch.setAttribute('aria-expanded', 'true');
+}
+biometricSearch.addEventListener('input', filterBiometricChoices);
+biometricSearch.addEventListener('focus', filterBiometricChoices);
+biometricResults.addEventListener('click', event => {
+  const choice = event.target.closest('.biometric-choice');
+  if (!choice) return;
+  const row = document.getElementById('mapping-row-template').content.firstElementChild.cloneNode(true);
+  row.dataset.mappingRow = choice.dataset.id;
+  row.querySelector('.mapping-code').textContent = choice.dataset.code;
+  row.querySelector('.mapping-name').textContent = choice.dataset.name;
+  row.querySelector('.mapping-id').textContent = choice.dataset.id;
+  row.querySelector('.mapping-select').dataset.esslId = choice.dataset.id;
+  const tbody = document.querySelector('#mapping-table tbody');
+  if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+  tbody.appendChild(row);
+  choice.hidden = true;
+  biometricSearch.value = '';
+  biometricResults.classList.add('hidden');
+  biometricSearch.setAttribute('aria-expanded', 'false');
+  row.querySelector('.mapping-select').focus();
+});
+document.addEventListener('click', event => {
+  if (!event.target.closest('#biometric-results, #biometric-search')) {
+    biometricResults.classList.add('hidden');
+    biometricSearch.setAttribute('aria-expanded', 'false');
+  }
+});
+document.getElementById('btn-refresh').addEventListener('click', function() {
+  const btn = this;
+  const msg = document.getElementById('refresh-msg');
+  
+  // Style disabled state using Tailwind classes
+  btn.disabled = true;
+  btn.classList.add('opacity-75', 'cursor-not-allowed');
+  btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Loading…`;
+
+  fetch('{% org_url "biometric:refresh_essl_employees" %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  })
+  .then(r => r.json())
+  .then(data => {
+    msg.style.display = 'block';
+    msg.textContent = data.message;
+    // Updated to Tailwind success/error colors (#15803d = green-700, #b91c1c = red-700, #f0fdf4 = green-50, #fef2f2 = red-50)
+    msg.style.color = data.ok ? '#15803d' : '#b91c1c';
+    msg.style.backgroundColor = data.ok ? '#f0fdf4' : '#fef2f2';
+    if (data.ok) setTimeout(() => location.reload(), 1000);
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+    btn.innerHTML = `<svg class="mr-1.5 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Refresh from ESSL`;
+  });
+});
+
+document.getElementById('btn-save').addEventListener('click', function() {
+  const btn = this;
+  
+  // Style disabled state using Tailwind classes
+  btn.disabled = true;
+  btn.classList.add('opacity-75', 'cursor-not-allowed');
+  btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving…`;
+
+  const payload = Array.from(document.querySelectorAll('.mapping-select')).map(sel => ({
+    essl_employee_id: parseInt(sel.dataset.esslId),
+    profile_id: sel.value ? parseInt(sel.value) : null,
+    multiple_punch_mode: sel.closest('tr').querySelector('.punch-mode').value,
+  }));
+
+  fetch('{% org_url "biometric:save_mapping" %}', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': '{{ csrf_token }}',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      const msg = document.getElementById('refresh-msg');
+      msg.style.display = 'block';
+      msg.textContent = `Saved ${data.updated} mapping(s).`;
+      // Updated to Tailwind success colors (#15803d = green-700, #f0fdf4 = green-50)
+      msg.style.color = '#15803d';
+      msg.style.backgroundColor = '#f0fdf4';
+      setTimeout(() => location.reload(), 500);
+    } else {
+      const msg = document.getElementById('refresh-msg');
+      msg.style.display = 'block';
+      msg.textContent = data.error || 'Unable to save mappings.';
+      msg.style.color = '#b91c1c';
+    }
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+    btn.textContent = 'Save Mapping';
+  });
+});
+</script>
+{% endblock %}

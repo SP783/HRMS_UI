@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load biometric_tags %}
+
+{% block title %}Biometric Sync — {{ site_name }}{% endblock %}
+{% block page_title %}Biometric Sync{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-4">
+  {% include "biometric/partials/nav.html" %}
+
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-4 py-2.5 text-sm {% if config.is_configured %}border-green-200 bg-green-50 text-green-900{% else %}border-amber-200 bg-amber-50 text-amber-900{% endif %}">
+    <strong>{% if config.is_configured %}Connection ready{% else %}Connection not configured{% endif %}</strong>
+    {% if config.is_configured %}
+      <span class="min-w-0 break-all">{% if config.is_device_mode %}ESSL Direct · {{ config.device_ip }}:{{ config.device_port }}{% else %}MS SQL · {{ config.server }} / {{ config.database }}{% endif %}</span>
+      {% if config.last_tested_at %}<span class="text-xs opacity-75">Last tested {{ config.last_tested_at|date:"d M Y H:i" }}</span>{% endif %}
+    {% else %}
+      <span>A Super Admin must set up the biometric connection before a sync can run.</span>
+    {% endif %}
+  </div>
+
+  <section class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm" aria-labelledby="sync-form-title">
+    <div class="mb-3">
+      <h2 id="sync-form-title" class="text-base font-semibold text-gray-900">Run sync</h2>
+      <p class="text-xs text-gray-500">Import biometric attendance and punches for a date range.</p>
+    </div>
+    <form method="post" action="{% org_url 'biometric:manual_sync' %}" class="flex flex-wrap items-end gap-3">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+      {% csrf_token %}
+      <label class="min-w-[150px] flex-1 text-xs font-medium text-gray-600">From
+        <input type="date" name="date_from" required class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+      </label>
+      <label class="min-w-[150px] flex-1 text-xs font-medium text-gray-600">To
+        <input type="date" name="date_to" required class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+      </label>
+      <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50" {% if not config.is_configured %}disabled{% endif %}>Sync dates</button>
+      <button type="submit" name="resync" value="1" formnovalidate class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" {% if not config.is_configured %}disabled{% endif %} onclick="return confirm('Full resync will pull the last {{ config.lookback_days }} days. Continue?')">Full resync · {{ config.lookback_days }} days</button>
+    </form>
+  </section>
+
+  <section class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" aria-labelledby="recent-syncs-title">
+    <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+      <h2 id="recent-syncs-title" class="text-sm font-semibold text-gray-900">Recent results</h2>
+      <a href="{% org_url 'biometric:logs' %}" class="text-sm font-medium text-blue-700 hover:underline">View all logs</a>
+    </div>
+    <div class="divide-y divide-gray-100">
+      {% for log in recent_logs %}
+      <div class="grid grid-cols-1 gap-1 px-4 py-2.5 text-xs text-gray-600 sm:grid-cols-[minmax(150px,1fr)_minmax(120px,1fr)_minmax(130px,1fr)_minmax(130px,1fr)] sm:items-center sm:gap-3">
+        <span>{{ log.started_at|date:"d M Y H:i" }} · {{ log.get_triggered_by_display }}</span>
+        <strong class="{% if log.status == 'success' %}text-green-700{% elif log.status == 'partial' %}text-amber-700{% else %}text-red-700{% endif %}">{{ log.get_status_display }}</strong>
+        <span>Attendance: {{ log.attendance_new }}/{{ log.attendance_pulled }} new</span>
+        <span>Punches: {{ log.punches_new }}/{{ log.punches_pulled }} new</span>
+        {% if log.error_message %}<span class="break-words text-red-700 sm:col-span-4">{{ log.error_message }}</span>{% endif %}
+      </div>
+      {% empty %}
+      <p class="px-4 py-5 text-sm text-gray-500">No sync results yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

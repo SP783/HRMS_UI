@@ -1,0 +1,12 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Task Hub access{% endblock %}{% block page_title %}Task Hub{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/clickup.css' %}">{% endblock %}
+{% block content %}<main class="cu-shell cu-narrow"><a href="{{ back_url }}">← Back</a><header class="cu-heading"><div><h1>{{ scope_type }} access</h1><p>{{ label }}</p></div></header>
+  <p>Space access applies to its Lists. A List grant overrides the Space level for that List. Only Super Admin can change grants.</p>
+  <section class="cu-panel"><h2>Grant or change access</h2><form method="post" class="cu-form">{% csrf_token %}
+    <label>Team member<select name="profile_id" required>{% for person in people %}<option value="{{ person.pk }}">{{ person.full_name }}</option>{% endfor %}</select></label>
+    <label>Access<select name="level"><option value="view">View</option><option value="comment">View and comment</option><option value="edit">View, comment and edit</option><option value="none">Remove grant</option></select></label>
+    <button class="cu-button cu-primary">Save access</button>
+  </form></section>
+  <section class="cu-panel"><h2>Direct grants</h2>{% for grant in grants %}<div class="cu-line"><span>{{ grant.person_name }}</span><strong>{{ grant.get_level_display }}</strong></div>{% empty %}<p class="cu-muted">No direct grants. Super Admin retains access.</p>{% endfor %}</section>
+</main>{% endblock %}

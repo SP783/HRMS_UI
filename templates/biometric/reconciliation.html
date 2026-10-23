@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load biometric_tags %}
+
+{% block title %}Attendance reconciliation — StudioHR{% endblock %}
+{% block page_title %}Attendance reconciliation{% endblock %}
+{% block content %}
+{% include 'biometric/partials/nav.html' %}
+<section id="ui-list-region" class="p-6">
+  {% if not reconciliation_enabled %}<p class="rounded border border-amber-300 bg-amber-50 p-3">Attendance reconciliation is off. A Super Admin can enable it in Biometric Configuration.</p>{% endif %}
+  <form method="post" action="{% org_url 'biometric:process_attendance' %}" class="flex flex-wrap gap-3 items-end my-4">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+    {% csrf_token %}
+    <label>From <input type="date" name="date_from"></label>
+    <label>To <input type="date" name="date_to"></label>
+    <button type="submit" {% if not reconciliation_enabled %}disabled aria-disabled="true"{% endif %} class="rounded bg-indigo-600 text-white px-4 py-2 disabled:opacity-50">Process attendance</button>
+  </form>
+  <p>Uses already-synced punches. Blank dates use the configured lookback. Missing attendance is also checked hourly while the scheduler runs.</p>
+  <p class="my-3">One row per employee and attendance date. Expand the row to inspect original clicks, matched punches, and revisions.</p>
+  <form method="get" data-ui-filter>{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+    <label>Status <select name="state"><option value="">All</option>
+      <option value="pending" {% if state == 'pending' %}selected{% endif %}>Awaiting a matching punch</option>
+      <option value="matched" {% if state == 'matched' %}selected{% endif %}>Matched</option>
+      <option value="manual_locked" {% if state == 'manual_locked' %}selected{% endif %}>Manual correction preserved</option>
+    </select></label><button type="submit">Apply</button>
+  </form>
+  <div class="overflow-x-auto my-4"><table class="w-full text-sm">
+    <thead><tr><th>Employee</th><th>Attendance date</th><th>Check in</th><th>Check out</th><th>History</th></tr></thead>
+    <tbody>{% for record in page %}<tr class="border-b">
+      <td class="p-3">{{ record.profile.user.get_full_name|default:record.profile.user.username }}</td>
+      <td class="p-3">{{ record.date }}</td>
+      <td class="p-3">{{ record.check_in|date:'H:i:s'|default:'—' }}</td>
+      <td class="p-3">{{ record.check_out|date:'H:i:s'|default:'—' }}</td>
+      <td class="p-3"><details><summary>View changes</summary>{% for event in record.biometric_events.all %}
+        <p><strong>{{ event.action }}</strong> · {{ event.state }} · Processing/click: {{ event.clicked_at|date:'d M Y H:i:s' }} · Effective: {{ event.effective_at|date:'d M Y H:i:s' }}{% if event.punch_id %} · Punch #{{ event.punch_id }}{% endif %} · {{ event.reason }}</p>
+        {% for revision in event.revisions.all %}<p class="pl-4">{{ revision.created_at }}: {{ revision.previous_at|date:'H:i:s' }} → {{ revision.effective_at|date:'H:i:s' }} · {{ revision.reason }}</p>{% endfor %}
+      {% endfor %}</details>
+      </td>
+    </tr>{% empty %}<tr><td colspan="5" class="p-3">No attendance matching events yet.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <nav aria-label="Pagination">{% if page.has_previous %}<a href="?state={{ state }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
+    Page {{ page.number }} of {{ page.paginator.num_pages }}
+    {% if page.has_next %}<a href="?state={{ state }}&page={{ page.next_page_number }}">Next</a>{% endif %}</nav>
+</section>
+{% endblock %}

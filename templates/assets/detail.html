@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}{{ asset.asset_tag }} · IT Assets{% endblock %}
+{% block page_title %}IT Asset{% endblock %}
+{% block content %}
+<main class="max-w-5xl p-5 space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div><h1 class="text-xl font-bold">{{ asset.asset_tag }}</h1><p class="text-sm text-gray-500">{{ asset.category }} · {{ asset.get_status_display }}</p></div>
+    <div class="flex gap-2"><a class="rounded-lg border px-3 py-2" href="{% url 'assets:list' %}">Back to assets</a>{% if can_edit %}<a class="rounded-lg bg-indigo-600 px-3 py-2 text-white" href="{% url 'assets:edit' asset.pk %}">Edit</a>{% endif %}</div>
+  </div>
+  <section class="rounded-xl border bg-white p-5 text-sm">
+    <dl class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div><dt class="text-gray-500">Manufacturer / model</dt><dd>{{ asset.manufacturer|default:'—' }} {{ asset.model_name }}</dd></div>
+      <div><dt class="text-gray-500">Serial number</dt><dd>{{ asset.serial_number|default:'—' }}</dd></div>
+      <div><dt class="text-gray-500">Assigned employee ID</dt><dd>{{ asset.assigned_employee_id|default:'—' }}</dd></div>
+      <div><dt class="text-gray-500">Condition</dt><dd>{{ asset.condition|default:'—' }}</dd></div>
+      <div><dt class="text-gray-500">Location</dt><dd>{{ asset.location|default:'—' }}</dd></div>
+      <div><dt class="text-gray-500">Warranty expires</dt><dd>{{ asset.warranty_expires|date:'d M Y'|default:'—' }}</dd></div>
+    </dl>
+    {% if asset.notes %}<p class="mt-4 whitespace-pre-wrap">{{ asset.notes }}</p>{% endif %}
+  </section>
+  <section class="rounded-xl border bg-white p-5 space-y-4">
+    <h2 class="font-bold">Comments</h2>
+    {% for comment in comments %}<article class="border-t pt-3 text-sm"><div class="flex flex-wrap gap-2"><strong>{{ comment.author_name }}</strong><time class="text-gray-500">{{ comment.created_at|date:'d M Y H:i' }}</time></div><p class="mt-1 whitespace-pre-wrap">{{ comment.body }}</p></article>{% empty %}<p class="text-sm text-gray-500">No comments yet.</p>{% endfor %}
+    {% if can_comment %}<form method="post" action="{% url 'assets:comment' asset.pk %}" class="space-y-2">{% csrf_token %}<label for="asset-comment" class="block text-sm font-medium">Add comment</label><textarea id="asset-comment" name="body" maxlength="2000" required rows="3" class="w-full rounded-lg border p-2"></textarea><button class="rounded-lg bg-indigo-600 px-4 py-2 text-white">Post comment</button></form>{% endif %}
+  </section>
+</main>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Audit Entry #{{ log.pk }} — {{ site_name }}{% endblock %}
+{% block page_title %}Audit Entry{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'audit:index' %}?{{ querystring }}" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-content bg-surface border border-default rounded-md shadow-sm hover:bg-surface-2 transition-colors">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Back to log
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="bg-surface border border-default rounded-lg overflow-hidden">
+    <div class="px-5 py-4 border-b border-default flex items-center justify-between">
+      <div>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+          {% if log.action == 'create' %}bg-green-100 text-green-700
+          {% elif log.action == 'update' %}bg-blue-50 text-blue-600
+          {% elif log.action == 'delete' %}bg-red-100 text-red-700{% endif %}">
+          {{ log.get_action_display }}
+        </span>
+        <h2 class="text-lg font-semibold text-content mt-1">{{ log.object_label|default:log.object_pk }}</h2>
+      </div>
+      <span class="text-sm text-muted">{{ log.occurred_at|date:"d M Y, H:i:s" }}</span>
+    </div>
+
+    <dl class="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm border-b border-default">
+{% if audit_shared %}<div><dt class="text-muted">Organization</dt><dd class="text-content font-medium">{{ log.report_organization }}</dd></div>{% endif %}
+      <div><dt class="text-muted">Actor</dt><dd class="text-content font-medium">{{ log.actor_username|default:"system" }}{% if log.actor_role %} ({{ log.actor_role }}){% endif %}</dd></div>
+      <div><dt class="text-muted">Model</dt><dd class="text-content">{{ log.app_label }}.{{ log.model_name }}</dd></div>
+      <div><dt class="text-muted">Object ID</dt><dd class="text-content">{{ log.object_pk|default:"—" }}</dd></div>
+      <div><dt class="text-muted">IP address</dt><dd class="text-content">{{ log.ip_address|default:"—" }}</dd></div>
+      <div class="sm:col-span-2"><dt class="text-muted">Request path</dt><dd class="text-content break-all">{{ log.path|default:"—" }}</dd></div>
+    </dl>
+
+    <div class="px-5 py-4">
+      <h3 class="text-sm font-semibold text-content mb-3">Field changes</h3>
+      {% if log.changed_fields %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-muted uppercase tracking-wide">
+              <th class="py-2 pr-4">Field</th>
+              <th class="py-2 pr-4">Before</th>
+              <th class="py-2">After</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-default">
+            {% for field, old, new in log.changed_fields %}
+            <tr>
+              <td class="py-2 pr-4 font-medium text-content align-top">{{ field }}</td>
+              <td class="py-2 pr-4 align-top">
+                <span class="text-red-600 break-all">{% if old is None %}<em class="text-muted">none</em>{% else %}{{ old }}{% endif %}</span>
+              </td>
+              <td class="py-2 align-top">
+                <span class="text-green-700 break-all">{% if new is None %}<em class="text-muted">none</em>{% else %}{{ new }}{% endif %}</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="text-sm text-muted">{% if log.action == 'delete' %}Record deleted — no field diff captured.{% else %}No field-level changes recorded.{% endif %}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}{{ team_title }} — {{ site_name }}{% endblock %}
+{% block page_title %}{{ team_title }}{% endblock %}
+{% block content %}
+<style>
+.team-panel{background:var(--surface,#fff);border:1px solid #dce3ed;border-radius:12px;padding:16px;margin-bottom:16px}.dark .team-panel{background:#0f172a;border-color:#334155}
+.team-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:10px}.team-toolbar label{display:flex;flex-direction:column;gap:5px;font-size:12px}.team-toolbar input,.team-toolbar select{padding:8px;border:1px solid #cbd5e1;border-radius:7px;max-width:240px;background:transparent;color:inherit}.team-button{display:inline-block;padding:8px 12px;border:1px solid #cbd5e1;border-radius:7px;font-size:13px;text-decoration:none;white-space:nowrap}.team-primary{background:#5145e5;color:white;border-color:#5145e5}.team-grid{overflow:auto}.team-grid table{border-collapse:collapse;width:100%;font-size:13px}.team-grid th,.team-grid td{text-align:left;padding:10px 12px;border-bottom:1px solid #e2e8f0;vertical-align:middle}.team-grid th{background:#f1f5f9;color:#475569;white-space:nowrap}.dark .team-grid th{background:#1e293b;color:#cbd5e1}.team-actions{display:flex;flex-wrap:wrap;gap:6px}.team-muted{font-size:12px;color:#64748b}.team-pager{display:flex;align-items:center;gap:14px;margin-top:14px}
+</style>
+<div class="team-toolbar" style="margin-bottom:14px">
+{% if kind == 'attendance' %}<a class="team-button" href="{% url 'attendance:my' %}">My attendance</a>{% else %}<a class="team-button" href="{% url 'leave:my' %}">My leaves</a>{% endif %}
+<span class="team-muted">Combined team view · Actions use the record’s home organization</span>
+</div>
+<section id="ui-list-region" data-ui-list hx-history="false">
+{% include "workspaces/controls.html" %}
+<div class="team-panel">
+<form method="get" data-ui-filter class="team-toolbar">{% include "workspaces/params.html" %}
+<label>Organization<select name="organization"><option value="">All authorized organizations</option>{% for org in organizations %}<option value="{{ org.pk }}" {% if filters.organization == org.pk|stringformat:'s' %}selected{% endif %}>{{ org.name }}</option>{% endfor %}</select></label>
+<label>Department<select name="department"><option value="">All departments</option>{% for dept in departments %}<option value="{{ dept.profile__employee__department_id }}" {% if filters.department == dept.profile__employee__department_id|stringformat:'s' %}selected{% endif %}>{{ dept.profile__employee__department__name }}</option>{% endfor %}</select></label>
+<label>Employee<select name="employee"><option value="">All employees</option>{% for emp in employees %}<option value="{{ emp.profile_id }}" {% if filters.employee == emp.profile_id|stringformat:'s' %}selected{% endif %}>{{ emp.profile__employee__employee_id }} — {{ emp.profile__user__first_name }} {{ emp.profile__user__last_name }} ({{ emp.profile__user__username }})</option>{% endfor %}</select></label>
+<label>Search<input name="q" value="{{ filters.q }}" placeholder="Employee name or ID"></label>
+<label>Status<select name="status"><option value="">All statuses</option>{% for value,label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label>From<input type="date" name="date_from" value="{{ filters.date_from }}"></label>
+<label>To<input type="date" name="date_to" value="{{ filters.date_to }}"></label>
+<button class="team-button team-primary">Filter</button><a class="team-button" href="?">Reset</a>
+</form></div>
+<div class="team-toolbar" style="justify-content:space-between;margin-bottom:12px"><strong>{{ page.paginator.count }} records</strong><div class="team-actions">
+{% if kind == 'attendance' %}<a class="team-button" href="{% url 'attendance:shared_export' %}?{{ query }}&amp;format=csv">Export CSV</a><a class="team-button" href="{% url 'attendance:shared_export' %}?{{ query }}&amp;format=pdf">Download PDF</a>{% else %}<a class="team-button" href="{% url 'leave:shared_export' %}?{{ query }}&amp;format=csv">Export CSV</a><a class="team-button" href="{% url 'leave:shared_export' %}?{{ query }}&amp;format=pdf">Download PDF</a>{% endif %}
+</div></div>
+<div class="team-panel team-grid" style="padding:0"><table data-server-workspace="team-{{ kind }}">
+<thead><tr><th>Employee</th><th>Organization</th><th>Department</th>{% if kind == 'attendance' %}<th>Date</th><th>Check in</th><th>Check out</th><th>Duration</th><th>Break</th>{% else %}<th>Leave type</th><th>From</th><th>To</th><th>Days</th>{% endif %}<th>Status</th><th>Actions</th></tr></thead>
+<tbody>{% for row in rows %}<tr>
+<td><strong>{{ row.profile.user.get_full_name|default:row.profile.user.username }}</strong><div class="team-muted">{{ row.profile.employee.employee_id }}</div></td><td>{{ row.organization_label }}</td><td>{{ row.profile.employee.department|default:'—' }}</td>
+{% if kind == 'attendance' %}<td>{{ row.date|date:'d M Y' }}</td><td>{{ row.check_in|date:'H:i'|default:'—' }}</td><td>{{ row.check_out|date:'H:i'|default:'—' }}{% if row.provisional_checkout %}<div class="team-muted">Provisional</div>{% endif %}</td><td>{{ row.duration_display|default:'—' }}</td><td>{{ row.total_break_minutes }} min</td>{% else %}<td>{{ row.leave_type }}</td><td>{{ row.start_date|date:'d M Y' }}</td><td>{{ row.end_date|date:'d M Y' }}</td><td>{{ row.effective_days }}</td>{% endif %}
+<td>{{ row.get_status_display }}</td><td><div class="team-actions">
+{% if kind == 'attendance' %}{% if row.can_correct %}<a class="team-button" href="{% url 'attendance:shared_correct' row.pk %}?{{ query }}">Correct</a>{% endif %}
+{% else %}{% if row.can_review %}<a class="team-button" href="{% if team_shared %}{% url 'leave:shared_review' row.pk %}{% else %}{% url 'leave:review' row.pk %}{% endif %}{% if query %}?{{ query }}{% endif %}">Review</a>{% endif %}
+{% if row.can_withdraw and row.status != 'cancelled' and row.status != 'rejected' %}<form method="post" action="{% url 'leave:shared_cancel' row.pk %}?{{ query }}">{% csrf_token %}<button class="team-button" onclick="return confirm('Withdraw this leave request in its home organization?')">Withdraw</button></form>{% endif %}
+{% if row.can_delete %}<form method="post" action="{% url 'leave:shared_delete' row.pk %}?{{ query }}">{% csrf_token %}<button class="team-button" onclick="return confirm('Delete this leave request?')">Delete</button></form>{% endif %}{% endif %}
+</div></td></tr>{% empty %}<tr><td colspan="10" style="padding:30px;text-align:center">No records match these filters.</td></tr>{% endfor %}</tbody></table></div>
+
+{% if process_orgs %}<details class="team-panel" style="margin-top:18px"><summary>Process saved biometric punches</summary><p class="team-muted">Queues attendance reconciliation for the chosen organization and dates. Its reconciliation setting must be enabled. This processes the entire organization, independent of employee and status filters above.</p><form method="post" action="{% url 'attendance:shared_process' %}" class="team-toolbar">{% csrf_token %}<label>Organization<select name="organization" required>{% for org in process_orgs %}<option value="{{ org.pk }}" {% if filters.organization == org.pk|stringformat:'s' %}selected{% endif %}>{{ org.name }}</option>{% endfor %}</select></label><label>From<input type="date" name="date_from" value="{{ filters.date_from }}" required></label><label>To<input type="date" name="date_to" value="{{ filters.date_to }}" required></label><button class="team-button">Process attendance</button></form></details>{% endif %}
+{% include "workspaces/pagination.html" %}
+</section>
+{% endblock %}

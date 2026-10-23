@@ -1,0 +1,16 @@
+/* StudioHR styles entrypoint.
+   This file stays as the single URL loaded by templates.
+   Import order matters: base first (tokens), then structure,
+   then components, then responsive overrides last. */
+
+@import url('base.css');
+@import url('layout.css');
+@import url('components.css');
+@import url('forms.css');
+@import url('tables.css');
+@import url('dashboard.css');
+@import url('attendance.css');
+@import url('utilities.css');
+@import url('responsive.css');
+@import url('tokens.css');
+@import url('tab-bar.css');

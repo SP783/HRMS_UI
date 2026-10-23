@@ -1,0 +1,202 @@
+{% if cal_colors %}
+<style>
+  .cal-color-scope .cal-st-present { background-color: {{ cal_colors.present }} !important; }
+  .cal-color-scope .cal-st-absent  { background-color: {{ cal_colors.absent }} !important; }
+  .cal-color-scope .cal-st-late    { background-color: {{ cal_colors.late }} !important; }
+  .cal-color-scope .cal-st-halfday { background-image: none !important; background-color: {{ cal_colors.half_day }} !important; }
+  .cal-color-scope .cal-st-leave   { background-color: {{ cal_colors.leave }} !important; }
+  .cal-color-scope .cal-st-lop     { background-color: {{ cal_colors.lop }} !important; }
+  .cal-color-scope .cal-st-sick    { background-color: {{ cal_colors.sick }} !important; }
+  .cal-color-scope .cal-st-earned  { background-color: {{ cal_colors.earned }} !important; }
+  .cal-color-scope .cal-st-holiday { background-color: {{ cal_colors.holiday }} !important; }
+  .cal-color-scope .cal-st-weekoff { background-color: {{ cal_colors.weekoff }} !important; }
+</style>
+{% endif %}
+<div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3 mb-6">
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-indigo-600">{{ cal_data.attendance_pct }}%</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Attendance</div>
+  </div>
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-green-600">{{ cal_data.status_counts.present }}</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Present</div>
+  </div>
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-amber-500">{{ cal_data.status_counts.late }}</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Late</div>
+  </div>
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-teal-600">{{ cal_data.status_counts.half_day }}</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Half Day</div>
+  </div>
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-red-500">{{ cal_data.status_counts.absent }}</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Absent</div>
+  </div>
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-yellow-500">{{ cal_data.status_counts.sick|default:0 }}</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Sick</div>
+  </div>
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-blue-500">{{ cal_data.status_counts.earned|default:0 }}</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Earned</div>
+  </div>
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-gray-700">{{ cal_data.status_counts.weekoff }}</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Week Off</div>
+  </div>
+  <div class="flex flex-col items-center p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+    <div class="text-lg font-bold text-purple-600">{{ cal_data.status_counts.holiday|default:0 }}</div>
+    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-1">Holiday</div>
+  </div>
+</div>
+
+<div class="cal-color-scope bg-gray-200 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+  
+  <div class="grid grid-cols-7 gap-[1px] border-b border-gray-200">
+    <div class="bg-gray-50 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Sun</div>
+    <div class="bg-gray-50 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Mon</div>
+    <div class="bg-gray-50 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Tue</div>
+    <div class="bg-gray-50 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Wed</div>
+    <div class="bg-gray-50 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Thu</div>
+    <div class="bg-gray-50 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Fri</div>
+    <div class="bg-gray-50 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Sat</div>
+  </div>
+
+  <div class="grid grid-cols-7 gap-[1px] bg-gray-200">
+    {% for week in cal_data.month_weeks %}
+      {% for cell in week %}
+        {% if cell.day == 0 %}
+        <div class="bg-gray-50/50 min-h-[100px]"></div>
+        {% else %}
+
+        {% with cell.status as s %}
+        {% with cell.leave_category|default:"" as lc %}
+
+        <div class="relative p-2 min-h-[100px] flex flex-col transition-colors
+          {% if cell.is_today %}ring-2 ring-inset ring-indigo-500 z-10{% endif %}
+          {% if cell.is_weekoff and not cell.record %}bg-gray-50 cal-st-weekoff
+          {% elif cell.is_half_day %}bg-gradient-to-r from-green-500/20 to-blue-500/20 ring-1 ring-inset ring-slate-300 cal-st-halfday
+          {% elif s == 'present' %}bg-green-100 ring-1 ring-inset ring-green-500/40 cal-st-present
+          {% elif s == 'absent' %}bg-red-100 ring-1 ring-inset ring-red-500/40 cal-st-absent
+          {% elif s == 'late' %}bg-amber-100/60 ring-1 ring-inset ring-amber-500/40 cal-st-late
+          {% elif s == 'half_day' %}bg-gradient-to-r from-green-500/20 to-blue-500/20 ring-1 ring-inset ring-slate-300 cal-st-halfday
+          {% elif s == 'on_leave' %}
+            {% if lc == 'sick' %}bg-yellow-100 ring-1 ring-inset ring-yellow-500/40 cal-st-sick
+            {% elif lc == 'earned' %}bg-blue-100 ring-1 ring-inset ring-blue-500/40 cal-st-earned
+            {% elif lc == 'pat' or lc == 'paternity' %}bg-emerald-100 ring-1 ring-inset ring-emerald-500/40
+            {% elif lc == 'mat' or lc == 'maternity' %}bg-emerald-100 ring-1 ring-inset ring-emerald-500/40
+            {% elif lc == 'lop' %}bg-red-100 ring-1 ring-inset ring-red-500/40 cal-st-lop
+            {% else %}bg-teal-100 ring-1 ring-inset ring-teal-500/40 cal-st-leave{% endif %}
+          {% elif s == 'holiday' %}bg-purple-100/60 ring-1 ring-inset ring-purple-500/40 cal-st-holiday
+          {% else %}bg-white{% endif %}">
+
+          <span class="text-sm font-medium mb-1 {% if cell.is_weekoff and not cell.record %}text-gray-400{% else %}text-gray-800{% endif %}">
+            {{ cell.day }}
+          </span>
+
+          {% if cell.is_half_day %}
+            <div class="flex w-full mt-1 border border-gray-300 rounded text-[10px] overflow-hidden shadow-sm">
+              <div class="flex-1 py-0.5 text-center font-bold
+                {% if cell.first_half == 'present' %}bg-green-100 text-green-700
+                {% elif cell.first_half == 'sick' %}bg-yellow-100 text-yellow-700
+                {% elif cell.first_half == 'earned' %}bg-blue-100 text-blue-700
+                {% elif cell.first_half == 'leave' %}bg-teal-100 text-teal-700
+                {% elif cell.first_half == 'lop' %}bg-red-100 text-red-700
+                {% elif cell.first_half == 'absent' %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-500{% endif %}">
+                {% if cell.first_half == 'present' %}✓
+                {% elif cell.first_half == 'sick' %}🩺
+                {% elif cell.first_half == 'earned' %}EL
+                {% elif cell.first_half == 'leave' %}L
+                {% elif cell.first_half == 'lop' %}LOP
+                {% elif cell.first_half == 'absent' %}✗
+                {% else %}—{% endif %}
+              </div>
+              <div class="flex-1 py-0.5 text-center font-bold border-l border-gray-300
+                {% if cell.second_half == 'present' %}bg-green-100 text-green-700
+                {% elif cell.second_half == 'sick' %}bg-yellow-100 text-yellow-700
+                {% elif cell.second_half == 'earned' %}bg-blue-100 text-blue-700
+                {% elif cell.second_half == 'leave' %}bg-teal-100 text-teal-700
+                {% elif cell.second_half == 'lop' %}bg-red-100 text-red-700
+                {% elif cell.second_half == 'absent' %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-500{% endif %}">
+                {% if cell.second_half == 'present' %}✓
+                {% elif cell.second_half == 'sick' %}🩺
+                {% elif cell.second_half == 'earned' %}EL
+                {% elif cell.second_half == 'leave' %}L
+                {% elif cell.second_half == 'lop' %}LOP
+                {% elif cell.second_half == 'absent' %}✗
+                {% else %}—{% endif %}
+              </div>
+            </div>
+            {% if cell.is_late %}<span class="text-[10px] font-bold text-amber-600 uppercase mt-1 text-center block">Late</span>{% endif %}
+
+          {% elif cell.is_holiday and not cell.record %}
+            <span class="block text-center text-lg mt-0.5">🎉</span>
+            <span class="text-[9px] font-bold uppercase tracking-wider text-center mt-1 block text-purple-800">
+              {% if cell.holiday_type == 'mandatory' %}🔴{% else %}🔵{% endif %}
+              {{ cell.holiday_occasion|truncatewords:3 }}
+            </span>
+
+          {% elif cell.is_weekoff and not cell.record %}
+            <span class="text-[10px] font-bold text-gray-400 uppercase mt-auto text-center block">Week Off</span>
+
+          {% elif cell.record %}
+            {% if cell.is_late %}
+              {% if cell.check_in %}<span class="text-[10px] text-gray-700 font-medium text-center block mt-1">{{ cell.check_in|time:"H:i" }}</span>{% endif %}
+              <span class="text-[10px] font-bold text-amber-600 uppercase mt-0.5 text-center block">Late</span>
+            {% else %}
+              <span class="block text-center mt-1 text-gray-600 font-medium">
+                {% if s == 'present' %}✓
+                {% elif s == 'absent' %}✗
+                {% elif s == 'late' %}⚠
+                {% elif s == 'half_day' %}½
+                {% elif s == 'on_leave' %}🌴
+                {% elif s == 'holiday' %}🎉
+                {% endif %}
+              </span>
+              {% if cell.check_in %}
+              <span class="text-[10px] text-gray-600 text-center block mt-0.5">{{ cell.check_in|time:"H:i" }}{% if cell.check_out %}–{{ cell.check_out|time:"H:i" }}{% endif %}</span>
+              {% endif %}
+            {% endif %}
+            
+            {% if cell.duration %}<span class="text-[9px] text-gray-500 text-center block mt-0.5">{{ cell.duration }}</span>{% endif %}
+            {% if cell.leave_note %}<span class="text-[9px] italic text-gray-500 text-center block truncate mt-1" title="{{ cell.leave_note }}">{{ cell.leave_note }}</span>{% endif %}
+
+          {% elif cell.leave_type %}
+            {% with cell.leave_type.category as lcat %}
+            <span class="block text-center text-lg mt-0.5">
+              {% if lcat == 'sick' %}🩺{% elif lcat == 'maternity' %}🤱{% elif lcat == 'paternity' %}👶{% elif lcat == 'vacation' %}✈️{% else %}🌴{% endif %}
+            </span>
+            <span class="text-[9px] font-bold uppercase tracking-wider text-center mt-1 block text-teal-800 opacity-80">
+              {% if lcat == 'maternity' %}Mat Leave
+              {% elif lcat == 'paternity' %}Pat Leave
+              {% elif lcat == 'sick' %}Sick
+              {% elif lcat == 'vacation' %}Vacation
+              {% else %}{{ cell.leave_type.name }}{% endif %}
+            </span>
+            {% endwith %}
+          {% endif %}
+
+        </div>
+        {% endwith %}
+        {% endwith %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+
+<div class="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-6 text-xs text-gray-600 font-medium">
+  <span class="flex items-center gap-1.5"><span class="flex items-center justify-center w-3.5 h-3.5 rounded-[3px] text-[8px] font-bold text-white bg-gray-700">W</span> Week Off</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-green-100 border border-green-500/40"></span> Present</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-red-100 border border-red-500/40"></span> LOP</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-blue-100 border border-blue-500/40"></span> Earned Leave</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-yellow-100 border border-yellow-500/40"></span> Sick Leave</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-emerald-100 border border-emerald-500/40"></span> Pat/Mat</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-amber-500/20 border border-amber-500/40"></span> Late</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-gradient-to-r from-green-500/30 to-blue-500/30 border border-slate-300"></span> Half Day</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-indigo-50 border border-indigo-500 shadow-[0_0_0_2px_rgba(99,102,241,0.15)]"></span> Today</span>
+  <span class="flex items-center gap-1.5"><span class="block w-3.5 h-3.5 rounded-[3px] bg-purple-500/20 border border-purple-500/40"></span> Holiday</span>
+</div>

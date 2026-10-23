@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load biometric_tags %}
+
+{% block title %}Biometric Settings — {{ site_name }}{% endblock %}
+{% block page_title %}Biometric Settings{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6">
+
+  {% include "biometric/partials/nav.html" %}
+
+  <div class="flex flex-col">
+    <p class="text-sm text-gray-600 mb-6 max-w-3xl">
+      Configure how StudioHR connects to the external biometric / attendance
+      database. Only super admins can change these settings. Once configured,
+      use <strong class="font-medium text-gray-900">Sync now</strong> on the Punches page to pull data.
+    </p>
+
+    <form method="post" action="{% org_url 'biometric:settings' %}" class="space-y-6">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+      {% csrf_token %}
+
+      {# ── Master switch + driver ─────────────────────────────────── #}
+      <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+        <div class="border-b border-gray-200 bg-gray-50 px-5 py-4">
+          <h3 class="text-base font-semibold text-gray-900">Driver</h3>
+        </div>
+        <div class="p-5 space-y-5">
+          <div class="flex flex-col gap-1">
+            <label class="flex items-center gap-2 text-sm font-medium text-gray-900 cursor-pointer w-max">
+              <input type="checkbox" name="enabled" value="1" 
+                     class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                     {% if settings_obj.enabled %}checked{% endif %}>
+              Enable biometric integration
+            </label>
+            <div class="text-xs text-gray-500 ml-6">
+              When off, the Sync button on the Punches page is disabled.
+              Useful while reconfiguring credentials.
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1.5 max-w-[340px]">
+            <label class="block text-sm font-medium text-gray-700">Database driver *</label>
+            <select name="driver" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" required>
+              {% for key, name, implemented in driver_list %}
+              <option value="{{ key }}" {% if settings_obj.driver == key %}selected{% endif %}>
+                {{ name }}{% if not implemented %} (stub — not yet implemented){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+            <div class="text-xs text-gray-500 mt-1">
+              Only the <strong class="font-medium text-gray-700">SQLite</strong> driver is fully wired up today.
+              The other five exist as stubs and will surface a clear
+              "not implemented" message until their adapters are filled in.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── Connection fields ──────────────────────────────────────── #}
+      <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+        <div class="border-b border-gray-200 bg-gray-50 px-5 py-4">
+          <h3 class="text-base font-semibold text-gray-900">Connection</h3>
+        </div>
+        <div class="p-5 space-y-5">
+
+          <div class="flex flex-col gap-1.5">
+            <label class="block text-sm font-medium text-gray-700">File path</label>
+            <input type="text" name="file_path" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                   value="{{ settings_obj.file_path }}"
+                   placeholder="/path/to/biometric.sqlite3">
+            <div class="text-xs text-gray-500">For SQLite / MS Access drivers.</div>
+          </div>
+
+          <div class="space-y-1.5">
+            <div class="flex flex-wrap gap-4">
+              <div class="flex flex-col gap-1.5 flex-[2] min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700">Host</label>
+                <input type="text" name="host" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                       value="{{ settings_obj.host }}"
+                       placeholder="db.example.com">
+              </div>
+              <div class="flex flex-col gap-1.5 flex-1 min-w-[100px]">
+                <label class="block text-sm font-medium text-gray-700">Port</label>
+                <input type="number" name="port" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                       value="{{ settings_obj.port|default:'' }}"
+                       placeholder="e.g. 1433">
+              </div>
+            </div>
+            <div class="text-xs text-gray-500">For network-based drivers (MS SQL, MySQL, PostgreSQL, MongoDB).</div>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="block text-sm font-medium text-gray-700">Database name</label>
+            <input type="text" name="database" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                   value="{{ settings_obj.database }}"
+                   placeholder="biometric_db">
+          </div>
+
+          <div class="flex flex-wrap gap-4">
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+              <label class="block text-sm font-medium text-gray-700">Username</label>
+              <input type="text" name="username" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                     value="{{ settings_obj.username }}"
+                     autocomplete="off">
+            </div>
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+              <label class="block text-sm font-medium text-gray-700">Password</label>
+              <input type="password" name="password" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                     placeholder="{% if settings_obj.password %}••••••••  (leave blank to keep current){% else %}(none set){% endif %}"
+                     autocomplete="new-password">
+              <div class="text-xs text-gray-500">
+                Leave blank to keep the existing password. Type a new value to replace it.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── Table + column mapping ─────────────────────────────────── #}
+      <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+        <div class="border-b border-gray-200 bg-gray-50 px-5 py-4">
+          <h3 class="text-base font-semibold text-gray-900">Punch log mapping</h3>
+        </div>
+        <div class="p-5 space-y-5">
+          <div class="flex flex-col gap-1.5 max-w-[260px]">
+            <label class="block text-sm font-medium text-gray-700">Table / collection name</label>
+            <input type="text" name="table_name" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                   value="{{ settings_obj.table_name|default:'att_log' }}">
+            <div class="text-xs text-gray-500 mt-1">
+              Default <code class="rounded bg-gray-100 px-1 py-0.5 text-[11px] font-mono text-gray-800">att_log</code> matches ZKTeco / eSSL devices.
+              MongoDB drivers treat this as the collection name.
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-4">
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[160px]">
+              <label class="block text-sm font-medium text-gray-700">Employee-code column</label>
+              <input type="text" name="col_employee_code" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                     value="{{ settings_obj.col_employee_code|default:'userid' }}">
+              <div class="text-xs text-gray-500 mt-1">Maps to <em class="italic">employee_code</em>.</div>
+            </div>
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[160px]">
+              <label class="block text-sm font-medium text-gray-700">Punch-time column</label>
+              <input type="text" name="col_punch_time" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                     value="{{ settings_obj.col_punch_time|default:'checktime' }}">
+              <div class="text-xs text-gray-500 mt-1">Maps to <em class="italic">punch_time</em>.</div>
+            </div>
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[160px]">
+              <label class="block text-sm font-medium text-gray-700">Punch-type column (optional)</label>
+              <input type="text" name="col_punch_type" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                     value="{{ settings_obj.col_punch_type }}">
+              <div class="text-xs text-gray-500 mt-1">Leave blank if device doesn't distinguish in/out.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button type="submit" class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+          Save settings
+        </button>
+      </div>
+    </form>
+
+    {# Separate form: Test connection. Uses last-saved settings. #}
+    <div class="mt-8 pt-6 border-t border-gray-200">
+      <form method="post" action="{% org_url 'biometric:test_connection' %}" class="flex flex-wrap items-center gap-3">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+        {% csrf_token %}
+        <button type="submit" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+          Test connection
+        </button>
+        <span class="text-sm text-gray-500">
+          Tests using the last-saved values above. Save first if you just changed something.
+        </span>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

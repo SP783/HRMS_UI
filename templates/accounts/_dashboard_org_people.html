@@ -1,0 +1,7 @@
+<div class="dashboard-org-people" data-dashboard-organization="{{ row.organization.pk }}">
+  <h3>{{ row.organization.name }}</h3>
+  <div class="dashboard-people-categories">
+    <details><summary hx-get="{% url 'accounts:dashboard_people' %}?organization={{ row.organization.pk }}&amp;kind=absent&amp;date={{ dashboard_overview_date|date:'Y-m-d' }}" hx-trigger="click once" hx-target="#dashboard-absent-{{ row.organization.pk }}" hx-swap="innerHTML">Absent · {{ row.absent }} <span>View more</span></summary><div id="dashboard-absent-{{ row.organization.pk }}" role="status" aria-live="polite"><a href="{% url 'accounts:dashboard_people' %}?organization={{ row.organization.pk }}&amp;kind=absent">Open employee names</a></div></details>
+    <details><summary hx-get="{% url 'accounts:dashboard_people' %}?organization={{ row.organization.pk }}&amp;kind=not_checked_in&amp;date={{ dashboard_overview_date|date:'Y-m-d' }}" hx-trigger="click once" hx-target="#dashboard-unchecked-{{ row.organization.pk }}" hx-swap="innerHTML">Not checked in · {{ row.not_checked_in }} <span>View more</span></summary><div id="dashboard-unchecked-{{ row.organization.pk }}" role="status" aria-live="polite"><a href="{% url 'accounts:dashboard_people' %}?organization={{ row.organization.pk }}&amp;kind=not_checked_in">Open employee names</a></div></details>
+  </div>
+</div>

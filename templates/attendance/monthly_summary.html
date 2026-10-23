@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% block title %}Monthly Summary — {{ site_name }}{% endblock %}
+{% block page_title %}Monthly Summary{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'attendance:dashboard' %}" class="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Dashboard
+  </a>
+  <button type="button" onclick="exportWithFilters()" class="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Export CSV
+  </button>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="flex flex-col gap-6">
+  {% include 'attendance/partials/_tabs.html' %}
+
+
+  <!-- Month selector + filters -->
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 sm:p-5">
+    <form data-ui-filter method="get" class="flex flex-wrap items-end gap-4" id="filterForm" hx-preserve>
+      <div class="w-full sm:w-auto">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Month</label>
+        <select name="month" class="w-40 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all appearance-none">
+          {% for m in months %}
+          <option value="{{ m.num }}" {% if month == m.num %}selected{% endif %}>{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="w-full sm:w-auto">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Year</label>
+        <input type="number" name="year" class="w-28 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" value="{{ year }}">
+      </div>
+      
+      {% if departments %}
+      <div class="w-full sm:w-auto flex-1 min-w-[150px]">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Department</label>
+        <select name="department" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all appearance-none">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+          <option value="{{ dept.name }}" {% if dept_filter == dept.name %}selected{% endif %}>{{ dept.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      
+      {% if employees %}
+      <div class="w-full sm:w-auto flex-1 min-w-[200px]" id="empPicker">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Employees</label>
+        <button type="button" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm flex items-center justify-between focus:ring-2 focus:ring-primary-500 transition-all emp-picker-trigger" onclick="toggleEmpPicker()">
+          <span id="empPickerLabel" class="truncate text-slate-700 dark:text-slate-300">
+            {% if selected_employee_ids %}{{ selected_employee_ids|length }} selected{% else %}All Employees{% endif %}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 flex-shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        
+        <!-- Dropdown (JS moves this to body to escape overflow) -->
+        <div class="emp-picker-dropdown bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl flex-col overflow-hidden" id="empPickerDropdown" style="display:none;">
+          <div class="p-3 border-b border-slate-100 dark:border-slate-800">
+            <input type="text" placeholder="Search employees..." oninput="filterEmpList(this.value)" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all">
+          </div>
+          <div class="flex justify-between px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+            <button type="button" class="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline" onclick="selectAllEmps()">Select All</button>
+            <button type="button" class="text-xs font-semibold text-slate-500 hover:underline" onclick="deselectAllEmps()">Clear</button>
+          </div>
+          <div class="overflow-y-auto max-h-60 p-2 flex flex-col gap-1" id="empPickerList">
+            {% for emp in employees %}
+            <label class="emp-picker-item flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer transition-colors">
+              <input type="checkbox" form="filterForm" name="employee_ids" value="{{ emp.employee_id }}" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500 dark:border-slate-600 dark:bg-slate-700 dark:ring-offset-slate-900" {% if emp.employee_id in selected_employee_ids %}checked{% endif %}>
+              <div class="flex-1 min-w-0">
+                <div class="emp-picker-item-name text-sm font-semibold text-slate-900 dark:text-white truncate">{{ emp.profile.full_name }}</div>
+                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <span class="emp-picker-item-id font-mono">{{ emp.employee_id }}</span>
+                  {% if emp.department %}<span class="emp-picker-item-dept truncate">&bull; {{ emp.department.name }}</span>{% endif %}
+                </div>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      
+      <button type="submit" class="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2 focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        View
+      </button>
+    </form>
+  </div>
+
+  <!-- Month info banner -->
+  <div class="bg-gradient-to-r from-emerald-600 to-teal-800 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-white">
+    <div class="text-3xl font-bold tracking-tight">{{ month_name }} {{ year }}</div>
+    <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+      <div class="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20 text-center min-w-[100px]">
+        <div class="text-2xl font-bold">{{ working_days }}</div>
+        <div class="text-emerald-100 text-[10px] font-bold uppercase tracking-wider mt-1">Working Days</div>
+      </div>
+      <div class="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20 text-center min-w-[100px]">
+        <div class="text-2xl font-bold">{{ emp_summary|length }}</div>
+        <div class="text-emerald-100 text-[10px] font-bold uppercase tracking-wider mt-1">Employees</div>
+      </div>
+      <div class="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20 text-center min-w-[100px]">
+        <div class="text-2xl font-bold">{{ totals.total_days }}</div>
+        <div class="text-emerald-100 text-[10px] font-bold uppercase tracking-wider mt-1">Total Records</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary stats row -->
+  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+    <div class="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ totals.present }}</div>
+      <div class="text-[11px] font-bold text-emerald-700 dark:text-emerald-500 uppercase tracking-wider mt-1">Present</div>
+    </div>
+    <div class="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-rose-600 dark:text-rose-400">{{ totals.absent }}</div>
+      <div class="text-[11px] font-bold text-rose-700 dark:text-rose-500 uppercase tracking-wider mt-1">Absent</div>
+    </div>
+    <div class="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ totals.late }}</div>
+      <div class="text-[11px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider mt-1">Late</div>
+    </div>
+    <div class="bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-slate-700 dark:text-slate-300">{{ totals.half_day }}</div>
+      <div class="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-1">Half Day</div>
+    </div>
+    <div class="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ totals.on_leave }}</div>
+      <div class="text-[11px] font-bold text-blue-700 dark:text-blue-500 uppercase tracking-wider mt-1">On Leave</div>
+    </div>
+    <div class="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ totals.holiday }}</div>
+      <div class="text-[11px] font-bold text-indigo-700 dark:text-indigo-500 uppercase tracking-wider mt-1">Holiday</div>
+    </div>
+    <div class="bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-slate-900 dark:text-white font-mono">{{ totals.total_hours|floatformat:1 }}<span class="text-lg">h</span></div>
+      <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">Total Hours</div>
+    </div>
+  </div>
+
+  <!-- ── Inline Calendar (shown when exactly one employee is selected) ── -->
+  {% if cal_data %}
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0f172a]/50 flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">📅</span>
+        <span class="font-bold text-slate-900 dark:text-white">Attendance Calendar — {{ selected_employee_obj.profile.full_name }}</span>
+      </div>
+      <span class="text-sm font-medium text-slate-500 dark:text-slate-400 font-mono bg-white dark:bg-slate-800 px-3 py-1 rounded-md border border-slate-200 dark:border-slate-700 shadow-sm">{{ selected_employee_obj.employee_id }}</span>
+    </div>
+    <div class="p-6">
+      {% include "attendance/partials/calendar_grid.html" %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Per-employee table -->
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0f172a]/50 flex items-center justify-between gap-4 flex-wrap">
+      <span class="font-bold text-slate-900 dark:text-white">Employee Attendance Breakdown</span>
+      <span class="text-sm font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">{{ emp_summary|length }} employee{{ emp_summary|length|pluralize }}</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse whitespace-nowrap">
+        <thead>
+          <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <th class="px-6 py-3">Employee</th>
+            <th class="px-6 py-3">Department</th>
+            <th class="px-6 py-3 text-center">Present</th>
+            <th class="px-6 py-3 text-center">Absent</th>
+            <th class="px-6 py-3 text-center">Late</th>
+            <th class="px-6 py-3 text-center">Half Day</th>
+            <th class="px-6 py-3 text-center">On Leave</th>
+            <th class="px-6 py-3 text-center">Holiday</th>
+            <th class="px-6 py-3 text-right">Total Hours</th>
+            <th class="px-6 py-3 w-48">Attendance %</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
+          {% for emp in emp_summary %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+            <td class="px-6 py-4">
+              <div>
+                <div class="text-sm font-bold text-slate-900 dark:text-white">{{ emp.name }}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">{{ emp.employee_id }}</div>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{{ emp.department }}</td>
+            <td class="px-6 py-4 text-center"><span class="text-sm font-bold text-emerald-600 dark:text-emerald-400">{{ emp.present }}</span></td>
+            <td class="px-6 py-4 text-center"><span class="text-sm font-bold text-rose-600 dark:text-rose-400">{{ emp.absent }}</span></td>
+            <td class="px-6 py-4 text-center"><span class="text-sm font-bold text-amber-600 dark:text-amber-400">{{ emp.late }}</span></td>
+            <td class="px-6 py-4 text-center text-sm text-slate-600 dark:text-slate-400">{{ emp.half_day }}</td>
+            <td class="px-6 py-4 text-center text-sm text-slate-600 dark:text-slate-400">{{ emp.on_leave }}</td>
+            <td class="px-6 py-4 text-center text-sm text-slate-600 dark:text-slate-400">{{ emp.holiday }}</td>
+            <td class="px-6 py-4 text-sm font-mono font-medium text-slate-700 dark:text-slate-300 text-right">{{ emp.total_hours|floatformat:1 }}h</td>
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="flex-1 h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                  <div class="h-full bg-emerald-500 rounded-full" style="width:{{ emp.attendance_pct }}%"></div>
+                </div>
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-300 w-9 text-right">{{ emp.attendance_pct }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="10" class="px-6 py-12 text-center text-slate-500 dark:text-slate-400">No records for this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  // Export with current filters
+  window.exportWithFilters = function() {
+    var form = document.getElementById('filterForm');
+    var params = new URLSearchParams();
+    params.set('type', 'monthly_summary');
+    var month = form.querySelector('select[name="month"]').value;
+    var year = form.querySelector('input[name="year"]').value;
+    if (month) params.set('month', month);
+    if (year) params.set('year', year);
+    var dept = form.querySelector('select[name="department"]');
+    if (dept && dept.value) params.set('department', dept.value);
+    document.querySelectorAll('input[form="filterForm"][name="employee_ids"]:checked').forEach(function(cb) {
+      params.append('employee_ids', cb.value);
+    });
+    window.location.href = '{% url "attendance:export" %}?' + params.toString();
+  };
+
+  // Employee picker
+  var dd = document.getElementById('empPickerDropdown');
+  var picker = document.getElementById('empPicker');
+  if (dd && picker) {
+  var trigger = picker.querySelector('.emp-picker-trigger');
+
+  document.body.appendChild(dd);
+  dd.style.position = 'fixed';
+  dd.style.zIndex = '9999';
+
+  function positionDropdown() {
+    var rect = trigger.getBoundingClientRect();
+    dd.style.left = rect.left + 'px';
+    dd.style.top = (rect.bottom + 6) + 'px';
+    dd.style.width = Math.max(rect.width, 320) + 'px';
+  }
+
+  window.toggleEmpPicker = function() {
+    var isHidden = dd.style.display === 'none';
+    if (!isHidden) {
+      dd.style.display = 'none';
+    } else {
+      positionDropdown();
+      dd.style.display = 'flex';
+      var searchInput = dd.querySelector('input[type="text"]');
+      if (searchInput) setTimeout(function() { searchInput.focus(); }, 50);
+    }
+  };
+
+  function repositionHandler() {
+    if (dd.style.display !== 'none') positionDropdown();
+  }
+  window.addEventListener('scroll', repositionHandler, true);
+  window.addEventListener('resize', repositionHandler);
+
+  document.addEventListener('click', function(e) {
+    if (!picker.contains(e.target) && !dd.contains(e.target)) {
+      dd.style.display = 'none';
+    }
+  });
+
+  window.filterEmpList = function(query) {
+    var items = dd.querySelectorAll('.emp-picker-item');
+    var q = query.toLowerCase();
+    items.forEach(function(item) {
+      var name = item.querySelector('.emp-picker-item-name').textContent.toLowerCase();
+      var id = item.querySelector('.emp-picker-item-id').textContent.toLowerCase();
+      item.style.display = (name.includes(q) || id.includes(q)) ? 'flex' : 'none';
+    });
+  };
+
+  window.selectAllEmps = function() {
+    dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').forEach(function(cb) {
+      if (cb.closest('.emp-picker-item').style.display !== 'none') cb.checked = true;
+    });
+    updateEmpLabel();
+  };
+
+  window.deselectAllEmps = function() {
+    dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').forEach(function(cb) {
+      cb.checked = false;
+    });
+    updateEmpLabel();
+  };
+
+  function updateEmpLabel() {
+    var checked = dd.querySelectorAll('.emp-picker-item input[type="checkbox"]:checked').length;
+    var total = dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').length;
+    document.getElementById('empPickerLabel').textContent = checked > 0 ? checked + ' of ' + total + ' selected' : 'All Employees';
+  }
+
+  document.addEventListener('change', function(e) {
+    if (e.target.name === 'employee_ids') updateEmpLabel();
+  });
+  }
+
+})();
+</script>
+{% endblock %}

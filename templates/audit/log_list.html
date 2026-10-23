@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Audit Logs — {{ site_name }}{% endblock %}
+{% block page_title %}Audit Logs{% endblock %}
+
+
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="max-w-7xl mx-auto">
+
+  <!-- Filters -->
+  <form data-ui-filter method="get" class="bg-surface border border-default rounded-lg p-4 mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+    {% if audit_shared %}<label class="block text-xs font-medium text-muted">Organization<select name="org" class="w-full text-sm rounded-md border border-default bg-surface px-2 py-1.5"><option value="">All participating organizations</option>{% for org in audit_organizations %}<option value="{{ org.pk }}" {% if org_filter == org.pk|stringformat:'s' %}selected{% endif %}>{{ org.name }}</option>{% endfor %}</select></label>{% endif %}
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1">Actor</label>
+      <select name="actor" class="w-full text-sm rounded-md border border-default bg-surface px-2 py-1.5">
+        <option value="">All</option>
+        {% for a in actors %}
+          <option value="{{ a }}" {% if filters.actor == a %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1">Model</label>
+      <select name="model" class="w-full text-sm rounded-md border border-default bg-surface px-2 py-1.5">
+        <option value="">All</option>
+        {% for m in models %}
+          <option value="{{ m }}" {% if filters.model == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1">Action</label>
+      <select name="action" class="w-full text-sm rounded-md border border-default bg-surface px-2 py-1.5">
+        <option value="">All</option>
+        <option value="create" {% if filters.action == 'create' %}selected{% endif %}>Created</option>
+        <option value="update" {% if filters.action == 'update' %}selected{% endif %}>Updated</option>
+        <option value="delete" {% if filters.action == 'delete' %}selected{% endif %}>Deleted</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1">From</label>
+      <input type="date" name="from" value="{{ filters.from }}" class="w-full text-sm rounded-md border border-default bg-surface px-2 py-1.5">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1">To</label>
+      <input type="date" name="to" value="{{ filters.to }}" class="w-full text-sm rounded-md border border-default bg-surface px-2 py-1.5">
+    </div>
+    <div class="flex items-end gap-2">
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Search object…" class="w-full text-sm rounded-md border border-default bg-surface px-2 py-1.5" id="ui-live-query">
+      <button type="submit" class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Filter</button>
+    </div>
+  <a href="{% url 'audit:export' %}?{{ querystring }}" class="px-3 py-1.5 text-sm border border-default rounded-md">Export filtered CSV</a></form>
+
+  <p class="text-xs text-muted mb-2">{{ total }} entr{{ total|pluralize:"y,ies" }} found.</p>
+
+  <div class="bg-surface border border-default rounded-lg overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-default">
+        <thead class="bg-surface-2">
+          <tr>
+            {% if audit_shared %}<th class="px-4 py-2.5 text-left text-xs text-muted uppercase">Organization</th>{% endif %}<th class="px-4 py-2.5 text-left text-xs font-medium text-muted uppercase tracking-wide">When</th>
+            <th class="px-4 py-2.5 text-left text-xs font-medium text-muted uppercase tracking-wide">Who</th>
+            <th class="px-4 py-2.5 text-left text-xs font-medium text-muted uppercase tracking-wide">Action</th>
+            <th class="px-4 py-2.5 text-left text-xs font-medium text-muted uppercase tracking-wide">Object</th>
+            <th class="px-4 py-2.5 text-left text-xs font-medium text-muted uppercase tracking-wide">Changes</th>
+            <th class="px-4 py-2.5"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-default">
+          {% for log in page %}
+          <tr class="hover:bg-surface-2">{% if audit_shared %}<td class="px-4 py-3 text-sm">{{ log.report_organization }}</td>{% endif %}
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-content">{{ log.occurred_at|date:"d M Y, H:i" }}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm">
+              <span class="text-content font-medium">{{ log.actor_username|default:"system" }}</span>
+              {% if log.actor_role %}<span class="text-xs text-muted block">{{ log.actor_role }}</span>{% endif %}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                {% if log.action == 'create' %}bg-green-100 text-green-700
+                {% elif log.action == 'update' %}bg-blue-50 text-blue-600
+                {% elif log.action == 'delete' %}bg-red-100 text-red-700{% endif %}">
+                {{ log.get_action_display }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-sm">
+              <span class="text-content">{{ log.object_label|default:log.object_pk|truncatechars:48 }}</span>
+              <span class="text-xs text-muted block">{{ log.model_name }}</span>
+            </td>
+            <td class="px-4 py-3 text-sm text-muted">
+              {% if log.action == 'update' %}{{ log.changes|length }} field{{ log.changes|length|pluralize }}{% elif log.action == 'create' %}created{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-right">
+              <a href="{% url 'audit:detail' log.pk %}?{{ querystring }}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="px-4 py-12 text-center text-sm text-muted">No audit entries match these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if page.paginator.num_pages > 1 %}
+  <div class="flex items-center justify-between mt-4 text-sm">
+    <span class="text-muted">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    <div class="flex gap-2">
+      {% if page.has_previous %}
+        <a href="?page={{ page.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}" class="px-3 py-1.5 rounded-md border border-default bg-surface hover:bg-surface-2 text-content">Previous</a>
+      {% endif %}
+      {% if page.has_next %}
+        <a href="?page={{ page.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}" class="px-3 py-1.5 rounded-md border border-default bg-surface hover:bg-surface-2 text-content">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+</section>
+{% endblock %}

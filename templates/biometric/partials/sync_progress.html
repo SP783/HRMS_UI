@@ -1,0 +1,25 @@
+
+{% load biometric_tags %}
+{% if jobs %}
+<section id="biometric-sync-progress" {% if active %}hx-get="{% org_url 'biometric:sync_progress' %}" hx-trigger="load delay:5s" hx-swap="outerHTML"{% endif %} aria-live="polite" class="rounded-lg border border-gray-200 bg-white px-4 py-3">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <h2 class="text-sm font-semibold text-gray-900">Sync activity</h2>
+    <span class="text-xs text-gray-500">Latest request #{{ jobs.0.pk }}</span>
+  </div>
+  <div class="mt-2 flex flex-wrap items-start gap-3 text-sm">
+    <span class="inline-flex rounded-md px-2 py-0.5 font-semibold {% if jobs.0.status == 'failed' %}bg-red-50 text-red-700{% elif jobs.0.status == 'success' %}bg-green-50 text-green-700{% else %}bg-blue-50 text-blue-700{% endif %}">{{ jobs.0.status|title }}</span>
+    <span class="min-w-0 flex-1 break-words text-gray-600">{{ jobs.0.message }}</span>
+    <span class="whitespace-nowrap text-xs text-gray-500">{{ jobs.0.created_at|date:"d M H:i" }}</span>
+  </div>
+  {% if jobs|length > 1 %}
+    <details class="mt-2 border-t border-gray-100 pt-2 text-xs text-gray-600">
+      <summary class="cursor-pointer font-medium text-blue-700">Earlier requests</summary>
+      <div class="mt-2" style="max-height: 10rem; overflow-y: auto;">
+        {% for job in jobs %}{% if not forloop.first %}
+          <div class="flex flex-wrap gap-2 border-b border-gray-100 py-2"><span class="font-medium">#{{ job.pk }}</span><strong class="{% if job.status == 'failed' %}text-red-700{% elif job.status == 'success' %}text-green-700{% else %}text-blue-700{% endif %}">{{ job.status|title }}</strong><span class="min-w-0 break-words">{{ job.message }}</span></div>
+        {% endif %}{% endfor %}
+      </div>
+    </details>
+  {% endif %}
+</section>
+{% endif %}

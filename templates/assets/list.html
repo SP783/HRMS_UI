@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}IT Assets — {{ site_name }}{% endblock %}
+{% block page_title %}IT Assets{% endblock %}
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false" class="module-page space-y-4">
+{% include "workspaces/controls.html" %}
+  <div class="module-page-heading">
+    <div><h1 class="text-xl font-bold">IT Assets</h1><p class="text-sm text-gray-500">Inventory for the selected organization · {{ rows|length }} shown</p></div>
+    <div class="module-page-actions">
+      {% if can_edit %}<a class="px-3 py-2 rounded-lg bg-indigo-600 text-white" href="{% url 'assets:new' %}">Add asset</a><a class="px-3 py-2 rounded-lg border" href="{% url 'assets:bulk' %}">Bulk upload</a><a class="px-3 py-2 rounded-lg border" href="{% url 'assets:columns' %}">Columns</a>{% endif %}
+      <a class="px-3 py-2 rounded-lg border" href="{% url 'assets:export' %}?{{ workspace_query }}">Download CSV</a>
+    </div>
+  </div>
+  <form method="get" data-ui-filter class="flex gap-2">{% include "workspaces/params.html" %}<input class="rounded-lg border px-3 py-2 w-full max-w-lg" name="q" value="{{ search }}" placeholder="Search tag, serial, category or employee ID"><button class="rounded-lg border px-4">Search</button></form>
+  <div class="rounded-xl border bg-white overflow-x-auto">
+    <table data-server-workspace="assets" class="w-full text-sm"><thead class="bg-gray-50"><tr>
+      {% for column in table_columns %}<th scope="col" class="p-3 text-left whitespace-nowrap">{{ column.label }}</th>{% endfor %}
+      <th scope="col" class="p-3 text-left">Details</th>
+      {% if can_edit %}<th scope="col" class="p-3 text-left">Action</th>{% endif %}
+    </tr></thead><tbody>
+      {% for row in rows %}<tr data-workspace-id="{{ row.asset.pk }}" class="border-t">
+        {% for cell in row.cells %}<td class="p-3 whitespace-nowrap" title="{{ cell }}">{{ cell|default:'—'|truncatechars:80 }}</td>{% endfor %}
+        <td class="p-3"><a class="text-indigo-600" href="{% url 'assets:detail' row.asset.pk %}">Details</a></td>
+        {% if can_edit %}<td class="p-3"><a class="text-indigo-600" href="{% url 'assets:edit' row.asset.pk %}">Edit</a></td>{% endif %}
+      </tr>{% empty %}<tr><td class="p-6 text-gray-500" colspan="{{ table_columns|length|add:1 }}">No assets found.</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+{% include "workspaces/pagination.html" %}
+</section>
+{% endblock %}

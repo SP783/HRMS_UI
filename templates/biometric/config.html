@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% load biometric_tags %}
+
+{% block title %}Biometric Settings — {{ site_name }}{% endblock %}
+{% block page_title %}Biometric Settings{% endblock %}
+{% block extra_css %}
+<style>
+  .biometric-settings-grid { display: grid; gap: 2rem; }
+  .biometric-rules-grid { display: grid; gap: .75rem; margin-top: 1rem; }
+  .biometric-rule { border: 1px solid #e5e7eb; border-radius: .5rem; padding: .7rem .85rem; }
+  .biometric-rule label { display: block; font-size: .875rem; font-weight: 500; color: #111827; }
+  .biometric-rule input[type="number"], .biometric-rule select { display: block; width: 100%; margin-top: .4rem; padding: .45rem .65rem; border: 1px solid #d1d5db; border-radius: .4rem; background: white; color: #111827; }
+  .biometric-rule input[type="checkbox"] { margin-right: .5rem; }
+  .biometric-rule .errorlist { color: #b91c1c; font-size: .75rem; margin-top: .3rem; }
+  @media (min-width: 1024px) {
+    .biometric-settings-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .biometric-rules-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl w-full flex flex-col gap-4">
+
+  {% include "biometric/partials/nav.html" %}
+
+  <div class="bg-white shadow-sm ring-1 ring-gray-900/5 rounded-xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/50">
+      <h3 class="text-base font-semibold leading-6 text-gray-900">Biometric Connection</h3>
+      <button type="button" class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors" id="btn-test">
+        Test Connection
+      </button>
+    </div>
+    
+    <div class="p-6">
+      <div id="test-result" class="hidden mb-6 rounded-md p-4 text-sm font-medium"></div>
+      
+      <form method="post" action="{% org_url 'biometric:config' %}">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+        {% csrf_token %}
+        <div class="biometric-settings-grid">
+        <section aria-label="Connection details">
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium leading-6 text-gray-900">Connection Type</label>
+          <select name="connection_type" id="connection_type" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+            {% for val, label in config.CONNECTION_CHOICES %}
+            <option value="{{ val }}" {% if config.connection_type == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p class="mt-1.5 text-xs text-gray-500">MS SQL reads processed attendance from eTimeTracklite. ESSL Direct reads raw punches straight off the device over the LAN (in/out derived by time; shift-based late/early not computed).</p>
+        </div>
+
+        <!-- MS SQL fields -->
+        <div id="mssql-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+          <div class="col-span-1 sm:col-span-2">
+            <label class="block text-sm font-medium leading-6 text-gray-900">Server / Host *</label>
+            <input type="text" name="server" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" value="{{ config.server }}" placeholder="e.g. 192.168.1.100 or SERVER\INSTANCE">
+            <p class="mt-1.5 text-xs text-gray-500">IP address or hostname of your MS SQL Server</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Port</label>
+            <input type="number" name="port" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" value="{{ config.port }}" placeholder="1433">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Database *</label>
+            <input type="text" name="database" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" value="{{ config.database }}" placeholder="e.g. etimetracklite">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Username</label>
+            <input type="text" name="username" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" value="{{ config.username }}" placeholder="Leave blank for Windows auth">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+            <input type="password" name="password" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="Leave blank to keep existing">
+          </div>
+        </div>
+        <!-- /MS SQL fields -->
+
+        <!-- ESSL Direct (device) fields -->
+        <div id="device-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+          <div class="col-span-1 sm:col-span-2">
+            <label class="block text-sm font-medium leading-6 text-gray-900">Device IP *</label>
+            <input type="text" name="device_ip" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" value="{{ config.device_ip }}" placeholder="e.g. 10.10.13.250">
+            <p class="mt-1.5 text-xs text-gray-500">On the device: Menu &rsaquo; Comm &rsaquo; Ethernet</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Port</label>
+            <input type="number" name="device_port" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" value="{{ config.device_port|default:4370 }}" placeholder="4370">
+            <p class="mt-1.5 text-xs text-gray-500">Default 4370</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Comm Key</label>
+            <input type="password" name="device_password" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="Leave blank for none / keep existing">
+            <p class="mt-1.5 text-xs text-gray-500">Only if a comm key is set on the device</p>
+          </div>
+          <div class="col-span-1 sm:col-span-2">
+            <div class="flex items-center">
+              <input type="checkbox" name="device_force_udp" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if config.device_force_udp %}checked{% endif %}>
+              <label class="ml-2 block text-sm text-gray-900">Force UDP (only if TCP connect fails)</label>
+            </div>
+          </div>
+          <div>
+            <label for="device_in_code" class="block text-sm font-medium text-gray-900">ATT DIRECTION code for IN</label>
+            <input id="device_in_code" type="text" name="device_in_code" maxlength="20" value="{{ config.device_in_code }}" class="mt-2 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900" autocomplete="off">
+          </div>
+          <div>
+            <label for="device_out_code" class="block text-sm font-medium text-gray-900">ATT DIRECTION code for OUT</label>
+            <input id="device_out_code" type="text" name="device_out_code" maxlength="20" value="{{ config.device_out_code }}" class="mt-2 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900" autocomplete="off">
+          </div>
+          <p class="col-span-1 sm:col-span-2 text-xs text-gray-500">Applies to raw punches for every employee in this organization. Your device shows 0 for IN and 1 for OUT.</p>
+        </div>
+        <!-- /ESSL Direct fields -->
+
+        </section>
+        <section aria-label="Sync and attendance settings">
+        <div class="relative mb-6">
+          <div class="absolute inset-0 flex items-center" aria-hidden="true">
+            <div class="w-full border-t border-dashed border-gray-300"></div>
+          </div>
+          <div class="relative flex justify-start">
+            <span class="pr-3 text-xs font-semibold uppercase tracking-wide text-gray-500 bg-white">Sync Settings</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-5">
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Auto Sync</label>
+            <div class="mt-3 flex items-center">
+              <input type="checkbox" name="sync_enabled" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" {% if config.sync_enabled %}checked{% endif %}>
+              <label class="ml-2 block text-sm text-gray-900">Enabled</label>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Interval (minutes)</label>
+            <input type="number" name="sync_interval_minutes" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" value="{{ config.sync_interval_minutes }}" min="5">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">Lookback Days</label>
+            <input type="number" name="lookback_days" class="mt-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" value="{{ config.lookback_days }}" min="1">
+            <p class="mt-1.5 text-xs text-gray-500">Used for first sync / full resync</p>
+          </div>
+        </div>
+
+        <fieldset class="mt-8">
+          <legend class="text-base font-semibold text-gray-900">Attendance matching and lunch</legend>
+          <p class="mt-1 text-xs text-gray-500">Reconciliation lets punches create or change attendance. Raw sync remains available when it is off.</p>
+          {% if rules_form.non_field_errors %}<div class="mt-2 text-sm text-red-700">{{ rules_form.non_field_errors }}</div>{% endif %}
+          <div class="biometric-rules-grid">
+            {% for field in rules_form %}
+              <div class="biometric-rule">
+                {% if field.field.widget.input_type == 'checkbox' %}
+                  <label for="{{ field.id_for_label }}">{{ field }}{{ field.label }}</label>
+                {% else %}
+                  <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+                {% endif %}
+                {% if field.help_text %}<p class="mt-1 text-xs text-gray-500">{{ field.help_text }}</p>{% endif %}
+                {{ field.errors }}
+              </div>
+            {% endfor %}
+          </div>
+        </fieldset>
+        </section>
+        </div>
+        <div class="mt-8 flex justify-end">
+          <button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-colors">
+            Save Configuration
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+// Toggle MS SQL vs ESSL Direct field sections based on the dropdown.
+(function () {
+  const sel = document.getElementById('connection_type');
+  const mssql = document.getElementById('mssql-fields');
+  const device = document.getElementById('device-fields');
+  function apply() {
+    const isDevice = sel.value === 'device';
+    mssql.classList.toggle('hidden', isDevice);
+    device.classList.toggle('hidden', !isDevice);
+  }
+  sel.addEventListener('change', apply);
+  apply();
+})();
+
+document.getElementById('btn-test').addEventListener('click', function() {
+  const btn = this;
+  const result = document.getElementById('test-result');
+  
+  // Disable button
+  btn.disabled = true;
+  btn.textContent = 'Testing…';
+  btn.classList.add('opacity-75', 'cursor-not-allowed');
+  
+  // Hide result temporarily
+  result.classList.add('hidden');
+  result.classList.remove('bg-green-50', 'text-green-700', 'ring-green-600/20', 'bg-red-50', 'text-red-700', 'ring-red-600/20', 'ring-1', 'ring-inset');
+
+  fetch('{% org_url "biometric:test_connection" %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  })
+  .then(r => r.json())
+  .then(data => {
+    result.textContent = data.message;
+    result.classList.remove('hidden');
+    result.classList.add('ring-1', 'ring-inset');
+    
+    if (data.ok) {
+      result.classList.add('bg-green-50', 'text-green-700', 'ring-green-600/20');
+    } else {
+      result.classList.add('bg-red-50', 'text-red-700', 'ring-red-600/20');
+    }
+  })
+  .catch(() => {
+    result.textContent = 'Request failed.';
+    result.classList.remove('hidden');
+    result.classList.add('ring-1', 'ring-inset', 'bg-red-50', 'text-red-700', 'ring-red-600/20');
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.textContent = 'Test Connection';
+    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+  });
+});
+</script>
+{% endblock %}

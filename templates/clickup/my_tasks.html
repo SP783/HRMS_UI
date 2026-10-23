@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}My Tasks · Task Hub{% endblock %}{% block page_title %}Task Hub{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/clickup.css' %}"><link rel="stylesheet" href="{% static 'css/clickup-workflow.css' %}">{% endblock %}
+{% block content %}<div class="cu-workspace">{% include 'clickup/_sidebar.html' %}<main class="cu-shell cu-workspace-main">
+  <header class="cu-heading"><div><h1>My Tasks</h1><p>Work assigned to you across every accessible List.</p></div><a class="cu-button" href="{% url 'clickup:notifications' %}">Inbox</a></header>
+  {% include 'clickup/_my_tasks_region.html' %}
+</main></div><div id="cu-task-panel" class="cu-task-panel-host"></div>
+<script>document.addEventListener('click',function(event){if(event.target.closest('[data-cu-close-panel]'))document.getElementById('cu-task-panel').innerHTML='';});</script>
+{% endblock %}

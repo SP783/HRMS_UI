@@ -1,0 +1,4 @@
+<div class="dashboard-people-heading"><strong>{{ people_label }} · {{ people_organization.name }}</strong><span>{{ people_date|date:'d M Y' }}</span></div>
+<ul class="dashboard-people-list" tabindex="0" aria-label="{{ people_label }} employees in {{ people_organization.name }}">
+{% for employee in people %}<li><strong>{{ employee.profile.full_name }}</strong><span>{{ employee.employee_id }}{% if employee.department %} · {{ employee.department.name }}{% endif %}</span></li>{% empty %}<li>No employees in this category.</li>{% endfor %}
+</ul>

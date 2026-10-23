@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Team Attendance — {{ site_name }}{% endblock %}
+{% block page_title %}Team Attendance{% endblock %}
+
+{% block topbar_actions %}
+  <div class="flex items-center gap-2 sm:gap-3">
+    {% if perms.attendance.bulk_import %}
+    <a href="{% url 'attendance:bulk_import' %}" class="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span class="hidden sm:inline">Import</span>
+    </a>
+    {% endif %}
+    {% if perms.attendance.create %}
+    <a href="{% url 'attendance:create' %}" class="inline-flex items-center gap-2 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span class="hidden sm:inline">Add</span>
+    </a>
+    {% endif %}
+    <a href="{% url 'attendance:export' %}" class="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span class="hidden sm:inline">Export</span>
+    </a>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6">
+
+  {% include 'attendance/partials/_tabs.html' %}
+
+  {% include 'attendance/partials/_team_table.html' %}
+</div>
+{% endblock %}

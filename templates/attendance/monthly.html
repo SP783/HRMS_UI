@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Monthly Attendance — {{ site_name }}{% endblock %}
+{% block page_title %}Monthly Attendance{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'attendance:index' %}" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors">
+    &larr; Today
+  </a>
+  <a href="{% url 'reports:export' 'attendance' %}?month={{ month }}&year={{ year }}" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors">
+    Export CSV
+  </a>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg mb-6">
+  <div class="p-4 sm:p-5">
+    <form data-ui-filter method="get" class="flex flex-wrap gap-3 items-center">
+      <select name="month" class="block w-auto rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm">
+        <option value="1" {% if month == 1 %}selected{% endif %}>January</option>
+        <option value="2" {% if month == 2 %}selected{% endif %}>February</option>
+        <option value="3" {% if month == 3 %}selected{% endif %}>March</option>
+        <option value="4" {% if month == 4 %}selected{% endif %}>April</option>
+        <option value="5" {% if month == 5 %}selected{% endif %}>May</option>
+        <option value="6" {% if month == 6 %}selected{% endif %}>June</option>
+        <option value="7" {% if month == 7 %}selected{% endif %}>July</option>
+        <option value="8" {% if month == 8 %}selected{% endif %}>August</option>
+        <option value="9" {% if month == 9 %}selected{% endif %}>September</option>
+        <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
+        <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
+        <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
+      </select>
+      
+      <input type="number" name="year" class="block w-[90px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm" value="{{ year }}">
+      
+      <button type="submit" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors">
+        View
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+  <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+    <h3 class="text-lg font-semibold text-gray-800">
+      {{ month }}/{{ year }}
+    </h3>
+    <span class="text-xs font-medium text-gray-600 bg-gray-200 px-2.5 py-1 rounded-full">
+      {{ records|length }} record{{ records|length|pluralize }}
+    </span>
+  </div>
+  
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Check in</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Check out</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for r in records %}
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm font-medium text-gray-900">{{ r.profile.full_name }}</div>
+            <div class="text-xs text-gray-500 mt-0.5">{{ r.profile.employee_id }}</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ r.date }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">{{ r.check_in|time:"H:i"|default:"—" }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">{{ r.check_out|time:"H:i"|default:"—" }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ r.duration_display }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
+              {% if r.status == 'present' %}bg-green-50 text-green-700 border-green-200
+              {% elif r.status == 'absent' %}bg-red-50 text-red-700 border-red-200
+              {% elif r.status == 'late' %}bg-yellow-50 text-yellow-800 border-yellow-200
+              {% elif r.status == 'on_leave' %}bg-blue-50 text-blue-700 border-blue-200
+              {% else %}bg-gray-100 text-gray-700 border-gray-200{% endif %}">
+              {{ r.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">
+            <div class="flex flex-col items-center justify-center">
+              <svg class="h-8 w-8 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+              No attendance records found for this period.
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</section>
+{% endblock %}

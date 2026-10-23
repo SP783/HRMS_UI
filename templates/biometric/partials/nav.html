@@ -1,0 +1,49 @@
+
+{% load biometric_tags %}
+{% comment %}Biometric tab-bar nav.
+
+Visibility:
+  - Configuration + Employee Mapping → super_admin only (hardcoded
+    floor; they hold ESSL credentials and write to the biometric DB).
+  - Sync, Biometric Data, Sync Logs → anyone with biometric.view
+    (RBAC matrix; defaults to admin/hr/payroll_admin).
+{% endcomment %}
+<nav class="flex overflow-x-auto border-b border-gray-200 bg-white" aria-label="Tabs">
+  {% if role == 'super_admin' %}
+  <a href="{% org_url 'biometric:config' %}"
+     class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-200 {% if request.resolver_match.url_name == 'config' %}border-blue-600 text-blue-600{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07"/><path d="M4.93 4.93A10 10 0 0 0 19.07 19.07"/></svg>
+    Configuration
+  </a>
+  <a href="{% org_url 'biometric:mapping' %}"
+     class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-200 {% if request.resolver_match.url_name == 'mapping' %}border-blue-600 text-blue-600{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Employee Mapping
+  </a>
+  {% endif %}
+  <a href="{% org_url 'biometric:sync' %}"
+     class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-200 {% if request.resolver_match.url_name == 'sync' %}border-blue-600 text-blue-600{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    Sync
+  </a>
+  <a href="{% org_url 'biometric:data' %}"
+     class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-200 {% if request.resolver_match.url_name == 'data' %}border-blue-600 text-blue-600{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+    Biometric Data
+  </a>
+  <a href="{% org_url 'biometric:logs' %}"
+     class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-200 {% if request.resolver_match.url_name == 'logs' %}border-blue-600 text-blue-600{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Sync Logs
+  </a>
+  <a href="{% org_url 'biometric:reconciliation' %}"
+     class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors duration-200 {% if request.resolver_match.url_name == 'reconciliation' %}border-blue-600 text-blue-600{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %}">
+    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12h4l3 6 4-12 2 6h3"/></svg>
+    Attendance
+  </a>
+</nav>
+{% if request.resolver_match.url_name == 'sync' or request.resolver_match.url_name == 'reconciliation' %}
+<div hx-get="{% org_url 'biometric:sync_progress' %}" hx-trigger="load" hx-swap="outerHTML"></div>
+{% endif %}
+
+{% if request.shared_module_org %}<p class="my-3 text-sm"><a href="{% url 'biometric:data' %}">← All shared biometric data</a></p>{% endif %}

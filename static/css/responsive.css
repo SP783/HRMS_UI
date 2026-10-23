@@ -1,0 +1,162 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — All media queries in one place, loaded last so they
+   can override any preceding rule.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── A4 Document ─────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .a4-field-grid { grid-template-columns: repeat(2, 1fr); }
+  .a4-field-grid--form { grid-template-columns: repeat(2, 1fr); }
+  .form-two-col { grid-template-columns: 1fr; }
+  .grid.grid-cols-2 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .a4-header { padding: 20px 16px; gap: 12px; }
+  .a4-header-main { flex-direction: column; text-align: center; gap: 12px; }
+  .a4-header-info { text-align: center; }
+  .a4-header-meta { justify-content: center; }
+  .a4-header-badges { justify-content: center; }
+  .a4-header-stats { justify-content: center; }
+  .a4-body { padding: 12px; }
+  .a4-footer { padding: 12px; }
+}
+
+@media (max-width: 600px) {
+  .a4-field-grid { grid-template-columns: 1fr; }
+  .a4-field-grid--form { grid-template-columns: 1fr; }
+}
+
+/* ── Settings ─────────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .settings-layout { grid-template-columns: 1fr; }
+  .settings-nav { position: static; }
+  .grid-cols-4 { grid-template-columns: repeat(2, 1fr); }
+  .detail-grid { grid-template-columns: 1fr; }
+  .detail-sidebar { position: static; }
+}
+
+/* ── Project Detail ──────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .proj-stats { grid-template-columns: repeat(3, 1fr); }
+  .proj-side-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .proj-header { grid-template-columns: 1fr; }
+  .proj-header-progress { min-width: 0; }
+  .proj-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Calendar ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .cal-day { min-height: 60px; padding: 4px; }
+  .cal-day-num { font-size: 11px; }
+  .cal-day-time, .cal-day-dur { font-size: 9px; }
+  .cal-day-status { font-size: 12px; }
+  .cal-employee-header { flex-direction: column; align-items: flex-start; }
+  .cal-stat { min-width: 60px; padding: 8px 4px; }
+  .cal-stat-value { font-size: var(--font-size-lg); }
+}
+
+@media (max-width: 480px) {
+  .cal-grid { gap: 2px; }
+  .cal-day { min-height: 48px; padding: 3px; }
+  .cal-day-time, .cal-day-dur { display: none; }
+  .cal-summary { gap: 4px; }
+  .cal-stat { min-width: 44px; padding: 6px 2px; }
+  .cal-stat-value { font-size: var(--font-size-md); }
+  .cal-stat-label { font-size: 8px; }
+}
+
+/* ── Main Layout ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); width: 280px; }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .main-content { margin-left: 0 !important; }
+
+  .stat-cards { grid-template-columns: repeat(2, 1fr); }
+  .form-grid { grid-template-columns: 1fr; }
+  .grid-cols-2, .grid-cols-3, .grid-cols-4 { grid-template-columns: 1fr; }
+
+  .filter-bar { flex-direction: column; align-items: stretch; }
+  .filter-bar .form-input { max-width: none; }
+
+  .topbar { padding: 0 16px; }
+  .page-content { padding: 16px; }
+  .card-body { padding: 16px; }
+  .auth-card { padding: 28px 24px; }
+
+  .mobile-menu-btn { display: flex !important; }
+
+  .work-summary { grid-template-columns: 1fr; }
+  .decision-buttons { flex-direction: column; }
+  .dashboard-welcome { padding: 24px 20px; }
+}
+
+@media (max-width: 480px) {
+  .stat-cards { grid-template-columns: 1fr; }
+  .stat-value { font-size: var(--font-size-3xl); }
+  .page-content { padding: 12px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRINT STYLES — @page at top level for spec compliance
+   ═══════════════════════════════════════════════════════════════════════════ */
+@page { size: A4; margin: 8mm; }
+
+@media print {
+  /* Hide chrome */
+  .sidebar, .topbar, .filter-bar, .theme-toggle,
+  .sidebar-overlay, .mobile-menu-btn, .messages,
+  .a4-actions, .a4-early-release-form,
+  .btn, .a4-footer { display: none !important; }
+
+  .main-content { margin-left: 0 !important; }
+  .page-content { padding: 16px !important; }
+  body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Force light theme for print */
+  [data-theme="dark"] {
+    --color-text: #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-muted: #94a3b8;
+    --color-surface: #ffffff;
+    --color-surface-2: #f8fafc;
+    --color-surface-3: #f0f4f8;
+    --color-border: #e2e8f0;
+    --color-border-light: #f1f5f9;
+    --color-accent: #6b8aff;
+    --color-accent-light: rgba(107,138,255,0.12);
+    --color-bg: #f1f5f9;
+  }
+
+  /* A4 page layout */
+  .a4-document { justify-content: flex-start; }
+  .a4-page { width: 100% !important; margin: 0 !important; }
+
+  /* Keep header horizontal */
+  .a4-header { padding: 24px 28px 20px !important; gap: 16px !important; }
+  .a4-header-main { flex-direction: row !important; text-align: left !important; gap: 20px !important; }
+  .a4-header-info { text-align: left !important; }
+  .a4-header-meta { justify-content: flex-start !important; }
+  .a4-header-badges { justify-content: flex-start !important; }
+  .a4-header-stats { justify-content: flex-start !important; }
+
+  /* Restore body padding */
+  .a4-body { padding: 12px 24px !important; }
+
+  /* Keep 3-column grids */
+  .a4-field-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .a4-field-grid--form { grid-template-columns: repeat(3, 1fr) !important; }
+
+  /* Prevent page breaks inside sections */
+  .a4-section { break-inside: avoid; }
+
+  /* Remove hover effects */
+  .a4-section:hover,
+  .a4-field:hover { background: none !important; border-color: inherit !important; }
+
+  /* Keep badge colours */
+  .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .card { break-inside: avoid; }
+}

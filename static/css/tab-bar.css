@@ -1,0 +1,78 @@
+/* ── Tab Bar — replaces settings-nav--top horizontal sub-nav ── */
+/*
+ * Drop-in replacement for .settings-nav.settings-nav--top pattern.
+ * Use:  <div class="tab-bar"> ... <a class="tab-item [active]"> ... </a> ... </div>
+ *
+ * Append this block to static/css/main.css (or layout.css).
+ * The old .settings-nav / .settings-nav-item rules can stay — they are
+ * now unused but harmless.
+ */
+
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border, rgba(0,0,0,0.1));
+  margin-bottom: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #6b7280);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;     /* overlap the bar's border */
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
+
+.tab-item svg {
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tab-item:hover {
+  color: var(--color-text-primary, #111827);
+  border-bottom-color: var(--color-border, rgba(0,0,0,0.2));
+}
+.tab-item:hover svg { opacity: 0.9; }
+
+.tab-item.active {
+  color: var(--color-accent, #f59e0b);
+  border-bottom-color: var(--color-accent, #f59e0b);
+  font-weight: 600;
+}
+.tab-item.active svg { opacity: 1; }
+
+/* Dark theme */
+[data-theme="dark"] .tab-bar {
+  border-bottom-color: rgba(255,255,255,0.1);
+}
+[data-theme="dark"] .tab-item {
+  color: var(--color-text-secondary, #9ca3af);
+}
+[data-theme="dark"] .tab-item:hover {
+  color: var(--color-text-primary, #f9fafb);
+  border-bottom-color: rgba(255,255,255,0.25);
+}
+[data-theme="dark"] .tab-item.active {
+  color: var(--color-accent, #fbbf24);
+  border-bottom-color: var(--color-accent, #fbbf24);
+}
+
+/* Responsive — on narrow viewports drop icons if needed */
+@media (max-width: 480px) {
+  .tab-item { padding: 9px 12px; font-size: 12px; gap: 5px; }
+  .tab-item svg { display: none; }
+}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Biometric Sync Logs — {{ site_name }}{% endblock %}
+{% block page_title %}Biometric Sync Logs{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6">
+
+  {% include "biometric/partials/nav.html" %}
+
+  <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
+      <h3 class="text-base font-semibold text-gray-900">Sync History</h3>
+      <span class="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+        {{ logs|length }} entries
+      </span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Started</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Trigger</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date Range</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Attendance</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Punches</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+            <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Error</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 bg-white">
+          {% for log in logs %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="whitespace-nowrap px-5 py-3 text-xs text-gray-700">{{ log.started_at|date:"d M Y H:i" }}</td>
+            <td class="whitespace-nowrap px-5 py-3 text-xs">
+              <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+                {{ log.get_triggered_by_display }}
+              </span>
+            </td>
+            <td class="whitespace-nowrap px-5 py-3 text-xs text-gray-700">
+              {% if log.date_from and log.date_to %}
+                {{ log.date_from|date:"d M" }} &rarr; {{ log.date_to|date:"d M Y" }}
+              {% else %}—{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-5 py-3 text-xs">
+              {% if log.status == 'success' %}
+                <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Success</span>
+              {% elif log.status == 'partial' %}
+                <span class="inline-flex items-center rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">Partial</span>
+              {% else %}
+                <span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">Failed</span>
+              {% endif %}
+            </td>
+            <td class="whitespace-nowrap px-5 py-3 text-xs text-gray-700">
+              <span class="font-medium text-green-600">+{{ log.attendance_new }}</span>
+              <span class="text-gray-400">/</span> {{ log.attendance_pulled }}
+            </td>
+            <td class="whitespace-nowrap px-5 py-3 text-xs text-gray-700">
+              <span class="font-medium text-green-600">+{{ log.punches_new }}</span>
+              <span class="text-gray-400">/</span> {{ log.punches_pulled }}
+            </td>
+            <td class="whitespace-nowrap px-5 py-3 text-xs text-gray-700">
+              {% if log.duration_seconds %}{{ log.duration_seconds }}s{% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3 text-[11px] text-red-600 max-w-[200px] truncate" title="{{ log.error_message }}">
+              {{ log.error_message|default:"—"|truncatechars:60 }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="px-5 py-8 text-center text-sm text-gray-500">
+              No sync logs yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

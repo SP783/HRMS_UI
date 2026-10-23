@@ -1,0 +1,106 @@
+<div class="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden font-sans transition-colors">
+  <div class="px-6 py-4 border-b border-gray-50 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Today — {{ today }}</h3>
+    
+    <div class="flex flex-wrap gap-2 items-center text-xs text-gray-500 dark:text-gray-400">
+      {% if user.profile.employee.shift %}
+        <div class="flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md font-medium">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>{{ user.profile.employee.shift.name }}</span>
+          <span class="opacity-80">
+            {% if user.profile.employee.shift.is_flexible %}
+              (🔄 Flexible · Min {{ user.profile.employee.shift.minimum_working_display }})
+            {% else %}
+              ({{ user.profile.employee.shift.start_time|time:"H:i" }}–{{ user.profile.employee.shift.end_time|time:"H:i" }})
+            {% endif %}
+          </span>
+        </div>
+        
+        {% if user.profile.employee.shift.half_day_cutoff %}
+          <div class="px-2 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md">
+            ⚠ Half-day after {{ user.profile.employee.shift.half_day_cutoff|time:"H:i" }}
+          </div>
+        {% endif %}
+      {% endif %}
+      
+      <div class="flex items-center gap-1 ml-auto text-emerald-600 dark:text-emerald-400 font-medium">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        Live
+      </div>
+    </div>
+  </div>
+
+  <div class="p-6">
+    {% if today_record and today_record.check_in %}
+      {% if today_record.provisional_checkout or multiple_checkins_enabled and today_record.check_out and not today_record.is_overtime %}
+        <div class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/30 dark:text-amber-200 mb-4">
+          Checked out at {{ today_record.check_out|time:"H:i" }}. You can return to work today; your first check-in and exit history will be kept.
+        </div>
+        <form method="post" action="{% url 'attendance:check_in' %}" hx-post="{% url 'attendance:check_in' %}" hx-target="#attendance-widgets" hx-swap="outerHTML" hx-select="#attendance-widgets" hx-headers='{"X-HRMS-Widgets":"1"}' hx-disabled-elt="#attendance-widgets button">
+          {% csrf_token %}
+          <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold">Return to work</button>
+        </form>
+      {% elif today_record.is_overtime and not today_record.overtime_ended_at %}
+        <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 p-3 rounded-lg font-medium mb-4">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10"/></svg>
+          Overtime in progress
+        </div>
+        <div class="space-y-3 mb-6">
+          <div class="flex justify-between text-sm"><span class="text-gray-500 dark:text-gray-400">Shift</span><span class="font-medium text-gray-900 dark:text-gray-100">{{ today_record.check_in|time:"H:i" }} – {{ today_record.check_out|time:"H:i" }}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500 dark:text-gray-400">Overtime</span><span id="otTimer" class="font-mono text-amber-600 dark:text-amber-400 font-bold" data-start="{{ today_record.overtime_started_at.isoformat }}">...</span></div>
+          <div class="flex justify-between text-sm"><span class="text-gray-500 dark:text-gray-400">Total</span><span id="workTimer" class="font-mono font-bold dark:text-gray-100" data-start="{{ today_record.check_in.isoformat }}">...</span></div>
+        </div>
+        <form method="post" action="{% url 'attendance:stop_overtime' %}" hx-post="{% url 'attendance:stop_overtime' %}" hx-target="#attendance-widgets" hx-swap="outerHTML" hx-select="#attendance-widgets" hx-headers='{"X-HRMS-Widgets":"1"}' hx-disabled-elt="#attendance-widgets button">
+          {% csrf_token %}
+          <button type="submit" class="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2">Stop Overtime</button>
+        </form>
+
+      {% elif today_record.check_in and not today_record.check_out %}
+        <div class="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-lg font-medium mb-4">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Checked in at {{ today_record.check_in|time:"H:i" }}
+        </div>
+        <div class="space-y-3 mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+          <div class="flex justify-between text-sm"><span class="text-gray-500 dark:text-gray-400">Working time</span><span id="workTimer" class="font-mono font-bold text-gray-900 dark:text-gray-100" data-start="{{ today_record.check_in.isoformat }}">...</span></div>
+          {% if break_enabled and today_record.break_total_minutes > 0 %}
+          <div class="flex justify-between text-sm"><span class="text-gray-500 dark:text-gray-400">Break time</span><span class="font-medium dark:text-gray-200">{{ today_record.break_display }}</span></div>
+          {% endif %}
+        </div>
+        
+        <form id="checkoutForm" method="post" action="{% url 'attendance:check_out' %}" hx-post="{% url 'attendance:check_out' %}" hx-target="#attendance-widgets" hx-swap="outerHTML" hx-select="#attendance-widgets" hx-headers='{"X-HRMS-Widgets":"1"}' hx-disabled-elt="#attendance-widgets button">
+          {% csrf_token %}
+          <button type="button" id="initCheckoutBtn" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all shadow-sm">
+            Check Out
+          </button>
+        </form>
+
+        <div id="checkoutConfirm" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl text-center w-full max-w-sm">
+            <h3 class="font-bold text-lg mb-2 dark:text-white">Confirm Check Out?</h3>
+            <p class="mb-6 text-sm text-gray-600 dark:text-gray-300">Are you sure you want to end your shift?</p>
+            <div class="flex gap-2">
+              <button id="confirmBtn" class="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors">Confirm (10s)</button>
+              <button id="cancelBtn" class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md font-medium transition-colors">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+      {% else %}
+        <div class="text-center py-6">
+          <div class="text-gray-400 dark:text-gray-500 mb-2">
+            <svg class="mx-auto" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/><path d="M9 12L11 14L15 10"/></svg>
+          </div>
+          <h4 class="font-medium text-gray-900 dark:text-gray-100">All done for today!</h4>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl mb-4">
+        <p class="text-gray-500 dark:text-gray-400">You haven't checked in yet.</p>
+      </div>
+      <form method="post" action="{% url 'attendance:check_in' %}" hx-post="{% url 'attendance:check_in' %}" hx-target="#attendance-widgets" hx-swap="outerHTML" hx-select="#attendance-widgets" hx-headers='{"X-HRMS-Widgets":"1"}' hx-disabled-elt="#attendance-widgets button">
+        {% csrf_token %}
+        <button type="submit" class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md shadow-blue-100 dark:shadow-none transition-transform active:scale-[0.98]">Check In Now</button>
+      </form>
+    {% endif %}
+  </div>
+</div>

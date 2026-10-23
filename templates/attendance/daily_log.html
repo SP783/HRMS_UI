@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+{% block title %}Daily Log — {{ site_name }}{% endblock %}
+{% block page_title %}Daily Log{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'attendance:dashboard' %}" class="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Dashboard
+  </a>
+  <button type="button" onclick="exportWithFilters()" class="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Export CSV
+  </button>
+{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="flex flex-col gap-6">
+  {% include 'attendance/partials/_tabs.html' %}
+
+
+  <!-- Filters -->
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 sm:p-5">
+    <form data-ui-filter method="get" class="flex flex-wrap items-end gap-4" id="filterForm" hx-preserve>
+      
+      <!-- Date mode toggle -->
+      <div class="w-full sm:w-auto">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Date Mode</label>
+        <div class="flex p-1 bg-slate-100 dark:bg-slate-800/60 rounded-lg w-fit">
+          <button type="button" class="filter-tab px-3 py-1.5 text-sm font-medium rounded-md transition-all {% if date_mode != 'range' %}bg-white dark:bg-slate-900 shadow-sm text-slate-900 dark:text-white{% else %}text-slate-500 hover:text-slate-700 dark:hover:text-slate-300{% endif %}" onclick="setDateMode('single')">Single Date</button>
+          <button type="button" class="filter-tab px-3 py-1.5 text-sm font-medium rounded-md transition-all {% if date_mode == 'range' %}bg-white dark:bg-slate-900 shadow-sm text-slate-900 dark:text-white{% else %}text-slate-500 hover:text-slate-700 dark:hover:text-slate-300{% endif %}" onclick="setDateMode('range')">Date Range</button>
+        </div>
+      </div>
+
+      <!-- Single date picker -->
+      <div class="w-full sm:w-auto" style="{% if date_mode == 'range' %}display:none{% endif %}" id="singleDateGroup">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Date</label>
+        <div class="flex items-center gap-2">
+          <input type="date" name="date" class="w-40 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all color-scheme-dark" value="{{ selected_date|date:'Y-m-d' }}">
+          <button type="button" class="px-3 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-500/10 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-colors flex items-center gap-1.5" onclick="setToday()" title="Jump to today">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Today
+          </button>
+        </div>
+      </div>
+
+      <!-- Date range picker -->
+      <div class="w-full sm:w-auto" style="{% if date_mode != 'range' %}display:none{% endif %}" id="rangeDateGroup">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">From</label>
+        <input type="date" name="from_date" class="w-40 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all color-scheme-dark" value="{{ from_date|date:'Y-m-d' }}">
+      </div>
+      <div class="w-full sm:w-auto" style="{% if date_mode != 'range' %}display:none{% endif %}" id="rangeDateGroupTo">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">To</label>
+        <input type="date" name="to_date" class="w-40 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all color-scheme-dark" value="{{ to_date|date:'Y-m-d' }}">
+      </div>
+
+      <input type="hidden" name="date_mode" id="dateModeInput" value="{{ date_mode }}">
+
+      <div class="w-full sm:w-auto flex-1 min-w-[150px]">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Status</label>
+        <select name="status" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all appearance-none">
+          <option value="">All Statuses</option>
+          <option value="present" {% if status_filter == 'present' %}selected{% endif %}>Present</option>
+          <option value="absent" {% if status_filter == 'absent' %}selected{% endif %}>Absent</option>
+          <option value="late" {% if status_filter == 'late' %}selected{% endif %}>Late</option>
+          <option value="half_day" {% if status_filter == 'half_day' %}selected{% endif %}>Half Day</option>
+          <option value="on_leave" {% if status_filter == 'on_leave' %}selected{% endif %}>On Leave</option>
+          <option value="holiday" {% if status_filter == 'holiday' %}selected{% endif %}>Holiday</option>
+        </select>
+      </div>
+
+      {% if departments %}
+      <div class="w-full sm:w-auto flex-1 min-w-[150px]">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Department</label>
+        <select name="department" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all appearance-none">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+          <option value="{{ dept.name }}" {% if dept_filter == dept.name %}selected{% endif %}>{{ dept.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      {% if employees %}
+      <div class="w-full sm:w-auto flex-1 min-w-[200px]" id="empPicker">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Employees</label>
+        <button type="button" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm flex items-center justify-between focus:ring-2 focus:ring-primary-500 transition-all emp-picker-trigger" onclick="toggleEmpPicker()">
+          <span id="empPickerLabel" class="truncate text-slate-700 dark:text-slate-300">
+            {% if selected_employee_ids %}{{ selected_employee_ids|length }} selected{% else %}All Employees{% endif %}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 flex-shrink-0"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        
+        <!-- Dropdown (JS moves this to body to escape overflow) -->
+        <div class="emp-picker-dropdown bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl flex-col overflow-hidden" id="empPickerDropdown" style="display:none;">
+          <div class="p-3 border-b border-slate-100 dark:border-slate-800">
+            <input type="text" placeholder="Search employees..." oninput="filterEmpList(this.value)" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all">
+          </div>
+          <div class="flex justify-between px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+            <button type="button" class="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline" onclick="selectAllEmps()">Select All</button>
+            <button type="button" class="text-xs font-semibold text-slate-500 hover:underline" onclick="deselectAllEmps()">Clear</button>
+          </div>
+          <div class="overflow-y-auto max-h-60 p-2 flex flex-col gap-1" id="empPickerList">
+            {% for emp in employees %}
+            <label class="emp-picker-item flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer transition-colors">
+              <input type="checkbox" form="filterForm" name="employee_ids" value="{{ emp.employee_id }}" class="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500 dark:border-slate-600 dark:bg-slate-700 dark:ring-offset-slate-900" {% if emp.employee_id in selected_employee_ids %}checked{% endif %}>
+              <div class="flex-1 min-w-0">
+                <div class="emp-picker-item-name text-sm font-semibold text-slate-900 dark:text-white truncate">{{ emp.profile.full_name }}</div>
+                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <span class="emp-picker-item-id font-mono">{{ emp.employee_id }}</span>
+                  {% if emp.department %}<span class="emp-picker-item-dept truncate">&bull; {{ emp.department.name }}</span>{% endif %}
+                </div>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <button type="submit" class="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2 focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Filter
+      </button>
+    </form>
+  </div>
+
+  <!-- Summary Cards Row -->
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+    <div class="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ status_counts.present }}</div>
+      <div class="text-[11px] font-bold text-emerald-700 dark:text-emerald-500 uppercase tracking-wider mt-1">Present</div>
+    </div>
+    <div class="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-rose-600 dark:text-rose-400">{{ status_counts.absent }}</div>
+      <div class="text-[11px] font-bold text-rose-700 dark:text-rose-500 uppercase tracking-wider mt-1">Absent</div>
+    </div>
+    <div class="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ status_counts.late }}</div>
+      <div class="text-[11px] font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider mt-1">Late</div>
+    </div>
+    <div class="bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-slate-700 dark:text-slate-300">{{ status_counts.half_day }}</div>
+      <div class="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mt-1">Half Day</div>
+    </div>
+    <div class="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ status_counts.on_leave }}</div>
+      <div class="text-[11px] font-bold text-blue-700 dark:text-blue-500 uppercase tracking-wider mt-1">On Leave</div>
+    </div>
+    <div class="bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-800/50 rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ status_counts.holiday|default:0 }}</div>
+      <div class="text-[11px] font-bold text-indigo-700 dark:text-indigo-500 uppercase tracking-wider mt-1">Holiday</div>
+    </div>
+  </div>
+
+  <!-- Records Table -->
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0f172a]/50 flex items-center justify-between gap-4 flex-wrap">
+      <span class="font-bold text-slate-900 dark:text-white">
+        {% if date_mode == 'range' %}
+          {{ from_date|date:"d M Y" }} — {{ to_date|date:"d M Y" }}
+        {% else %}
+          {{ selected_date|date:"d F Y" }} — {{ selected_date|date:"l" }}
+        {% endif %}
+      </span>
+      <span class="text-sm font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">{{ records|length }} record{{ records|length|pluralize }}</span>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse whitespace-nowrap">
+        <thead>
+          <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            {% if date_mode == 'range' %}<th class="px-6 py-3">Date</th>{% endif %}
+            <th class="px-6 py-3">Employee</th>
+            <th class="px-6 py-3">Department</th>
+            <th class="px-6 py-3">Check In</th>
+            <th class="px-6 py-3">Check Out</th>
+            <th class="px-6 py-3">Duration</th>
+            <th class="px-6 py-3">Break</th>
+            <th class="px-6 py-3">Status</th>
+            {% if can_edit %}<th class="px-6 py-3 text-right">Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
+          {% for r in records %}
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+            {% if date_mode == 'range' %}
+              <td class="px-6 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">{{ r.date }}</td>
+            {% endif %}
+            
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                {% if r.profile.profile_photo %}
+                <img src="{{ r.profile.profile_photo.url }}" alt="" class="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700">
+                {% else %}
+                <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center font-bold text-xs border border-slate-200 dark:border-slate-700">{{ r.profile.initials }}</div>
+                {% endif %}
+                <div>
+                  <div class="text-sm font-bold text-slate-900 dark:text-white">{{ r.profile.full_name }}</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">{{ r.profile.employee_id }}</div>
+                </div>
+              </div>
+            </td>
+            
+            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{{ r.profile.employee.department.name|default:"—" }}</td>
+            
+            <td class="px-6 py-4">
+              <span class="text-sm font-semibold {% if r.status == 'late' %}text-amber-600 dark:text-amber-400{% else %}text-slate-700 dark:text-slate-300{% endif %}">
+                {{ r.check_in|time:"H:i"|default:"—" }}
+              </span>
+            </td>
+            
+            <td class="px-6 py-4 text-sm font-semibold text-slate-700 dark:text-slate-300">{{ r.check_out|time:"H:i"|default:"—" }}</td>
+            
+            <td class="px-6 py-4 text-sm font-mono text-slate-600 dark:text-slate-400">{{ r.duration_display }}</td>
+            
+            <td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+              {% with sessions=r.breaks.all %}
+                {% if sessions %}
+                  <div class="flex flex-col gap-1">
+                  {% for s in sessions %}
+                    <div class="flex items-center gap-2">
+                      <span class="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-xs">{{ s.start_at|time:"H:i" }}–{% if s.end_at %}{{ s.end_at|time:"H:i" }}{% else %}<em class="text-amber-600 dark:text-amber-400 not-italic">open</em>{% endif %}</span>
+                      {% if s.end_at %}<span class="text-xs font-semibold">{{ s.minutes }}m</span>{% endif %}
+                      {% if s.auto_closed %}<span class="text-rose-500" title="Auto-closed by checkout/midnight">&bull;</span>{% endif %}
+                    </div>
+                  {% endfor %}
+                  {% if r.break_total_minutes > 0 and sessions|length > 1 %}
+                    <div class="text-xs font-bold text-slate-700 dark:text-slate-300 mt-1 border-t border-slate-100 dark:border-slate-800 pt-1">Total {{ r.break_display }}</div>
+                  {% endif %}
+                  </div>
+                {% elif r.break_total_minutes > 0 %}
+                  <span class="font-semibold">{{ r.break_display }}</span>
+                {% else %}
+                  <span>—</span>
+                {% endif %}
+              {% endwith %}
+            </td>
+            
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider
+                {% if r.status == 'present' %}bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50
+                {% elif r.status == 'absent' %}bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200/50 dark:border-rose-800/50
+                {% elif r.status == 'late' %}bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/50
+                {% elif r.status == 'on_leave' %}bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/50
+                {% elif r.status == 'half_day' %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50
+                {% else %}bg-slate-50 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400 border border-slate-200 dark:border-slate-700{% endif %}">
+              {% if r.provisional_checkout %}Incomplete — awaiting return{% else %}{{ r.get_status_display }}{% endif %}
+              </span>
+            </td>
+            
+            {% if can_edit %}
+            <td class="px-6 py-4 text-right">
+              <a href="{% url 'attendance:correct' r.pk %}" class="inline-flex px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors shadow-sm">
+                Correct
+              </a>
+            </td>
+            {% endif %}
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{% if date_mode == 'range' %}{% if can_edit %}9{% else %}8{% endif %}{% else %}{% if can_edit %}8{% else %}7{% endif %}{% endif %}" class="px-6 py-12">
+              <div class="flex flex-col items-center justify-center text-center">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 mb-4"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-1">No records found</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">There is no attendance data for this period.</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .color-scheme-dark { color-scheme: light; }
+  .dark .color-scheme-dark { color-scheme: dark; }
+</style>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  /* ── Employee Picker — fixed positioning ────────────────────────────── */
+  var dd = document.getElementById('empPickerDropdown');
+  var picker = document.getElementById('empPicker');
+  if (dd && picker) {
+  var trigger = picker.querySelector('.emp-picker-trigger');
+
+  // Move dropdown to <body> so it escapes ALL ancestor overflow.
+  document.body.appendChild(dd);
+  dd.style.position = 'fixed';
+  dd.style.zIndex = '9999';
+
+  function positionDropdown() {
+    var rect = trigger.getBoundingClientRect();
+    dd.style.left = rect.left + 'px';
+    dd.style.top = (rect.bottom + 6) + 'px';
+    dd.style.width = Math.max(rect.width, 320) + 'px';
+  }
+
+  window.toggleEmpPicker = function() {
+    var isHidden = dd.style.display === 'none';
+    if (!isHidden) {
+      dd.style.display = 'none';
+    } else {
+      positionDropdown();
+      dd.style.display = 'flex';
+      var searchInput = dd.querySelector('input[type="text"]');
+      if (searchInput) setTimeout(function() { searchInput.focus(); }, 50);
+    }
+  };
+
+  function repositionHandler() {
+    if (dd.style.display !== 'none') positionDropdown();
+  }
+  window.addEventListener('scroll', repositionHandler, true);
+  window.addEventListener('resize', repositionHandler);
+
+  document.addEventListener('click', function(e) {
+    if (!picker.contains(e.target) && !dd.contains(e.target)) {
+      dd.style.display = 'none';
+    }
+  });
+
+  window.filterEmpList = function(query) {
+    var items = dd.querySelectorAll('.emp-picker-item');
+    var q = query.toLowerCase();
+    items.forEach(function(item) {
+      var name = item.querySelector('.emp-picker-item-name').textContent.toLowerCase();
+      var id = item.querySelector('.emp-picker-item-id').textContent.toLowerCase();
+      item.style.display = (name.includes(q) || id.includes(q)) ? 'flex' : 'none';
+    });
+  };
+
+  window.selectAllEmps = function() {
+    dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').forEach(function(cb) {
+      if (cb.closest('.emp-picker-item').style.display !== 'none') cb.checked = true;
+    });
+    updateEmpLabel();
+  };
+
+  window.deselectAllEmps = function() {
+    dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').forEach(function(cb) {
+      cb.checked = false;
+    });
+    updateEmpLabel();
+  };
+
+  function updateEmpLabel() {
+    var checked = dd.querySelectorAll('.emp-picker-item input[type="checkbox"]:checked').length;
+    var total = dd.querySelectorAll('.emp-picker-item input[type="checkbox"]').length;
+    document.getElementById('empPickerLabel').textContent = checked > 0 ? checked + ' of ' + total + ' selected' : 'All Employees';
+  }
+
+  document.addEventListener('change', function(e) {
+    if (e.target.name === 'employee_ids') updateEmpLabel();
+  });
+
+  }
+
+  /* ── Date mode toggle ──────────────────────────────────────────────── */
+  window.setDateMode = function(mode) {
+    document.getElementById('dateModeInput').value = mode;
+    var single = document.getElementById('singleDateGroup');
+    var rangeFrom = document.getElementById('rangeDateGroup');
+    var rangeTo = document.getElementById('rangeDateGroupTo');
+    var tabs = document.querySelectorAll('.filter-tab');
+    
+    // Reset tabs
+    tabs.forEach(function(t) { 
+      t.classList.remove('bg-white', 'dark:bg-slate-900', 'shadow-sm', 'text-slate-900', 'dark:text-white');
+      t.classList.add('text-slate-500');
+    });
+    
+    if (mode === 'single') {
+      single.style.display = 'block'; 
+      rangeFrom.style.display = 'none'; 
+      rangeTo.style.display = 'none';
+      tabs[0].classList.add('bg-white', 'dark:bg-slate-900', 'shadow-sm', 'text-slate-900', 'dark:text-white');
+      tabs[0].classList.remove('text-slate-500');
+    } else {
+      single.style.display = 'none'; 
+      rangeFrom.style.display = 'block'; 
+      rangeTo.style.display = 'block';
+      tabs[1].classList.add('bg-white', 'dark:bg-slate-900', 'shadow-sm', 'text-slate-900', 'dark:text-white');
+      tabs[1].classList.remove('text-slate-500');
+    }
+  };
+
+  window.setToday = function() {
+    document.querySelector('input[name="date"]').value = new Date().toISOString().split('T')[0];
+  };
+
+  /* ── Export ────────────────────────────────────────────────────────── */
+  window.exportWithFilters = function() {
+    var form = document.getElementById('filterForm');
+    var params = new URLSearchParams();
+    params.set('type', 'daily');
+    var dateMode = document.getElementById('dateModeInput').value;
+    if (dateMode === 'range') {
+      var from = form.querySelector('input[name="from_date"]').value;
+      var to = form.querySelector('input[name="to_date"]').value;
+      if (from) params.set('from_date', from);
+      if (to) params.set('to_date', to);
+    } else {
+      var date = form.querySelector('input[name="date"]').value;
+      if (date) params.set('date', date);
+    }
+    var status = form.querySelector('select[name="status"]').value;
+    if (status) params.set('status', status);
+    var dept = form.querySelector('select[name="department"]');
+    if (dept && dept.value) params.set('department', dept.value);
+    document.querySelectorAll('input[form="filterForm"][name="employee_ids"]:checked').forEach(function(cb) {
+      params.append('employee_ids', cb.value);
+    });
+    window.location.href = '{% url "attendance:export" %}?' + params.toString();
+  };
+})();
+</script>
+{% endblock %}

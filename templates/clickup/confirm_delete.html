@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Delete {{ kind }} · Task Hub{% endblock %}{% block page_title %}Task Hub{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/clickup.css' %}">{% endblock %}
+{% block content %}<main class="cu-shell cu-narrow"><a href="{{ cancel_url }}">← Cancel</a>
+  <section class="cu-panel"><h1>Delete {{ kind|lower }} “{{ object_name }}”?</h1>
+    <p>This permanently removes {% if kind == 'Space' %}all its folders and lists, {% elif kind == 'Folder' %}its {{ list_count }} list{{ list_count|pluralize }}, {% endif %}{{ task_count }} task{{ task_count|pluralize }}, subtasks, comments, attachments, and activity. This cannot be undone.</p>
+    <form class="cu-form" method="post" action="{{ delete_url }}">{% csrf_token %}
+      <label>Type <strong>{{ object_name }}</strong> to confirm<input name="name" required autocomplete="off" aria-label="Confirm {{ kind|lower }} name"></label>
+      <div><button class="cu-button" type="submit">Delete {{ kind|lower }}</button> <a class="cu-button" href="{{ cancel_url }}">Cancel</a></div>
+    </form>
+  </section></main>{% endblock %}

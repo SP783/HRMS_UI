@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Asset — {{ site_name }}{% endblock %}
+{% block page_title %}{% if asset %}Edit asset{% else %}Add asset{% endif %}{% endblock %}
+{% block content %}
+<main class="max-w-5xl p-5 space-y-4">
+  <div class="flex items-center justify-between"><h1 class="text-xl font-bold">{% if asset %}Edit {{ asset.asset_tag }}{% else %}Add IT asset{% endif %}</h1><a href="{% url 'assets:list' %}" class="text-indigo-600">Back to assets</a></div>
+  {% if errors %}<div class="border border-red-300 rounded-lg p-3 text-red-700">{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+  <form method="post" class="rounded-xl border bg-white p-5 grid grid-cols-1 md:grid-cols-3 gap-4">{% csrf_token %}
+    <label>Asset tag *<input class="block w-full border rounded-lg p-2" name="asset_tag" value="{{ asset.asset_tag|default:'' }}" {% if asset %}readonly{% endif %} required></label>
+    <label>Category *<input class="block w-full border rounded-lg p-2" name="category" value="{{ asset.category|default:'' }}" required></label>
+    <label>Manufacturer<input class="block w-full border rounded-lg p-2" name="manufacturer" value="{{ asset.manufacturer|default:'' }}"></label>
+    <label>Model<input class="block w-full border rounded-lg p-2" name="model_name" value="{{ asset.model_name|default:'' }}"></label>
+    <label>Serial number<input class="block w-full border rounded-lg p-2" name="serial_number" value="{{ asset.serial_number|default:'' }}"></label>
+    <label>Status<select class="block w-full border rounded-lg p-2" name="status">{% for value,label in statuses %}<option value="{{ value }}" {% if asset.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Condition<input class="block w-full border rounded-lg p-2" name="condition" value="{{ asset.condition|default:'' }}"></label>
+    <label>Location<input class="block w-full border rounded-lg p-2" name="location" value="{{ asset.location|default:'' }}"></label>
+    <label>Purchase date<input class="block w-full border rounded-lg p-2" type="date" name="purchase_date" value="{{ asset.purchase_date|date:'Y-m-d' }}"></label>
+    <label>Warranty expires<input class="block w-full border rounded-lg p-2" type="date" name="warranty_expires" value="{{ asset.warranty_expires|date:'Y-m-d' }}"></label>
+    <label>Assigned employee<select class="block w-full border rounded-lg p-2" name="assigned_employee_id"><option value="">Unassigned</option>{% for employee in employees %}<option value="{{ employee.employee_id }}" {% if asset.assigned_employee_id == employee.employee_id %}selected{% endif %}>{{ employee.employee_id }} · {{ employee.profile.full_name }}</option>{% endfor %}</select></label>
+    <label>Assigned on<input class="block w-full border rounded-lg p-2" type="date" name="assigned_on" value="{{ asset.assigned_on|date:'Y-m-d' }}"></label>
+    {% for field in custom_fields %}
+      <label>{{ field.column.label }}
+        {% if field.column.kind == 'boolean' %}
+          <select class="block w-full border rounded-lg p-2" name="custom_{{ field.column.key }}"><option value="">Not set</option><option value="Yes" {% if field.value == 'Yes' %}selected{% endif %}>Yes</option><option value="No" {% if field.value == 'No' %}selected{% endif %}>No</option></select>
+        {% else %}
+          <input class="block w-full border rounded-lg p-2" name="custom_{{ field.column.key }}" type="{% if field.column.kind == 'date' %}date{% elif field.column.kind == 'number' %}number{% else %}text{% endif %}" {% if field.column.kind == 'number' %}step="any"{% endif %} value="{{ field.value }}">
+        {% endif %}
+      </label>
+    {% endfor %}
+    <label class="md:col-span-3">Notes<textarea class="block w-full border rounded-lg p-2" name="notes" rows="3">{{ asset.notes|default:'' }}</textarea></label>
+    <div class="md:col-span-3"><button class="bg-indigo-600 text-white rounded-lg px-5 py-2">Save asset</button></div>
+  </form>
+</main>
+{% endblock %}

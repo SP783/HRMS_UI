@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Dashboard · Task Hub{% endblock %}{% block page_title %}Task Hub{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/clickup.css' %}"><link rel="stylesheet" href="{% static 'css/clickup-workflow.css' %}">{% endblock %}
+{% block content %}<div class="cu-workspace">{% include 'clickup/_sidebar.html' %}<main class="cu-shell cu-workspace-main"><header class="cu-heading"><div><h1>Dashboard</h1><p>Work across the Lists you can access.</p></div></header>
+  <div class="cu-dashboard-stats"><div><strong>{{ total }}</strong><span>Tasks</span></div><div><strong>{{ done_count }}</strong><span>Completed</span></div><div><strong>{{ overdue_count }}</strong><span>Overdue</span></div><div><strong>{{ blocked_count }}</strong><span>Blocked by dependencies</span></div></div>
+  <div class="cu-tools-grid"><section class="cu-panel"><h2>Overdue</h2>{% for task in overdue %}<div class="cu-line"><a href="{% url 'clickup:task' task.pk %}">{{ task.title }}</a><span>{{ task.list.name }} · {{ task.due_date|date:'d M Y' }}</span></div>{% empty %}<p class="cu-muted">No overdue tasks.</p>{% endfor %}</section>
+  <section class="cu-panel"><h2>Due in seven days</h2>{% for task in upcoming %}<div class="cu-line"><a href="{% url 'clickup:task' task.pk %}">{{ task.title }}</a><span>{{ task.list.name }} · {{ task.due_date|date:'d M Y' }}</span></div>{% empty %}<p class="cu-muted">Nothing due soon.</p>{% endfor %}</section>
+  <section class="cu-panel"><h2>Open workload</h2>{% for name,count in workload %}<div class="cu-line"><span>{{ name }}</span><strong>{{ count }}</strong></div>{% empty %}<p class="cu-muted">No assigned open tasks.</p>{% endfor %}</section>
+  <section class="cu-panel"><h2>Completed by week</h2>{% for week,count in weekly %}<div class="cu-line"><span>{{ week }}</span><strong>{{ count }}</strong></div>{% empty %}<p class="cu-muted">No completed tasks yet.</p>{% endfor %}</section></div>
+</main></div>{% endblock %}

@@ -1,0 +1,15 @@
+<section id="attendance-widgets" hx-get="{% url 'attendance:widgets' %}"
+         hx-trigger="every 30s [document.visibilityState === 'visible'], attendanceRefresh"
+         hx-target="this" hx-swap="outerHTML" hx-sync="this:drop"
+         hx-disabled-elt="find button" hx-history="false">
+  {% if widget_action %}<div role="status" aria-live="polite">
+    {% for message in messages %}<p class="p-3 mb-3 rounded-lg border" data-message-level="{{ message.tags }}">{{ message }}</p>{% endfor %}
+  </div>{% endif %}
+  <p id="attendance-request-error" role="alert" hidden></p>
+  {% if can_checkin %}
+  <div class="grid grid-cols-1 lg:grid-cols-[0.5fr_1fr] gap-6 items-start">
+    <div class="min-w-0 w-full h-full">{% include 'attendance/partials/_checkin_widget.html' %}</div>
+    {% if break_enabled %}<div class="min-w-0 w-full h-full">{% include 'attendance/partials/_break_widget.html' %}</div>{% endif %}
+  </div>
+  {% endif %}
+</section>

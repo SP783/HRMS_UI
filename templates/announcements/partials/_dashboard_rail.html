@@ -1,0 +1,196 @@
+{% comment %}
+  Dashboard right-side rail: company announcements on top, today's
+  birthdays below. Included from accounts/dashboard.html. The data is
+  prepared by apps.announcements.services::get_dashboard_context and
+  spread into the dashboard context by accounts.views::dashboard_view.
+
+  Expected context:
+    announcement_notices       — pre-ordered list of Notice (max 5)
+    announcement_birthdays     — list of Employee with date_of_birth today
+    announcement_total_active  — int, used for the "view all" link
+    role                       — current user's role (for the Manage link)
+{% endcomment %}
+
+<div class="flex flex-col gap-6">
+
+  {# Company Announcements #}
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0f172a]/50 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-500">
+          <path d="M3 11l18-5v12L3 14v-3z"/>
+          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+        </svg>
+        Announcements
+      </div>
+      {% if role == 'super_admin' or role == 'admin' or role == 'hr' %}
+      <a href="{% url 'announcements:manage' %}" class="text-xs font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors">Manage</a>
+      {% endif %}
+    </div>
+    
+    <div class="p-0">
+      {% if announcement_notices %}
+        <ul class="divide-y divide-slate-100 dark:divide-slate-800/60">
+          {% for n in announcement_notices %}
+          <li class="p-5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors {% if n.is_pinned %}bg-indigo-50/30 dark:bg-indigo-500/5{% endif %}">
+            
+            <!-- Header -->
+            <div class="flex items-start justify-between gap-3 mb-1.5">
+              <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-snug">
+                {% if n.is_pinned %}<span title="Pinned" class="mr-1 inline-block -translate-y-px text-sm">📌</span>{% endif %}
+                {{ n.title }}
+              </h4>
+              {% if n.priority == 'high' %}
+                <span class="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200/50 dark:border-rose-800/50">High</span>
+              {% elif n.priority == 'low' %}
+                <span class="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">Low</span>
+              {% endif %}
+            </div>
+
+            <!-- Body -->
+            <div class="text-sm text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">
+              {{ n.body|linebreaksbr }}
+            </div>
+
+            <!-- Meta Footer -->
+            <div class="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              {{ n.created_at|date:"d M" }}
+              {% if n.created_by %}
+                <span class="opacity-50">&bull;</span>
+                <span class="truncate">{{ n.created_by.full_name }}</span>
+              {% endif %}
+            </div>
+
+          </li>
+          {% endfor %}
+        </ul>
+        
+        <!-- View All Link (If more than 5 exist) -->
+        {% if announcement_total_active > announcement_notices|length %}
+        <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/20 text-center">
+          <a href="{% url 'announcements:manage' %}" class="text-xs font-medium text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+            {{ announcement_total_active|add:"-5" }} more in all announcements &rarr;
+          </a>
+        </div>
+        {% endif %}
+
+      {% else %}
+        <!-- Empty State -->
+        <div class="flex flex-col items-center justify-center p-8 text-center">
+          <div class="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3 text-slate-400">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">No announcements</p>
+          <p class="text-xs text-slate-500">There are currently no active company announcements.</p>
+          {% if role == 'super_admin' or role == 'admin' or role == 'hr' %}
+          <a href="{% url 'announcements:manage' %}" class="mt-4 text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400 transition-colors">Post one &rarr;</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Today's Birthdays #}
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0f172a]/50 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500">
+        <path d="M20 21v-7a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v7"/>
+        <path d="M4 16h16"/>
+        <path d="M12 10V4"/>
+        <path d="M10 4h4"/>
+      </svg>
+      Today's Birthdays
+    </div>
+    
+    <div class="p-5">
+      {% if announcement_birthdays %}
+        <ul class="space-y-4">
+          {% for emp in announcement_birthdays %}
+          <li class="flex items-center gap-3">
+            
+            {% if emp.profile_photo %}
+            <img src="{{ emp.profile_photo.url }}" alt="{{ emp.profile.full_name }}" class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700">
+            {% else %}
+            <div class="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm shadow-sm border border-indigo-100 dark:border-indigo-800/50">
+              {{ emp.profile.initials|default:"?" }}
+            </div>
+            {% endif %}
+            
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
+                {{ emp.profile.full_name }} <span title="Birthday Today" class="text-sm inline-block -translate-y-[1px]">🎂</span>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                {{ emp.designation.name|default:"Employee" }}
+                {% if emp.designation and emp.department %} <span class="opacity-50">&bull;</span> {% endif %}
+                {{ emp.department.name|default:"" }}
+              </div>
+            </div>
+            
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <!-- Empty State -->
+        <div class="flex flex-col items-center justify-center py-4 text-center">
+          <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No birthdays today.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if attendance_rail_enabled %}
+  {# ── Today's Attendance (company-wide, opt-in via HR Settings) ── #}
+  <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-[#0f172a]/50 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-500"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Today's Attendance
+      </div>
+      <span class="text-xs font-semibold text-slate-400">{{ attendance_rail_rows|length }}</span>
+    </div>
+
+    <div class="p-5">
+      {% if attendance_rail_rows %}
+        {# scrollable when more than 5 people #}
+        <ul class="space-y-3 {% if attendance_rail_rows|length > 5 %}max-h-80 overflow-y-auto pr-1{% endif %}">
+          {% for r in attendance_rail_rows %}
+          <li class="flex items-center gap-3">
+            {% if r.photo_url %}
+            <img src="{{ r.photo_url }}" alt="{{ r.name }}" class="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0">
+            {% else %}
+            <div class="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 flex items-center justify-center font-bold text-xs flex-shrink-0">{{ r.initials }}</div>
+            {% endif %}
+
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-slate-900 dark:text-white truncate">{{ r.name }}</div>
+              {% if r.designation %}<div class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ r.designation }}</div>{% endif %}
+            </div>
+
+            <span class="flex-shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full whitespace-nowrap
+              {% if r.tone == 'present' %}bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400
+              {% elif r.tone == 'leave' %}bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400
+              {% elif r.tone == 'half' %}bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400
+              {% elif r.tone == 'absent' %}bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400
+              {% elif r.tone == 'muted' %}bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400
+              {% else %}bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300{% endif %}">
+              {{ r.label }}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="flex flex-col items-center justify-center py-4 text-center">
+          <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No attendance to show.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>

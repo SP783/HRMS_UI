@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — {{ site_name }}{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+  <style>.dashboard-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:24px}.dashboard-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.dashboard-stats>section,.dashboard-stats>div:first-child{grid-column:1/-1}.dashboard-stats>a{padding:16px}.dashboard-stats>a>div:first-child{float:right;margin:0}.dashboard-stats>a>h3{font-size:1.5rem}@media(max-width:1100px){.dashboard-layout{grid-template-columns:1fr}}@media(max-width:520px){.dashboard-stats{grid-template-columns:1fr}.dashboard-stats>section,.dashboard-stats>div:first-child{grid-column:auto}}</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout items-start">
+  
+  <!-- Main Dashboard Area -->
+  <div class="flex flex-col gap-6 min-w-0">
+      
+    <!-- ── 1. Welcome Banners (Role Based) ───────────────────────────── -->
+    {% if user_role == 'super_admin' or user_role == 'admin' or user_role == 'hr' %}
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Welcome back, {{ user.get_full_name|default:user.username }}!</h2>
+      <p class="text-slate-500 dark:text-slate-400 mt-1">Here's what's happening with your team today.</p>
+    </div>
+    
+    {% elif user_role == 'manager' or user_role == 'team_lead' %}
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Hello, {{ user.get_full_name|default:user.username }}!</h2>
+      <p class="text-slate-500 dark:text-slate-400 mt-1">Manage your team effectively with {{ site_name }}.</p>
+    </div>
+    
+    {% elif user_role == 'viewer' %}
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Welcome, {{ user.get_full_name|default:user.username }}!</h2>
+      <p class="text-slate-500 dark:text-slate-400 mt-1">Browse employee information and reports.</p>
+    </div>
+    
+    {% else %}
+    <!-- Default / Standard User Welcome -->
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
+      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Good day, {{ user.get_full_name|default:user.username }}!</h2>
+      <p class="text-slate-500 dark:text-slate-400 mt-1">Track your work, manage leaves, and stay productive.</p>
+    </div>
+    {% endif %}
+
+    <!-- ── 2. Check-in + Break Widgets ───────────────────────────────── -->
+    {% if can_checkin %}
+    {% include 'attendance/partials/_dashboard_widgets.html' %}
+    {% endif %}
+
+    <!-- ── 3. Dashboard Stats & Actions (Role Based) ─────────────────── -->
+    {% if user_role == 'super_admin' or user_role == 'admin' or user_role == 'hr' %}
+    
+    <!-- Stats Grid -->
+    <div class="dashboard-stats">
+
+{% if dashboard_shared %}{% include 'accounts/_shared_overview.html' %}{% else %}
+      <!-- Card 1: Attendance overview (combined) -->
+      <div class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Attendance — Today</p>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <!-- Total Employees -->
+          <div class="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-3">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Total Employees</p>
+            <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ total_employees|default:'0' }}</h3>
+          </div>
+          <!-- Present Today -->
+          <div class="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 px-3 py-3">
+            <p class="text-xs font-medium text-emerald-700 dark:text-emerald-400">Present Today</p>
+            <h3 class="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{{ present_today|default:'0' }}</h3>
+          </div>
+          <!-- Not Checked In -->
+          <div class="rounded-lg bg-amber-50 dark:bg-amber-500/10 px-3 py-3">
+            <p class="text-xs font-medium text-amber-700 dark:text-amber-400">Not Checked In</p>
+            <h3 class="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{{ not_checked_in|default:'0' }}</h3>
+          </div>
+          <!-- Absent -->
+          <div class="rounded-lg bg-rose-50 dark:bg-rose-500/10 px-3 py-3">
+            <p class="text-xs font-medium text-rose-700 dark:text-rose-400">Absent</p>
+            <h3 class="text-2xl font-bold text-rose-700 dark:text-rose-300 mt-1">{{ absent_today|default:'0' }}</h3>
+          </div>
+        </div>
+        {% if dashboard_local_row %}{% include 'accounts/_dashboard_org_people.html' with row=dashboard_local_row %}{% endif %}
+      </div>
+
+{% endif %}
+      <!-- Card 2: Leave Requests (Clickable) -->
+      <a href="{% url 'leave:index' %}" class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-amber-300 dark:hover:border-amber-800/60 transition-all group block">
+        <div class="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-300 transition-colors">Leave Requests</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ total_leaves|default:'0' }}</h3>
+        <span class="inline-flex items-center text-xs font-semibold text-amber-700 dark:text-amber-400 mt-2 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">
+          {{ pending_leaves|default:'0' }} pending
+        </span>
+      </a>
+
+      <!-- Card 3: On Notice (Clickable) -->
+      <a href="{% url 'employees:resignations' %}?status=accepted" class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-rose-300 dark:hover:border-rose-800/60 transition-all group block">
+        <div class="w-10 h-10 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-300 transition-colors">On Notice</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">{{ on_notice|default:'0' }}</h3>
+      </a>
+    </div>
+
+    <!-- Quick Actions -->
+    <div>
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Quick Actions</h3>
+      <div class="flex flex-wrap gap-3">
+        <a href="{% url 'employees:create' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add Employee
+        </a>
+        <a href="{% url 'leave:index' %}?status=pending" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          Review Leaves
+        </a>
+        <a href="{% url 'attendance:monthly' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Monthly Attendance
+        </a>
+        <a href="{% url 'reports:index' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          View Reports
+        </a>
+      </div>
+    </div>
+
+    {% elif user_role == 'manager' or user_role == 'team_lead' %}
+    
+    <!-- Stats -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      <div class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow group">
+        <div class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Team Members</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ team_count|default:'0' }}</h3>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow group">
+        <div class="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Pending Leaves</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ pending_leaves|default:'0' }}</h3>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div>
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Quick Actions</h3>
+      <div class="flex flex-wrap gap-3">
+        <a href="{% url 'leave:index' %}?status=pending" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          Review Leaves
+        </a>
+        <a href="{% url 'attendance:index' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">
+          Team Attendance
+        </a>
+        <a href="{% url 'projects:index' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">
+          Projects
+        </a>
+      </div>
+    </div>
+
+    {% elif user_role == 'user' %}
+    
+    <!-- Stats -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      <div class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow group">
+        <div class="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Pending Leave Requests</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ my_pending_leaves|default:'0' }}</h3>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow group">
+        <div class="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Open Tasks</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ my_tasks|default:'0' }}</h3>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div>
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Quick Actions</h3>
+      <div class="flex flex-wrap gap-3">
+        <a href="{% url 'leave:apply' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-slate-900">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Apply for Leave
+        </a>
+        <a href="{% url 'projects:index' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">My Tasks</a>
+        <a href="{% url 'payroll:index' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">My Payslips</a>
+        <a href="{% url 'attendance:index' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">Attendance</a>
+      </div>
+    </div>
+
+    {% elif user_role == 'viewer' %}
+    
+    <div>
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Quick Actions</h3>
+      <div class="flex flex-wrap gap-3">
+        <a href="{% url 'employees:list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">View Employees</a>
+        <a href="{% url 'reports:index' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">Reports</a>
+        <a href="{% url 'projects:index' %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-sm font-medium rounded-lg transition-all shadow-sm">Projects</a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div> <!-- End Main Area -->
+
+  <!-- Right Sidebar / Announcements Rail -->
+  <aside class="flex flex-col gap-6 xl:sticky xl:top-6 min-w-0">
+    {% include 'announcements/partials/_dashboard_rail.html' %}
+  </aside>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  {% if can_checkin %}
+    {% include 'attendance/partials/_checkin_widget_js.html' %}
+  {% endif %}
+{% endblock %}

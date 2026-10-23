@@ -1,0 +1,60 @@
+/* ── Settings sub-nav: top-bar variant ────────────────────────────────────
+   Append to static/css/layout.css (or include after it).
+
+   The base `.settings-layout` is a 230px-side / 1fr-content grid. When a
+   `.settings-nav--top` is inside it, we flip to a single column and let
+   the nav span the full width as a horizontal bar. The content row sits
+   below it.
+
+   `:has()` is supported in all current evergreen browsers (Chrome 105+,
+   Safari 15.4+, Firefox 121+). If you must support older browsers, see
+   the fallback at the bottom of this file. */
+
+.settings-layout:has(.settings-nav--top) {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-nav.settings-nav--top {
+  /* Horizontal flex row instead of the vertical stack. Wraps on narrow
+     screens so the items don't overflow the page. */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+
+  /* Keep the same card chrome (background, border, radius, shadow) but
+     drop the sticky positioning — a sticky horizontal bar would compete
+     with the global topbar and feels off. */
+  position: static;
+  top: auto;
+  padding: 6px;
+
+  /* Full width inside the parent flex column. */
+  width: 100%;
+}
+
+.settings-layout:has(.settings-nav--top) .settings-nav-item {
+  /* Pills sit nicely with a tighter horizontal padding than the
+     vertical-stack version. */
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+/* On very narrow viewports the horizontal bar can still overflow if the
+   user has lots of items + long labels. The flex-wrap above handles
+   that — items wrap to a second row, no scrollbar required. */
+
+/* ── Fallback for browsers without :has() support ─────────────────────
+   If you need to support older browsers, replace the
+   `:has(.settings-nav--top)` selector above with a class on the parent.
+   Add `class="settings-layout settings-layout--topnav"` to the wrapping
+   <div> in each settings page template, then use:
+
+     .settings-layout--topnav { display: flex; flex-direction: column; gap: 20px; }
+     .settings-layout--topnav .settings-nav-item { padding: 8px 14px; white-space: nowrap; }
+
+   The `.settings-nav--top` rule itself doesn't need :has() and works
+   everywhere. */

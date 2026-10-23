@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load biometric_tags %}
+
+{% block title %}Biometric Punches — {{ site_name }}{% endblock %}
+{% block page_title %}Biometric Punches{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="flex flex-col gap-6">
+
+  {% include "biometric/partials/nav.html" %}
+
+  <div class="flex flex-col gap-6">
+
+    {# ── Header status row ──────────────────────────────────────── #}
+    <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+      <div class="p-5 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex flex-col space-y-2">
+          <div class="flex items-center gap-2 text-sm font-semibold text-gray-900">
+            {% if settings_obj.enabled %}
+              <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Enabled</span>
+            {% else %}
+              <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">Disabled</span>
+            {% endif %}
+            <span>{{ settings_obj.get_driver_display }}</span>
+          </div>
+          <div class="text-sm text-gray-500">
+            {{ settings_obj.connection_summary }}
+          </div>
+          {% if settings_obj.last_sync_at %}
+          <div class="text-sm text-gray-500">
+            Last sync: <span class="font-medium text-gray-700">{{ settings_obj.last_sync_at }}</span> 
+            — {{ settings_obj.last_sync_status|default:"never" }}
+            {% if settings_obj.last_sync_rows %}
+              <span class="text-gray-400">({{ settings_obj.last_sync_rows }} row{{ settings_obj.last_sync_rows|pluralize }})</span>
+            {% endif %}
+            {% if settings_obj.last_sync_message %}
+              <br><span class="text-xs text-gray-400 mt-1 block">{{ settings_obj.last_sync_message }}</span>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="text-sm text-gray-500 italic">No sync has run yet.</div>
+          {% endif %}
+        </div>
+        
+        <form method="post" action="{% org_url 'biometric:sync_now' %}">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+          {% csrf_token %}
+          <button type="submit" 
+                  class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 {% if not settings_obj.enabled %}opacity-50 cursor-not-allowed hover:bg-blue-600{% endif %}"
+                  {% if not settings_obj.enabled %}disabled title="Enable in Settings first"{% endif %}>
+            <svg class="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Sync now
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {# ── Filter form ────────────────────────────────────────────── #}
+    <form data-ui-filter method="get" class="bg-white shadow-sm rounded-lg border border-gray-200">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+      <div class="p-5 flex flex-wrap items-end gap-4">
+        <div class="flex-1 min-w-[140px]">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Employee code</label>
+          <input type="text" name="employee_code" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                 value="{{ employee_code }}" placeholder="e.g. 1023">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+          <input type="date" name="date_from" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" value="{{ date_from }}">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+          <input type="date" name="date_to" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" value="{{ date_to }}">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <select name="punch_type" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <option value="">All</option>
+            {% for v, l in punch_type_choices %}
+              {% if v %}<option value="{{ v }}" {% if punch_type == v %}selected{% endif %}>{{ l }}</option>{% endif %}
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="submit" class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Filter
+          </button>
+          <a href="{% org_url 'biometric:punches' %}" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+            Reset
+          </a>
+        </div>
+      </div>
+    </form>
+
+    {# ── Results table ──────────────────────────────────────────── #}
+    <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
+        <h3 class="text-base font-semibold text-gray-900">Punches</h3>
+        <span class="text-sm text-gray-500 font-medium">
+          Showing {{ rows|length }} of {{ total_unfiltered|default:"?" }} total
+        </span>
+      </div>
+      
+      <div class="overflow-x-auto">
+        {% if rows %}
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee code</th>
+              <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Punch time</th>
+              <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+              <th scope="col" class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Synced</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 bg-white">
+            {% for r in rows %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="whitespace-nowrap px-5 py-3 text-sm font-medium text-gray-900">{{ r.employee_code }}</td>
+              <td class="whitespace-nowrap px-5 py-3 text-sm text-gray-700">{{ r.punch_time }}</td>
+              <td class="whitespace-nowrap px-5 py-3 text-sm">
+                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset
+                  {% if r.get_punch_type_display|lower == 'in' %}bg-green-50 text-green-700 ring-green-600/20
+                  {% elif r.get_punch_type_display|lower == 'out' %}bg-red-50 text-red-700 ring-red-600/10
+                  {% else %}bg-gray-50 text-gray-600 ring-gray-500/10{% endif %}">
+                  {{ r.get_punch_type_display|default:"—" }}
+                </span>
+              </td>
+              <td class="whitespace-nowrap px-5 py-3 text-sm text-gray-500">{{ r.synced_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="px-6 py-12 text-center">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <p class="mt-4 text-sm font-medium text-gray-900">No punches match your filters.</p>
+          {% if total_unfiltered == 0 %}
+          <p class="mt-2 text-sm text-gray-500 max-w-sm mx-auto">
+            No punches have been synced yet. Configure the biometric DB connection in 
+            <a href="{% org_url 'biometric:settings' %}" class="text-blue-600 hover:text-blue-800 hover:underline">Settings</a>
+            and click <strong class="font-medium text-gray-700">Sync now</strong> above.
+          </p>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <p class="text-sm text-gray-500 flex items-center">
+      <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <span>
+        Punches are read-only here. To create AttendanceRecord rows from these punches, use
+        <a href="{% url 'attendance:create' %}" class="text-blue-600 hover:text-blue-800 hover:underline font-medium">Attendance → Add manually</a>
+        and reference the punch times above.
+      </span>
+    </p>
+
+  </div>
+</div>
+
+</section>
+{% endblock %}

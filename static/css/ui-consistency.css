@@ -1,0 +1,95 @@
+/* Shared presentation contract. Keep specialized board/Gantt/table geometry intact. */
+:root {
+  --surface:var(--c-surface);--surface-2:var(--c-surface-2);
+  --border-color:var(--c-border);--text-primary:var(--c-text);
+  --text-muted:var(--c-text-muted);--accent:var(--c-accent);
+  --ui-radius:10px;--ui-control-height:36px;
+}
+@media screen {
+  .app-content {font-size:14px;line-height:1.5;color:var(--c-text);scrollbar-gutter:stable;}
+  .app-content h1 {font-size:24px;line-height:1.25;letter-spacing:-.025em;}
+  .app-content h2 {font-size:18px;line-height:1.35;}
+  .app-content h3 {line-height:1.4;}
+  .app-content>main {padding:0;}
+  .app-content form>:where(button[type=submit],button:not([type])) {min-height:var(--ui-control-height);padding:7px 12px;border-radius:8px;font-size:13px;font-weight:600;}
+  .app-topbar {gap:16px;flex-wrap:wrap;height:auto;min-height:64px;padding-top:10px;padding-bottom:10px;}
+  .app-topbar h1 {overflow-wrap:anywhere;}
+  .page-topbar-actions,.page-topbar-actions>div {flex-wrap:wrap;gap:8px;}
+  .page-topbar-actions a,.page-topbar-actions button,.module-page-actions>a,
+  .module-page-heading>a,.employee-page-actions>a {
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    min-height:var(--ui-control-height);padding:7px 12px;border-radius:8px;
+    font-size:13px;line-height:1.35;font-weight:600;white-space:normal;
+  }
+  .page-topbar-actions svg,.module-page-actions svg {flex-shrink:0;}
+  .module-page-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .module-page-actions {display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .module-page-heading p {margin-top:5px;color:var(--c-text-muted);font-size:13px;}
+  .app-content :where(input:not([type]),input[type=text],input[type=search],input[type=email],input[type=number],input[type=password],input[type=date],input[type=time],input[type=url],input[type=tel],select,textarea) {
+    border:1px solid var(--c-border);border-radius:8px;color:var(--c-text);
+    background:var(--c-surface);padding:7px 10px;font-size:13px;line-height:1.4;
+    min-width:0;max-width:100%;
+  }
+  .app-content :where(input:not([type]),input[type=text],input[type=search],input[type=email],input[type=number],input[type=password],input[type=date],input[type=time],input[type=url],input[type=tel],select) {min-height:var(--ui-control-height);}
+  /* Inline task editors stay compact and retain their module-specific widths. */
+  .app-content :where(.cu-table,.px-project-table) :where(input,select) {min-height:28px;padding:3px 6px;}
+  .app-content textarea {min-height:90px;resize:vertical;}
+  .app-content :where(input,select,textarea):disabled {opacity:.6;cursor:not-allowed;}
+  .app-content input:where([type=checkbox],[type=radio]) {accent-color:var(--c-accent);}
+  .app-content :where(button,a,input,select,textarea,summary):focus-visible,
+  .app-topbar :where(button,a,summary):focus-visible {outline:2px solid var(--c-accent);outline-offset:3px;}
+  .app-content :where([aria-invalid=true]) {border-color:#e11d48;}
+  .app-content .errorlist {color:#be123c;margin:6px 0;font-size:13px;list-style:disc;padding-left:18px;}
+  html.dark .app-content .errorlist {color:#fda4af;}
+  /* Avoid changing the layout engines of Projects and Task Hub. */
+  .app-content table:not(.cu-table):not(.px-project-table) {font-size:13px;border-collapse:separate;border-spacing:0;}
+  .app-content table:not(.cu-table):not(.px-project-table) thead th {
+    background:var(--c-surface-2);color:var(--c-text-muted);font-size:11px;
+    font-weight:650;letter-spacing:.035em;line-height:1.4;text-align:left;
+    padding:11px 14px;border-bottom:1px solid var(--c-border);vertical-align:middle;
+  }
+  .app-content table:not(.cu-table):not(.px-project-table) tbody td {
+    padding:11px 14px;border-bottom:1px solid var(--c-border);vertical-align:middle;
+  }
+  .app-content table:not(.cu-table):not(.px-project-table) tbody tr:last-child td {border-bottom:0;}
+  .app-content table:not(.cu-table):not(.px-project-table) tbody td[colspan] {padding:24px 16px;color:var(--c-text-muted);}
+  .app-content table:not(.cu-table):not(.px-project-table) tbody tr:hover {background:var(--c-row-hover);}
+  .app-content .overflow-x-auto {overscroll-behavior-x:contain;}
+  .app-content [class~="bg-gray-50/50"],.app-content [class~="bg-slate-50/50"] {background-color:var(--c-surface-2);}
+  .app-content .biometric-rule {border-color:var(--c-border);background:var(--c-surface);}
+  .app-content .biometric-rule label {color:var(--c-text);}
+  .app-content .biometric-rule :where(input[type=number],select) {background:var(--c-surface);color:var(--c-text);border-color:var(--c-border);}
+  .app-content nav[aria-label$="tabs"] {gap:16px;}
+  .app-content nav[aria-label$="tabs"]>a {font-size:13px;}
+  .app-notifications {width:calc(100vw - 32px);max-width:384px;}
+  #ui-request-status {background:var(--c-surface);color:var(--c-text);border-color:var(--c-border);border-radius:var(--ui-radius);}
+  #ui-request-status[data-error=true] {color:#be123c;border-color:#fda4af;}
+  html.dark #ui-request-status[data-error=true] {color:#fda4af;}
+  .employee-form-shell {padding:0;}
+  .employee-form-card {width:100%;max-width:1100px;min-height:0;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px #00000006;}
+  .employee-form-card>.px-10 {padding-left:28px;padding-right:28px;}
+}
+@media screen and (max-width:640px) {
+  .app-content {padding:16px 12px;}
+  .app-content h1 {font-size:21px;}
+  .app-topbar {gap:10px;}
+  .page-topbar-actions {max-width:100%;}
+  .page-topbar-actions a,.page-topbar-actions button {font-size:12px;padding:6px 9px;}
+  .module-page-heading {align-items:flex-start;gap:12px;}
+  .module-page-actions {width:100%;}
+  .employee-form-card>.px-10 {padding:20px 16px;}
+  .employee-form-card .grid {grid-template-columns:minmax(0,1fr);gap:16px;}
+  .employee-form-card .col-span-2 {grid-column:auto;}
+  .employee-form-card .no-print {flex-wrap:wrap;}
+  .employee-form-card>.flex {flex-wrap:wrap;}
+  .employee-form-card>.flex>.flex-1 {flex-basis:calc(100% - 130px);}
+  .employee-form-card>.flex>div:last-child {flex-basis:100%;}
+  .employee-form-card>.flex>div:last-child button {width:100%;justify-content:center;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .app-content *, .app-topbar * {scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important;}
+}
+@media print {
+  .employee-form-card {width:auto;max-width:none;box-shadow:none;border:0;}
+  .app-notifications,#ui-request-status {display:none!important;}
+}

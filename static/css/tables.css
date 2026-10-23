@@ -1,0 +1,52 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABLES — Table layout, headers, rows, column widths,
+            row editing highlight
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.table-wrap { overflow-x: auto; overflow-y: visible; border-radius: 0; background: var(--color-surface); }
+
+table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
+
+thead th {
+  padding: 12px 16px; text-align: left;
+  font-size: var(--font-size-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-text-muted); background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap; position: sticky; top: 0;
+  /* Bound sticky stacking context so floating UI (dropdowns, pickers)
+     renders above the header row. */
+  z-index: 1;
+}
+
+tbody td {
+  padding: 14px 16px; font-size: 14px;
+  border-bottom: 1px solid var(--color-border-light); vertical-align: middle;
+}
+
+tbody tr { transition: background var(--transition-fast); }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--color-surface-2); }
+[data-theme="dark"] tbody tr:hover { background: var(--color-surface-3); }
+tbody tr.selected { background: var(--color-accent-light); }
+
+/* Column widths */
+.col-id { width: 50px; }
+.col-actions { width: 180px; }
+.col-actions-sm { width: 160px; }
+
+/* Empty table rows */
+.empty-table-row td { text-align: center; padding: 20px; color: var(--color-text-muted); }
+.empty-table-row--lg td { padding: 24px; }
+
+/* Monospace text in tables */
+.mono-sm { font-family: monospace; font-size: 12px; }
+.mono-xs { font-family: monospace; font-size: 11px; }
+
+/* In-place row editing highlight */
+tr.row-editing > td,
+.sub-row.row-editing { background: var(--color-accent-light); }
+tr.row-editing > td { border-top: 1px solid var(--color-accent); border-bottom: 1px solid var(--color-accent); }
+.row-edit-input:focus,
+.row-edit-priority:focus,
+.row-edit-due:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent-light); }

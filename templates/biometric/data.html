@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% load biometric_tags %}
+
+{% block title %}Biometric Data — {{ site_name }}{% endblock %}
+{% block page_title %}Biometric Data{% endblock %}
+
+{% block content %}
+<section id="ui-list-region" data-ui-list hx-history="false">
+<div class="flex flex-col gap-6">
+
+  {% include "biometric/partials/nav.html" %}
+
+  <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+    <div class="p-5">
+      <form data-ui-filter method="get" class="flex flex-wrap items-end gap-4">{% if request.shared_module_org %}<input type="hidden" name="organization" value="{{ request.shared_module_org.pk }}">{% endif %}
+        
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-sm font-medium text-gray-700">View</label>
+          <select name="tab" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" onchange="this.form.requestSubmit()">
+            <option value="attendance" {% if tab == 'attendance' %}selected{% endif %}>Attendance Logs</option>
+            <option value="punches" {% if tab == 'punches' %}selected{% endif %}>Raw Punches</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-sm font-medium text-gray-700">Employee</label>
+          <select name="essl_emp_id" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <option value="">All employees</option>
+            {% for emp in essl_employees %}
+            <option value="{{ emp.essl_employee_id }}"
+              {% if essl_emp_id == emp.essl_employee_id|stringformat:"s" %}selected{% endif %}>
+              {{ emp.essl_employee_code }} — {{ emp.essl_employee_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-sm font-medium text-gray-700">From</label>
+          <input type="date" name="date_from" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" value="{{ date_from }}">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="block text-sm font-medium text-gray-700">To</label>
+          <input type="date" name="date_to" class="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" value="{{ date_to }}">
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button type="submit" class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Filter
+          </button>
+          <a href="{% org_url 'biometric:data' %}?tab={{ tab }}" class="inline-flex items-center justify-center rounded-md border border-transparent bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+            Clear
+          </a>
+        </div>
+
+        <a href="{% org_url 'biometric:export_data' %}?tab={{ tab }}&date_from={{ date_from }}&date_to={{ date_to }}&essl_emp_id={{ essl_emp_id }}"
+           class="ml-auto inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+          <svg class="mr-2 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Export CSV
+        </a>
+      </form>
+    </div>
+  </div>
+
+  {% if tab == 'attendance' %}
+  <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
+      <h3 class="text-base font-semibold text-gray-900">Attendance Logs</h3>
+      <span class="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+        {{ attendance_rows|length }} rows
+      </span>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ESSL ID</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ESSL Name</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">In Time</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Out Time</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Late By</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">OT</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Flags</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 bg-white">
+          {% for row in attendance_rows %}
+          <tr class="hover:bg-gray-50">
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">{{ row.attendance_date|date:"d M Y" }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">{{ row.essl_employee_id }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-900 font-medium">
+              {{ row.display_employee_name }}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">
+              {% if '1900' in row.in_time %}<span class="text-gray-400">—</span>{% else %}{{ row.in_time|slice:"11:19" }}{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">
+              {% if '1900' in row.out_time %}<span class="text-gray-400">—</span>{% else %}{{ row.out_time|slice:"11:19" }}{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">{{ row.duration|minutes_to_duration }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs">
+              <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset 
+                {% if 'P' in row.status_code %}bg-green-50 text-green-700 ring-green-600/20
+                {% elif 'A' in row.status_code %}bg-red-50 text-red-700 ring-red-600/10
+                {% elif 'L' in row.status_code %}bg-blue-50 text-blue-700 ring-blue-700/10
+                {% else %}bg-gray-50 text-gray-600 ring-gray-500/10{% endif %}" title="{{ row.status }}">
+                {{ row.status_code|default:row.status }}
+              </span>
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs">
+              {% if row.late_by > 0 %}<span class="text-amber-600 font-medium">{{ row.late_by }}m</span>{% else %}<span class="text-gray-400">—</span>{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs">
+              {% if row.overtime > 0 %}<span class="text-blue-600 font-medium">{{ row.overtime }}m</span>{% else %}<span class="text-gray-400">—</span>{% endif %}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-[10px] flex gap-1 items-center flex-wrap max-w-[120px]">
+              {% if row.is_on_leave %}<span class="inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 font-medium text-blue-800">Leave</span>{% endif %}
+              {% if row.holiday %}<span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">Holiday</span>{% endif %}
+              {% if row.weekly_off %}<span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-800">WO</span>{% endif %}
+              {% if row.missed_out_punch %}<span class="inline-flex items-center rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-800">Miss Out</span>{% endif %}
+              {% if row.missed_in_punch %}<span class="inline-flex items-center rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-800">Miss In</span>{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" class="px-4 py-8 text-center text-sm text-gray-500">No attendance records found. Run a sync first.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% elif tab == 'punches' %}
+  <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
+      <h3 class="text-base font-semibold text-gray-900">Raw Punch Logs</h3>
+      <span class="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+        {{ punch_rows|length }} rows
+      </span>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date &amp; Time</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ESSL User ID</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ESSL Name</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Device ID</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Direction</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Att Direction</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Work Code</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 bg-white">
+          {% for row in punch_rows %}
+          <tr class="hover:bg-gray-50">
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">{{ row.log_date|date:"d M Y H:i" }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">{{ row.essl_user_id }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-900 font-medium">
+              {{ row.display_employee_name }}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">{{ row.device_id|default:"—" }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs">
+              <span class="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-medium ring-1 ring-inset
+                {% if row.direction == '0' or row.direction|lower == 'in' %}bg-green-50 text-green-700 ring-green-600/20
+                {% elif row.direction == '1' or row.direction|lower == 'out' %}bg-red-50 text-red-700 ring-red-600/10
+                {% else %}bg-gray-50 text-gray-600 ring-gray-500/10{% endif %}">
+                {{ row.direction|default:"—" }}
+              </span>
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">{{ row.att_direction|default:"—" }}</td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700">{{ row.work_code|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500">No punch records found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<nav aria-label="Biometric pages" class="flex items-center justify-between p-4">
+  <span>{{ page.paginator.count }} records · Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  <div>{% if page.has_previous %}<a class="btn" href="?{{ page_query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+  {% if page.has_next %}<a class="btn" href="?{{ page_query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</div>
+</nav>
+</section>
+{% endblock %}

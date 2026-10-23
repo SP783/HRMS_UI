@@ -1,0 +1,11 @@
+@media screen {
+  .doc-print-wrap{min-height:0!important;padding:24px!important;background:transparent!important}
+  .doc-sheet{max-width:1100px!important;min-height:0!important;padding:32px!important;border-radius:16px;box-shadow:0 4px 20px #15253e0a!important}
+  .doc-header{margin-bottom:24px!important;padding-bottom:24px!important}
+  .doc-header h1{overflow-wrap:anywhere}.doc-header .flex-1{min-width:0}
+  .doc-sheet section{padding:20px;border:1px solid var(--border-color,#e2e8f0);border-radius:12px;margin-bottom:20px}
+  .doc-sheet section h2{font-size:16px;margin-bottom:18px}
+  .doc-sheet section span{overflow-wrap:anywhere}
+}
+@media screen and (max-width:700px){.doc-print-wrap{padding:10px!important}.doc-sheet{padding:18px!important}.doc-sheet section{padding:14px}}
+@media print{main,.h-screen{height:auto!important;min-height:0!important;overflow:visible!important}main{display:block!important;margin:0!important;padding:0!important;width:100%!important}}
